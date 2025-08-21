@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -19,6 +20,7 @@ import {
   BriefcaseMedical,
 } from 'lucide-react';
 import { Button } from '../ui/button';
+import { useToast } from '@/hooks/use-toast';
 
 const menuItems = [
   {
@@ -36,15 +38,18 @@ const menuItems = [
     label: 'Pharmacy',
     icon: Pill,
   },
-  {
-    href: '/settings',
-    label: 'Settings',
-    icon: Settings,
-  },
 ];
 
 export default function MainSidebar() {
   const pathname = usePathname();
+  const { toast } = useToast();
+
+  const handleHelpClick = () => {
+    toast({
+        title: 'Help & Support',
+        description: 'This is a mock help and support button.',
+    });
+  }
 
   return (
     <>
@@ -72,8 +77,22 @@ export default function MainSidebar() {
           ))}
         </SidebarMenu>
       </SidebarContent>
-      <SidebarFooter className="p-4">
-        <Button variant="outline" className="w-full">
+      <SidebarFooter className="p-4 space-y-2">
+         <SidebarMenu>
+             <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                isActive={pathname.startsWith('/settings')}
+                className="w-full"
+              >
+                <Link href="/reception">
+                  <Settings className="mr-3 h-5 w-5" />
+                  <span>Settings</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+         </SidebarMenu>
+        <Button variant="outline" className="w-full" onClick={handleHelpClick}>
             <CircleHelp className="mr-2 h-4 w-4" />
             Help & Support
         </Button>

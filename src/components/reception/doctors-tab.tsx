@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -33,8 +34,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
+import { useToast } from '@/hooks/use-toast';
+import { useState } from 'react';
 
-const doctors = [
+
+const initialDoctors = [
   {
     name: 'Dr. John Smith',
     specialization: 'Cardiology',
@@ -56,6 +60,41 @@ const doctors = [
 ];
 
 export function DoctorsTab() {
+  const { toast } = useToast();
+  const [doctors, setDoctors] = useState(initialDoctors);
+
+  const addDoctor = () => {
+    // In a real app, this would open a form to add a new doctor.
+    const newDoctor = {
+      name: `Dr. New Doctor ${doctors.length + 1}`,
+      specialization: 'General',
+      avatarUrl: `https://placehold.co/100x100.png?text=ND`,
+      initials: 'ND',
+    };
+    setDoctors([...doctors, newDoctor]);
+    toast({
+      title: 'Doctor Added',
+      description: `${newDoctor.name} has been added to the list.`,
+    });
+  };
+
+  const editDoctor = (name: string) => {
+    // In a real app, this would open a form to edit the doctor's details.
+    alert(`Editing details for ${name}. This is a mock action.`);
+  };
+
+  const deleteDoctor = (name: string) => {
+    if (confirm(`Are you sure you want to delete ${name}?`)) {
+      setDoctors(doctors.filter(d => d.name !== name));
+      toast({
+        title: 'Doctor Deleted',
+        description: `${name} has been removed.`,
+        variant: 'destructive',
+      });
+    }
+  };
+
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
@@ -65,7 +104,7 @@ export function DoctorsTab() {
             Add, edit, and manage clinic doctors.
           </CardDescription>
         </div>
-        <Button size="sm">
+        <Button size="sm" onClick={addDoctor}>
           <PlusCircle className="mr-2 h-4 w-4" />
           Add Doctor
         </Button>
@@ -87,7 +126,7 @@ export function DoctorsTab() {
                 <TableCell className="font-medium">
                   <div className="flex items-center gap-3">
                     <Avatar>
-                      <AvatarImage src={doctor.avatarUrl} alt={doctor.name} />
+                      <AvatarImage src={doctor.avatarUrl} alt={doctor.name} data-ai-hint="doctor person" />
                       <AvatarFallback>{doctor.initials}</AvatarFallback>
                     </Avatar>
                     <span>{doctor.name}</span>
@@ -107,11 +146,11 @@ export function DoctorsTab() {
                     <DropdownMenuContent align="end">
                       <DropdownMenuLabel>Actions</DropdownMenuLabel>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => editDoctor(doctor.name)}>
                         <Edit className="mr-2 h-4 w-4" />
                         Edit Details
                       </DropdownMenuItem>
-                      <DropdownMenuItem className="text-destructive">
+                      <DropdownMenuItem className="text-destructive" onClick={() => deleteDoctor(doctor.name)}>
                         <Trash2 className="mr-2 h-4 w-4" />
                         Delete
                       </DropdownMenuItem>

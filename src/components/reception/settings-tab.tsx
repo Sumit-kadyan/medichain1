@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -14,6 +15,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Save } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
+import { useToast } from '@/hooks/use-toast';
 
 const initialTemplate = `
 <div style="font-family: sans-serif; border: 1px solid #ddd; padding: 20px; width: 300px; margin: auto;">
@@ -54,6 +56,7 @@ const placeholders = {
 
 
 export function SettingsTab() {
+  const { toast } = useToast();
   const [template, setTemplate] = useState(initialTemplate);
 
   const getLivePreview = () => {
@@ -62,6 +65,14 @@ export function SettingsTab() {
         previewHtml = previewHtml.replace(new RegExp(key, 'g'), value);
     }
     return previewHtml;
+  }
+
+  const handleSave = () => {
+    // In a real app, this would save the settings to a backend.
+    toast({
+        title: 'Settings Saved',
+        description: 'Your clinic profile and receipt template have been updated.',
+    });
   }
 
   return (
@@ -117,7 +128,7 @@ export function SettingsTab() {
       </Card>
       
       <div className="flex justify-end">
-        <Button>
+        <Button onClick={handleSave}>
             <Save className="mr-2 h-4 w-4" />
             Save All Settings
         </Button>

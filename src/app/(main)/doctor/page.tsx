@@ -1,3 +1,5 @@
+
+'use client';
 import { DrugSuggestionForm } from '@/components/ai/drug-suggestion-form';
 import {
   Card,
@@ -18,8 +20,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Play, Clock, FileText, Pill } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useState } from 'react';
 
-const waitingPatients = [
+const initialWaitingPatients = [
   { name: 'Liam Johnson', status: 'waiting', time: '10:30 AM' },
   { name: 'Emma Brown', status: 'called', time: '10:35 AM' },
 ];
@@ -31,6 +34,14 @@ const patientHistory = [
 ];
 
 export default function DoctorPage() {
+  const [waitingPatients, setWaitingPatients] = useState(initialWaitingPatients);
+
+  const handleStartConsultation = (patientName: string) => {
+    // In a real app, this would change the patient's status in the backend.
+    console.log(`Starting consultation for ${patientName}`);
+    // For demonstration, let's just log it. A more complex implementation could update the waiting list.
+  };
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <div className="lg:col-span-2 space-y-6">
@@ -60,7 +71,7 @@ export default function DoctorPage() {
                     </TableCell>
                     <TableCell>{patient.time}</TableCell>
                     <TableCell>
-                      <Button size="sm" variant="outline">
+                      <Button size="sm" variant="outline" onClick={() => handleStartConsultation(patient.name)}>
                         <Play className="mr-2 h-4 w-4" />
                         Start Consultation
                       </Button>
@@ -78,7 +89,7 @@ export default function DoctorPage() {
           <CardHeader>
              <div className="flex items-center gap-3 mb-2">
                 <Avatar className="h-12 w-12">
-                    <AvatarImage src="https://placehold.co/100x100.png" alt="Liam Johnson" />
+                    <AvatarImage src="https://placehold.co/100x100.png" alt="Liam Johnson" data-ai-hint="person" />
                     <AvatarFallback>LJ</AvatarFallback>
                 </Avatar>
                 <div>

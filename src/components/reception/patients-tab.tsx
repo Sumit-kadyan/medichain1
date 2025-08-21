@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -35,6 +36,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useToast } from '@/hooks/use-toast';
 
 const patients = [
   {
@@ -72,6 +74,16 @@ const patients = [
 ];
 
 export function PatientsTab() {
+  const { toast } = useToast();
+
+  const handleAction = (action: string, patientName?: string) => {
+    const message = patientName ? `${action} for ${patientName}` : action;
+    toast({
+      title: 'Action Triggered',
+      description: `${message}. This is a mock action and doesn't affect data.`,
+    });
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -85,15 +97,15 @@ export function PatientsTab() {
                 <Input type="search" placeholder="Search by name or phone..." className="pl-8 sm:w-full" />
             </div>
             <div className='flex gap-2'>
-            <Button variant="outline">
+            <Button variant="outline" onClick={() => handleAction('Add Patient')}>
               <UserPlus className="mr-2 h-4 w-4" />
               Add Patient
             </Button>
-            <Button variant="outline">
+            <Button variant="outline" onClick={() => handleAction('Continue Patient')}>
               <Play className="mr-2 h-4 w-4" />
               Continue Patient
             </Button>
-            <Button variant="outline">
+            <Button variant="outline" onClick={() => handleAction('Renew Patient')}>
               <RefreshCw className="mr-2 h-4 w-4" />
               Renew Patient
             </Button>
@@ -146,11 +158,11 @@ export function PatientsTab() {
                     <DropdownMenuContent align="end">
                       <DropdownMenuLabel>Actions</DropdownMenuLabel>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleAction('Edit Patient', patient.name)}>
                         <Edit className="mr-2 h-4 w-4" />
                         Edit Patient
                       </DropdownMenuItem>
-                      <DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleAction('View History', patient.name)}>
                         <FileText className="mr-2 h-4 w-4" />
                         View History
                       </DropdownMenuItem>

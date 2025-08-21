@@ -1,5 +1,6 @@
-'use client';
 
+'use client';
+import { useState } from 'react';
 import {
   Card,
   CardContent,
@@ -26,8 +27,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useToast } from '@/hooks/use-toast';
 
-const waitingList = [
+const initialWaitingList = [
   {
     patientName: 'Liam Johnson',
     doctor: 'Dr. John Smith',
@@ -71,6 +73,21 @@ const statusConfig = {
 type Status = keyof typeof statusConfig;
 
 export function WaitingRoomTab() {
+    const { toast } = useToast();
+    const [waitingList, setWaitingList] = useState(initialWaitingList);
+
+    const updatePatientStatus = (patientName: string, newStatus: Status) => {
+        setWaitingList(prevList => 
+            prevList.map(patient => 
+                patient.patientName === patientName ? { ...patient, status: newStatus } : patient
+            )
+        );
+        toast({
+            title: 'Status Updated',
+            description: `${patientName}'s status changed to "${statusConfig[newStatus].label}".`,
+        });
+    };
+
   return (
     <Card>
       <CardHeader>
@@ -114,16 +131,16 @@ export function WaitingRoomTab() {
                     <DropdownMenuContent align="end">
                       <DropdownMenuLabel>Change Status</DropdownMenuLabel>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => updatePatientStatus(visit.patientName, 'called')}>
                         <User className="mr-2 h-4 w-4" /> Call Patient
                       </DropdownMenuItem>
-                      <DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => updatePatientStatus(visit.patientName, 'in_consult')}>
                         <Play className="mr-2 h-4 w-4" /> Start Consultation
                       </DropdownMenuItem>
-                       <DropdownMenuItem>
+                       <DropdownMenuItem onClick={() => updatePatientStatus(visit.patientName, 'prescribed')}>
                         <Check className="mr-2 h-4 w-4" /> Mark Prescribed
                       </DropdownMenuItem>
-                      <DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => updatePatientStatus(visit.patientName, 'sent_to_pharmacy')}>
                         <Send className="mr-2 h-4 w-4" /> Send to Pharmacy
                       </DropdownMenuItem>
                     </DropdownMenuContent>

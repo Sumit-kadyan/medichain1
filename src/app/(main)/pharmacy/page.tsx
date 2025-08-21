@@ -1,3 +1,6 @@
+
+'use client';
+import { useState } from 'react';
 import {
   Card,
   CardContent,
@@ -16,8 +19,9 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { FileText, Printer, CheckCircle, Bell } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
-const pharmacyQueue = [
+const initialPharmacyQueue = [
   {
     patientName: 'Sophia Miller',
     doctor: 'Dr. Michael Brown',
@@ -41,7 +45,42 @@ const pharmacyQueue = [
   },
 ];
 
+type PrescriptionStatus = 'pending' | 'dispensed';
+
+type Prescription = {
+  patientName: string;
+  doctor: string;
+  time: string;
+  items: string[];
+  status: PrescriptionStatus;
+};
+
 export default function PharmacyPage() {
+  const { toast } = useToast();
+  const [pharmacyQueue, setPharmacyQueue] = useState<Prescription[]>(initialPharmacyQueue);
+
+  const handleMarkAsDispensed = (patientName: string) => {
+    setPharmacyQueue(prevQueue =>
+      prevQueue.map(p =>
+        p.patientName === patientName ? { ...p, status: 'dispensed' } : p
+      )
+    );
+    toast({
+      title: 'Success',
+      description: `${patientName}'s prescription marked as dispensed.`,
+    });
+  };
+
+  const handleGenerateBill = (prescription: Prescription) => {
+    // In a real app, this would generate a bill.
+    alert(`Bill Generated for ${prescription.patientName}:\n\nItems: ${prescription.items.join(', ')}\n\nThis is a mock action.`);
+  };
+
+  const handleViewDetails = (prescription: Prescription) => {
+    // In a real app, this would show a detailed modal.
+    alert(`Details for ${prescription.patientName}:\n\nDoctor: ${prescription.doctor}\nItems: ${prescription.items.join(', ')}`);
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -73,15 +112,15 @@ export default function PharmacyPage() {
                   </Badge>
                 </TableCell>
                 <TableCell className="space-x-2">
-                  <Button size="sm" variant="outline">
+                  <Button size="sm" variant="outline" onClick={() => handleViewDetails(prescription)}>
                     <FileText className="mr-2 h-4 w-4" />
                     View Details
                   </Button>
-                   <Button size="sm" variant="outline" disabled={prescription.status === 'dispensed'}>
+                   <Button size="sm" variant="outline" disabled={prescription.status === 'dispensed'} onClick={() => handleGenerateBill(prescription)}>
                     <Printer className="mr-2 h-4 w-4" />
                     Generate Bill
                   </Button>
-                   <Button size="sm" variant="default" disabled={prescription.status === 'dispensed'}>
+                   <Button size="sm" variant="default" disabled={prescription.status === 'dispensed'} onClick={() => handleMarkAsDispensed(prescription.patientName)}>
                     <CheckCircle className="mr-2 h-4 w-4" />
                     Mark as Dispensed
                   </Button>

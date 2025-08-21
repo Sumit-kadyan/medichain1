@@ -1,3 +1,7 @@
+
+'use client';
+
+import { useSearchParams, useRouter } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PatientsTab } from '@/components/reception/patients-tab';
 import { WaitingRoomTab } from '@/components/reception/waiting-room-tab';
@@ -11,9 +15,17 @@ import {
 } from 'lucide-react';
 
 export default function ReceptionPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const defaultTab = searchParams.get('tab') || 'waiting-room';
+
+  const onTabChange = (value: string) => {
+    router.push(`/reception?tab=${value}`, { scroll: false });
+  };
+
   return (
     <div className="space-y-6">
-      <Tabs defaultValue="waiting-room">
+      <Tabs defaultValue={defaultTab} onValueChange={onTabChange}>
         <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 h-auto">
           <TabsTrigger value="waiting-room">
             <Clock className="mr-2 h-4 w-4" />
