@@ -18,14 +18,9 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Play, Clock, FileText, Pill } from 'lucide-react';
+import { Play, Clock, FileText, Pill, Send } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useState } from 'react';
-
-const initialWaitingPatients = [
-  { name: 'Liam Johnson', status: 'waiting', time: '10:30 AM' },
-  { name: 'Emma Brown', status: 'called', time: '10:35 AM' },
-];
+import { useClinicContext } from '@/context/clinic-context';
 
 const patientHistory = [
     { date: '2023-08-15', type: 'visit', description: 'Consultation with Dr. Smith for annual check-up.', icon: FileText },
@@ -34,12 +29,16 @@ const patientHistory = [
 ];
 
 export default function DoctorPage() {
-  const [waitingPatients, setWaitingPatients] = useState(initialWaitingPatients);
+  const { waitingList, updatePatientStatus, activePatient, setActivePatientId } = useClinicContext();
+  const doctorWaitingList = waitingList.filter(p => ['called', 'in_consult', 'prescribed'].includes(p.status));
 
-  const handleStartConsultation = (patientName: string) => {
-    // In a real app, this would change the patient's status in the backend.
-    console.log(`Starting consultation for ${patientName}`);
-    // For demonstration, let's just log it. A more complex implementation could update the waiting list.
+  const handleStartConsultation = (patientId: string) => {
+    updatePatientStatus(patientId, 'in_consult');
+    setActivePatientId(patientId);
+  };
+  
+  const handleSendToPharmacy = (patientId: string) => {
+    updatePatientStatus(patientId, 'sent_to_pharmacy', ['Amoxicillin 500mg', 'Ibuprofen 200mg']); // Example items
   };
 
   return (
@@ -63,17 +62,21 @@ export default function DoctorPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {waitingPatients.map((patient, index) => (
-                  <TableRow key={index}>
-                    <TableCell className="font-medium">{patient.name}</TableCell>
+                {doctorWaitingList.map((patient) => (
+                  <TableRow key={patient.id}>
+                    <TableCell className="font-medium">{patient.patientName}</TableCell>
                     <TableCell>
-                      <Badge variant={patient.status === 'called' ? 'default' : 'secondary'}>{patient.status}</Badge>
+                      <Badge variant={patient.status === 'called' ? 'default' : 'secondary'}>{patient.status.replace('_', ' ')}</Badge>
                     </TableCell>
                     <TableCell>{patient.time}</TableCell>
-                    <TableCell>
-                      <Button size="sm" variant="outline" onClick={() => handleStartConsultation(patient.name)}>
+                    <TableCell className="space-x-2">
+                      <Button size="sm" variant="outline" onClick={() => handleStartConsultation(patient.id)} disabled={patient.status !== 'called'}>
                         <Play className="mr-2 h-4 w-4" />
-                        Start Consultation
+                        Start 
+                      </Button>
+                       <Button size="sm" variant="default" onClick={() => handleSendToPharmacy(patient.id)} disabled={patient.status !== 'in_consult'}>
+                        <Send className="mr-2 h-4 w-4" />
+                        To Pharmacy
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -89,12 +92,12 @@ export default function DoctorPage() {
           <CardHeader>
              <div className="flex items-center gap-3 mb-2">
                 <Avatar className="h-12 w-12">
-                    <AvatarImage src="https://placehold.co/100x100.png" alt="Liam Johnson" data-ai-hint="person" />
-                    <AvatarFallback>LJ</AvatarFallback>
+                    <AvatarImage src={activePatient?.avatarUrl || 'https://placehold.co/100x100.png'} alt={activePatient?.patientName} data-ai-hint="person" />
+                    <AvatarFallback>{activePatient?.patientName.charAt(0)}</AvatarFallback>
                 </Avatar>
                 <div>
-                    <CardTitle className="font-headline">Liam Johnson</CardTitle>
-                    <CardDescription>Male, 28 years</CardDescription>
+                    <CardTitle className="font-headline">{activePatient?.patientName || 'No Patient Selected'}</CardTitle>
+                    {activePatient && <CardDescription>{activePatient.gender}, {activePatient.age} years</CardDescription>}
                 </div>
             </div>
           </CardHeader>
@@ -102,7 +105,7 @@ export default function DoctorPage() {
              <h3 className="font-semibold text-lg mb-4 text-foreground">Patient History</h3>
              <div className="relative pl-6">
                 <div className="absolute left-0 top-0 h-full w-0.5 bg-border -translate-x-1/2 ml-3"></div>
-                {patientHistory.map((item, index) => (
+                {activePatient ? patientHistory.map((item, index) => (
                     <div key={index} className="mb-6 flex items-start gap-4">
                         <div className="absolute left-0 top-1 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-primary/20 text-primary">
                             <item.icon className="h-4 w-4"/>
@@ -112,7 +115,7 @@ export default function DoctorPage() {
                             <p className="text-xs text-muted-foreground flex items-center gap-1.5"><Clock className="h-3 w-3" />{item.date}</p>
                         </div>
                     </div>
-                ))}
+                )) : <p className="text-sm text-muted-foreground">Select a patient to view their history.</p>}
              </div>
           </CardContent>
         </Card>

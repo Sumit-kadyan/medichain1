@@ -1,6 +1,5 @@
 
 'use client';
-import { useState } from 'react';
 import {
   Card,
   CardContent,
@@ -18,57 +17,23 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { FileText, Printer, CheckCircle, Bell } from 'lucide-react';
+import { FileText, Printer, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-
-const initialPharmacyQueue = [
-  {
-    patientName: 'Sophia Miller',
-    doctor: 'Dr. Michael Brown',
-    time: '10:42 AM',
-    items: ['Amoxicillin 500mg', 'Ibuprofen 200mg'],
-    status: 'pending',
-  },
-  {
-    patientName: 'Ava Davis',
-    doctor: 'Dr. Emily White',
-    time: '10:50 AM',
-    items: ['Lisinopril 10mg'],
-    status: 'pending',
-  },
-    {
-    patientName: 'William Garcia',
-    doctor: 'Dr. John Smith',
-    time: '11:05 AM',
-    items: ['Metformin 500mg', 'Atorvastatin 20mg'],
-    status: 'dispensed',
-  },
-];
-
-type PrescriptionStatus = 'pending' | 'dispensed';
-
-type Prescription = {
-  patientName: string;
-  doctor: string;
-  time: string;
-  items: string[];
-  status: PrescriptionStatus;
-};
+import { useClinicContext, Prescription } from '@/context/clinic-context';
 
 export default function PharmacyPage() {
   const { toast } = useToast();
-  const [pharmacyQueue, setPharmacyQueue] = useState<Prescription[]>(initialPharmacyQueue);
-
-  const handleMarkAsDispensed = (patientName: string) => {
-    setPharmacyQueue(prevQueue =>
-      prevQueue.map(p =>
-        p.patientName === patientName ? { ...p, status: 'dispensed' } : p
-      )
-    );
-    toast({
-      title: 'Success',
-      description: `${patientName}'s prescription marked as dispensed.`,
-    });
+  const { pharmacyQueue, updatePrescriptionStatus } = useClinicContext();
+  
+  const handleMarkAsDispensed = (prescriptionId: string) => {
+    updatePrescriptionStatus(prescriptionId, 'dispensed');
+    const prescription = pharmacyQueue.find(p => p.id === prescriptionId);
+    if(prescription) {
+      toast({
+        title: 'Success',
+        description: `${prescription.patientName}'s prescription marked as dispensed.`,
+      });
+    }
   };
 
   const handleGenerateBill = (prescription: Prescription) => {
@@ -101,8 +66,8 @@ export default function PharmacyPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {pharmacyQueue.map((prescription, index) => (
-              <TableRow key={index} className={prescription.status === 'dispensed' ? 'bg-secondary/50' : ''}>
+            {pharmacyQueue.map((prescription) => (
+              <TableRow key={prescription.id} className={prescription.status === 'dispensed' ? 'bg-secondary/50' : ''}>
                 <TableCell className="font-medium">{prescription.patientName}</TableCell>
                 <TableCell>{prescription.doctor}</TableCell>
                 <TableCell>{prescription.time}</TableCell>
@@ -120,7 +85,7 @@ export default function PharmacyPage() {
                     <Printer className="mr-2 h-4 w-4" />
                     Generate Bill
                   </Button>
-                   <Button size="sm" variant="default" disabled={prescription.status === 'dispensed'} onClick={() => handleMarkAsDispensed(prescription.patientName)}>
+                   <Button size="sm" variant="default" disabled={prescription.status === 'dispensed'} onClick={() => handleMarkAsDispensed(prescription.id)}>
                     <CheckCircle className="mr-2 h-4 w-4" />
                     Mark as Dispensed
                   </Button>

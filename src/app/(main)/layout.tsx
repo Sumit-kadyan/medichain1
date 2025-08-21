@@ -1,6 +1,7 @@
 import Header from '@/components/layout/header';
 import MainSidebar from '@/components/layout/main-sidebar';
 import { Sidebar, SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
+import { ClinicProvider } from '@/context/clinic-context';
 
 export default function MainLayout({
   children,
@@ -8,18 +9,20 @@ export default function MainLayout({
   children: React.ReactNode;
 }) {
   return (
-    <SidebarProvider>
-      <div className="flex min-h-screen w-full">
-        <Sidebar collapsible="icon">
-          <MainSidebar />
-        </Sidebar>
-        <div className="flex flex-1 flex-col">
-          <Header />
-          <SidebarInset>
-            <main className="flex-1 p-4 md:p-6 lg:p-8">{children}</main>
-          </SidebarInset>
+    <ClinicProvider>
+      <SidebarProvider>
+        <div className="flex min-h-screen w-full">
+          <Sidebar collapsible="icon">
+            <MainSidebar />
+          </Sidebar>
+          <div className="flex flex-1 flex-col">
+            <Header />
+            <SidebarInset>
+              <main className="flex-1 p-4 md:p-6 lg:p-8">{children}</main>
+            </SidebarInset>
+          </div>
         </div>
-      </div>
-    </SidebarProvider>
+      </SidebarProvider>
+    </ClinicProvider>
   );
 }

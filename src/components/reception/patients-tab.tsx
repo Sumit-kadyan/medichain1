@@ -23,10 +23,9 @@ import {
   MoreHorizontal,
   Search,
   UserPlus,
-  RefreshCw,
-  Play,
   Edit,
   FileText,
+  Send,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -37,45 +36,29 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
-
-const patients = [
-  {
-    name: 'Liam Johnson',
-    phone: '555-0101',
-    gender: 'Male',
-    age: 28,
-    lastVisit: '2023-10-26',
-    receiptStatus: 'Active',
-  },
-  {
-    name: 'Olivia Smith',
-    phone: '555-0102',
-    gender: 'Female',
-    age: 45,
-    lastVisit: '2023-10-25',
-    receiptStatus: 'Expired',
-  },
-  {
-    name: 'Noah Williams',
-    phone: '555-0103',
-    gender: 'Male',
-    age: 12,
-    lastVisit: '2023-09-15',
-    receiptStatus: 'None',
-  },
-  {
-    name: 'Emma Brown',
-    phone: '555-0104',
-    gender: 'Female',
-    age: 62,
-    lastVisit: '2023-10-28',
-    receiptStatus: 'Active',
-  },
-];
+import { useClinicContext } from '@/context/clinic-context';
+import { useState } from 'react';
 
 export function PatientsTab() {
   const { toast } = useToast();
+  const { patients, addPatientToWaitingList, doctors } = useClinicContext();
+  const [searchTerm, setSearchTerm] = useState('');
 
+  const handleAddToWaitingList = (patientId: string) => {
+    if (doctors.length === 0) {
+      toast({ title: 'Error', description: 'Please add a doctor first.', variant: 'destructive' });
+      return;
+    }
+    // In a real app, you'd likely have a modal to select a doctor.
+    const randomDoctor = doctors[Math.floor(Math.random() * doctors.length)];
+    addPatientToWaitingList(patientId, randomDoctor.id);
+    const patient = patients.find(p => p.id === patientId);
+    toast({
+      title: 'Patient Added to Waiting List',
+      description: `${patient?.name} has been sent to ${randomDoctor.name}.`,
+    });
+  };
+  
   const handleAction = (action: string, patientName?: string) => {
     const message = patientName ? `${action} for ${patientName}` : action;
     toast({
@@ -83,6 +66,11 @@ export function PatientsTab() {
       description: `${message}. This is a mock action and doesn't affect data.`,
     });
   };
+
+  const filteredPatients = patients.filter(patient =>
+    patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    patient.phone.includes(searchTerm)
+  );
 
   return (
     <Card>
@@ -94,20 +82,18 @@ export function PatientsTab() {
         <div className="flex flex-col sm:flex-row gap-2 pt-2">
             <div className="relative flex-1">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input type="search" placeholder="Search by name or phone..." className="pl-8 sm:w-full" />
+                <Input 
+                  type="search" 
+                  placeholder="Search by name or phone..." 
+                  className="pl-8 sm:w-full"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
             </div>
             <div className='flex gap-2'>
             <Button variant="outline" onClick={() => handleAction('Add Patient')}>
               <UserPlus className="mr-2 h-4 w-4" />
               Add Patient
-            </Button>
-            <Button variant="outline" onClick={() => handleAction('Continue Patient')}>
-              <Play className="mr-2 h-4 w-4" />
-              Continue Patient
-            </Button>
-            <Button variant="outline" onClick={() => handleAction('Renew Patient')}>
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Renew Patient
             </Button>
             </div>
         </div>
@@ -120,33 +106,18 @@ export function PatientsTab() {
               <TableHead className="hidden sm:table-cell">Phone</TableHead>
               <TableHead className="hidden md:table-cell">Gender / Age</TableHead>
               <TableHead className="hidden sm:table-cell">Last Visit</TableHead>
-              <TableHead>Receipt Status</TableHead>
               <TableHead>
                 <span className="sr-only">Actions</span>
               </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {patients.map((patient, index) => (
-              <TableRow key={index}>
+            {filteredPatients.map((patient) => (
+              <TableRow key={patient.id}>
                 <TableCell className="font-medium">{patient.name}</TableCell>
                 <TableCell className="hidden sm:table-cell">{patient.phone}</TableCell>
                 <TableCell className="hidden md:table-cell">{`${patient.gender}, ${patient.age}`}</TableCell>
                 <TableCell className="hidden sm:table-cell">{patient.lastVisit}</TableCell>
-                <TableCell>
-                  <Badge
-                    variant={
-                      patient.receiptStatus === 'Active'
-                        ? 'default'
-                        : patient.receiptStatus === 'Expired'
-                        ? 'destructive'
-                        : 'secondary'
-                    }
-                    className="bg-opacity-20 text-opacity-100"
-                  >
-                    {patient.receiptStatus}
-                  </Badge>
-                </TableCell>
                 <TableCell>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -158,6 +129,10 @@ export function PatientsTab() {
                     <DropdownMenuContent align="end">
                       <DropdownMenuLabel>Actions</DropdownMenuLabel>
                       <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => handleAddToWaitingList(patient.id)}>
+                        <Send className="mr-2 h-4 w-4" />
+                        Add to Waiting List
+                      </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => handleAction('Edit Patient', patient.name)}>
                         <Edit className="mr-2 h-4 w-4" />
                         Edit Patient

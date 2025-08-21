@@ -21,7 +21,6 @@ import { Button } from '@/components/ui/button';
 import {
   MoreHorizontal,
   PlusCircle,
-  User,
   Edit,
   Trash2,
 } from 'lucide-react';
@@ -35,57 +34,39 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { useToast } from '@/hooks/use-toast';
-import { useState } from 'react';
-
-
-const initialDoctors = [
-  {
-    name: 'Dr. John Smith',
-    specialization: 'Cardiology',
-    avatarUrl: 'https://placehold.co/100x100/6699CC/FFFFFF.png',
-    initials: 'JS',
-  },
-  {
-    name: 'Dr. Emily White',
-    specialization: 'Pediatrics',
-    avatarUrl: 'https://placehold.co/100x100/8FBC8F/FFFFFF.png',
-    initials: 'EW',
-  },
-  {
-    name: 'Dr. Michael Brown',
-    specialization: 'Neurology',
-    avatarUrl: 'https://placehold.co/100x100/F0F8FF/333333.png',
-    initials: 'MB',
-  },
-];
+import { useClinicContext } from '@/context/clinic-context';
 
 export function DoctorsTab() {
   const { toast } = useToast();
-  const [doctors, setDoctors] = useState(initialDoctors);
+  const { doctors, addDoctor, deleteDoctor } = useClinicContext();
 
-  const addDoctor = () => {
-    // In a real app, this would open a form to add a new doctor.
-    const newDoctor = {
-      name: `Dr. New Doctor ${doctors.length + 1}`,
-      specialization: 'General',
-      avatarUrl: `https://placehold.co/100x100.png?text=ND`,
-      initials: 'ND',
-    };
-    setDoctors([...doctors, newDoctor]);
-    toast({
-      title: 'Doctor Added',
-      description: `${newDoctor.name} has been added to the list.`,
-    });
+  const handleAddDoctor = () => {
+    // In a real app, this would open a form.
+    const name = prompt("Enter new doctor's name:");
+    const specialization = prompt("Enter specialization:");
+    if (name && specialization) {
+      addDoctor({
+        id: `doc-${Date.now()}`,
+        name,
+        specialization,
+        avatarUrl: `https://placehold.co/100x100.png?text=${name.charAt(0)}`,
+        initials: name.split(' ').map(n => n[0]).join(''),
+      });
+      toast({
+        title: 'Doctor Added',
+        description: `${name} has been added to the list.`,
+      });
+    }
   };
-
-  const editDoctor = (name: string) => {
+  
+  const handleEditDoctor = (name: string) => {
     // In a real app, this would open a form to edit the doctor's details.
     alert(`Editing details for ${name}. This is a mock action.`);
   };
 
-  const deleteDoctor = (name: string) => {
+  const handleDeleteDoctor = (id: string, name: string) => {
     if (confirm(`Are you sure you want to delete ${name}?`)) {
-      setDoctors(doctors.filter(d => d.name !== name));
+      deleteDoctor(id);
       toast({
         title: 'Doctor Deleted',
         description: `${name} has been removed.`,
@@ -93,7 +74,6 @@ export function DoctorsTab() {
       });
     }
   };
-
 
   return (
     <Card>
@@ -104,7 +84,7 @@ export function DoctorsTab() {
             Add, edit, and manage clinic doctors.
           </CardDescription>
         </div>
-        <Button size="sm" onClick={addDoctor}>
+        <Button size="sm" onClick={handleAddDoctor}>
           <PlusCircle className="mr-2 h-4 w-4" />
           Add Doctor
         </Button>
@@ -121,8 +101,8 @@ export function DoctorsTab() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {doctors.map((doctor, index) => (
-              <TableRow key={index}>
+            {doctors.map((doctor) => (
+              <TableRow key={doctor.id}>
                 <TableCell className="font-medium">
                   <div className="flex items-center gap-3">
                     <Avatar>
@@ -146,11 +126,11 @@ export function DoctorsTab() {
                     <DropdownMenuContent align="end">
                       <DropdownMenuLabel>Actions</DropdownMenuLabel>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => editDoctor(doctor.name)}>
+                      <DropdownMenuItem onClick={() => handleEditDoctor(doctor.name)}>
                         <Edit className="mr-2 h-4 w-4" />
                         Edit Details
                       </DropdownMenuItem>
-                      <DropdownMenuItem className="text-destructive" onClick={() => deleteDoctor(doctor.name)}>
+                      <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteDoctor(doctor.id, doctor.name)}>
                         <Trash2 className="mr-2 h-4 w-4" />
                         Delete
                       </DropdownMenuItem>
