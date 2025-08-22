@@ -60,23 +60,34 @@ export function EditDoctorDialog({ open, onOpenChange, doctor }: EditDoctorDialo
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setLoading(true);
-    const updatedData: Partial<Omit<Doctor, 'id'>> = {
-        ...values,
-    };
-    
-    // Only update initials and avatar if name has changed
-    if (values.name !== doctor.name) {
-        updatedData.initials = values.name.split(' ').map(n => n[0]).join('').toUpperCase();
-        updatedData.avatarUrl = `https://placehold.co/100x100.png?text=${values.name.charAt(0)}`;
-    }
+    try {
+      const updatedData: Partial<Omit<Doctor, 'id'>> = {
+          ...values,
+      };
+      
+      // Only update initials and avatar if name has changed
+      if (values.name !== doctor.name) {
+          updatedData.initials = values.name.split(' ').map(n => n[0]).join('').toUpperCase();
+          updatedData.avatarUrl = `https://placehold.co/100x100.png?text=${values.name.charAt(0)}`;
+      }
 
-    await updateDoctor(doctor.id, updatedData);
-    setLoading(false);
-    toast({
-        title: 'Doctor Updated',
-        description: `Details for ${values.name} have been updated.`
-    })
-    onOpenChange(false);
+      await updateDoctor(doctor.id, updatedData);
+      
+      toast({
+          title: 'Doctor Updated',
+          description: `Details for ${values.name} have been updated.`
+      })
+      onOpenChange(false);
+    } catch (error) {
+       console.error("Failed to update doctor:", error);
+       toast({
+        title: 'Error',
+        description: 'Could not update doctor details. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -132,4 +143,3 @@ export function EditDoctorDialog({ open, onOpenChange, doctor }: EditDoctorDialo
     </Dialog>
   );
 }
-
