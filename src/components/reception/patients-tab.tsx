@@ -26,6 +26,8 @@ import {
   FileText,
   Send,
   CalendarDays,
+  RefreshCw,
+  ArrowRight,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -43,7 +45,7 @@ import { Badge } from '../ui/badge';
 
 export function PatientsTab() {
   const { toast } = useToast();
-  const { patients, addPatientToWaitingList, doctors } = useClinicContext();
+  const { patients, addPatientToWaitingList, doctors, receiptValidityDays, updatePatientRegistration } = useClinicContext();
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddPatientOpen, setAddPatientOpen] = useState(false);
 
@@ -64,6 +66,13 @@ export function PatientsTab() {
       description: `${message}. This is a mock action and doesn't affect data.`,
     });
   };
+
+  const isReceiptValid = (lastVisit: string) => {
+    const lastVisitDate = new Date(lastVisit);
+    const expiryDate = new Date(lastVisitDate);
+    expiryDate.setDate(expiryDate.getDate() + receiptValidityDays);
+    return new Date() < expiryDate;
+  }
 
   const groupedPatients = useMemo(() => {
     const filtered = patients.filter(patient =>
@@ -116,16 +125,10 @@ export function PatientsTab() {
                 />
             </div>
             <div className='flex gap-2'>
-            <Button variant="outline" onClick={() => setAddPatientOpen(true)}>
-              <UserPlus className="mr-2 h-4 w-4" />
-              New Patient
-            </Button>
-            <Button variant="outline" onClick={() => handleAction('Continue Patient')}>
-              Continue Patient
-            </Button>
-            <Button variant="outline" onClick={() => handleAction('Renew Patient')}>
-              Renew Patient
-            </Button>
+              <Button variant="outline" onClick={() => setAddPatientOpen(true)}>
+                <UserPlus className="mr-2 h-4 w-4" />
+                New Patient
+              </Button>
             </div>
         </div>
       </CardHeader>
@@ -143,13 +146,11 @@ export function PatientsTab() {
                 <Table>
                     <TableHeader>
                         <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead className="hidden sm:table-cell">Phone</TableHead>
-                        <TableHead className="hidden md:table-cell">Gender / Age</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>
-                            <span className="sr-only">Actions</span>
-                        </TableHead>
+                          <TableHead>Name</TableHead>
+                          <TableHead className="hidden sm:table-cell">Phone</TableHead>
+                          <TableHead className="hidden md:table-cell">Gender / Age</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Actions</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -163,31 +164,42 @@ export function PatientsTab() {
                                     {patient.registrationType}
                                 </Badge>
                             </TableCell>
-                            <TableCell>
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                <Button aria-haspopup="true" size="icon" variant="ghost">
-                                    <MoreHorizontal className="h-4 w-4" />
-                                    <span className="sr-only">Toggle menu</span>
+                            <TableCell className="space-x-2">
+                              {isReceiptValid(patient.lastVisit) ? (
+                                <Button size="sm" variant="secondary" onClick={() => updatePatientRegistration(patient.id, 'Renewed')}>
+                                  <RefreshCw className="mr-2 h-4 w-4"/>
+                                  Renew
                                 </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => handleAddToWaitingList(patient.id)}>
-                                    <Send className="mr-2 h-4 w-4" />
-                                    Add to Waiting List
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleAction('Edit Patient', patient.name)}>
-                                    <Edit className="mr-2 h-4 w-4" />
-                                    Edit Patient
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleAction('View History', patient.name)}>
-                                    <FileText className="mr-2 h-4 w-4" />
-                                    View History
-                                </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
+                              ) : (
+                                 <Button size="sm" variant="outline" onClick={() => updatePatientRegistration(patient.id, 'Continued')}>
+                                  <ArrowRight className="mr-2 h-4 w-4"/>
+                                  Continue
+                                </Button>
+                              )}
+                              <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                  <Button aria-haspopup="true" size="icon" variant="ghost">
+                                      <MoreHorizontal className="h-4 w-4" />
+                                      <span className="sr-only">Toggle menu</span>
+                                  </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                  <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem onClick={() => handleAddToWaitingList(patient.id)}>
+                                      <Send className="mr-2 h-4 w-4" />
+                                      Add to Waiting List
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleAction('Edit Patient', patient.name)}>
+                                      <Edit className="mr-2 h-4 w-4" />
+                                      Edit Patient
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleAction('View History', patient.name)}>
+                                      <FileText className="mr-2 h-4 w-4" />
+                                      View History
+                                  </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                              </DropdownMenu>
                             </TableCell>
                         </TableRow>
                         ))}

@@ -7,6 +7,8 @@ import { useToast } from '@/hooks/use-toast';
 // Types
 export type PatientStatus = 'waiting' | 'called' | 'in_consult' | 'prescribed' | 'sent_to_pharmacy' | 'dispensed';
 export type PrescriptionStatus = 'pending' | 'dispensed';
+export type RegistrationType = 'Added' | 'Renewed' | 'Continued';
+
 
 export interface Patient {
     id: string;
@@ -16,7 +18,7 @@ export interface Patient {
     age: number;
     lastVisit: string;
     avatarUrl: string;
-    registrationType: 'Added' | 'Renewed' | 'Continued';
+    registrationType: RegistrationType;
 }
 
 export interface Doctor {
@@ -52,10 +54,10 @@ export interface Prescription {
 // Initial Data
 const initialPatients: Patient[] = [
   { id: 'p1', name: 'Liam Johnson', phone: '555-0101', gender: 'Male', age: 28, lastVisit: '2024-07-29', avatarUrl: 'https://placehold.co/100x100/A6B1E1/FFFFFF.png', registrationType: 'Added' },
-  { id: 'p2', name: 'Olivia Smith', phone: '555-0102', gender: 'Female', age: 45, lastVisit: '2024-07-29', avatarUrl: 'https://placehold.co/100x100/F4A261/FFFFFF.png', registrationType: 'Continued' },
-  { id: 'p3', name: 'Noah Williams', phone: '555-0103', gender: 'Male', age: 12, lastVisit: '2024-07-28', avatarUrl: 'https://placehold.co/100x100/E76F51/FFFFFF.png', registrationType: 'Added' },
+  { id: 'p2', name: 'Olivia Smith', phone: '555-0102', gender: 'Female', age: 45, lastVisit: '2024-07-20', avatarUrl: 'https://placehold.co/100x100/F4A261/FFFFFF.png', registrationType: 'Continued' },
+  { id: 'p3', name: 'Noah Williams', phone: '555-0103', gender: 'Male', age: 12, lastVisit: '2024-06-15', avatarUrl: 'https://placehold.co/100x100/E76F51/FFFFFF.png', registrationType: 'Added' },
   { id: 'p4', name: 'Emma Brown', phone: '555-0104', gender: 'Female', age: 62, lastVisit: '2024-07-28', avatarUrl: 'https://placehold.co/100x100/2A9D8F/FFFFFF.png', registrationType: 'Renewed' },
-  { id: 'p5', name: 'James Wilson', phone: '555-0105', gender: 'Male', age: 35, lastVisit: '2024-07-27', avatarUrl: 'https://placehold.co/100x100/264653/FFFFFF.png', registrationType: 'Added' },
+  { id: 'p5', name: 'James Wilson', phone: '555-0105', gender: 'Male', age: 35, lastVisit: '2024-05-10', avatarUrl: 'https://placehold.co/100x100/264653/FFFFFF.png', registrationType: 'Added' },
 ];
 
 const initialDoctors: Doctor[] = [
@@ -77,9 +79,11 @@ interface ClinicContextType {
     pharmacyQueue: Prescription[];
     activePatient: WaitingPatient | undefined;
     notifications: Notification[];
+    receiptValidityDays: number;
     addPatient: (patient: Omit<Patient, 'id' | 'lastVisit' | 'avatarUrl' | 'registrationType'>) => Patient;
     addPatientToWaitingList: (patientId: string, doctorId: string) => void;
     updatePatientStatus: (waitingPatientId: string, status: PatientStatus, items?: string[]) => void;
+    updatePatientRegistration: (patientId: string, type: RegistrationType) => void;
     updatePrescriptionStatus: (prescriptionId: string, status: PrescriptionStatus) => void;
     addDoctor: (doctor: Omit<Doctor, 'id'>) => void;
     deleteDoctor: (doctorId: string) => void;
@@ -97,6 +101,7 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
     const [pharmacyQueue, setPharmacyQueue] = useState<Prescription[]>([]);
     const [activePatientId, setActivePatientId] = useState<string | null>(null);
     const [notifications, setNotifications] = useState<Notification[]>([]);
+    const [receiptValidityDays, setReceiptValidityDays] = useState(30);
 
     const activePatient = waitingList.find(p => p.id === activePatientId);
     
@@ -207,6 +212,21 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
              }
         }
     };
+
+    const updatePatientRegistration = (patientId: string, type: RegistrationType) => {
+        setPatients(prev => prev.map(p => 
+            p.id === patientId 
+            ? { ...p, registrationType: type, lastVisit: new Date().toISOString().split('T')[0] } 
+            : p
+        ));
+        const patient = patients.find(p => p.id === patientId);
+        if (patient) {
+            toast({
+                title: 'Patient Updated',
+                description: `${patient.name} has been marked as ${type}.`
+            });
+        }
+    }
     
     const updatePrescriptionStatus = (prescriptionId: string, status: PrescriptionStatus) => {
         setPharmacyQueue(prev => prev.map(p => p.id === prescriptionId ? { ...p, status } : p));
@@ -227,9 +247,11 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
             pharmacyQueue, 
             activePatient,
             notifications,
+            receiptValidityDays,
             addPatient,
             addPatientToWaitingList,
             updatePatientStatus,
+            updatePatientRegistration,
             updatePrescriptionStatus,
             addDoctor,
             deleteDoctor,
