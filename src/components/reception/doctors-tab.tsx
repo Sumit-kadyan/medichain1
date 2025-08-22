@@ -156,13 +156,13 @@ export function DoctorsTab() {
         </CardContent>
       </Card>
       <AddDoctorDialog open={isAddDoctorOpen} onOpenChange={setAddDoctorOpen} />
-      {selectedDoctor && (
-        <EditDoctorDialog 
-            open={isEditDoctorOpen} 
-            onOpenChange={setEditDoctorOpen}
-            doctor={selectedDoctor}
-        />
-      )}
+      
+      <EditDoctorDialog 
+          open={isEditDoctorOpen} 
+          onOpenChange={setEditDoctorOpen}
+          doctor={selectedDoctor}
+      />
+      
     </>
   );
 }

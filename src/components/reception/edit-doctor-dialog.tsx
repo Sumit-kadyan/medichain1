@@ -13,7 +13,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogClose,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -29,13 +28,13 @@ const formSchema = z.object({
 interface EditDoctorDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  doctor: Doctor;
+  doctor: Doctor | null;
 }
 
 export function EditDoctorDialog({ open, onOpenChange, doctor }: EditDoctorDialogProps) {
   const { updateDoctor } = useClinicContext();
   const { toast } = useToast();
-  const [loading, setLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -46,27 +45,21 @@ export function EditDoctorDialog({ open, onOpenChange, doctor }: EditDoctorDialo
   });
   
   useEffect(() => {
-    if(doctor) {
+    if (open && doctor) {
         form.reset({
             name: doctor.name,
             specialization: doctor.specialization,
-        })
+        });
+        setIsSubmitting(false);
     }
-  }, [doctor, form])
+  }, [open, doctor, form])
   
-  const handleDialogClose = (isOpen: boolean) => {
-    if (!isOpen) {
-      form.reset();
-    }
-    onOpenChange(isOpen);
-  };
-
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    setLoading(true);
+    if (!doctor) return;
+
+    setIsSubmitting(true);
     try {
-      const updatedData: Partial<Omit<Doctor, 'id'>> = {
-          ...values,
-      };
+      const updatedData: Partial<Omit<Doctor, 'id'>> = { ...values };
       
       if (values.name !== doctor.name) {
           updatedData.initials = values.name.split(' ').map(n => n[0]).join('').toUpperCase();
@@ -78,8 +71,8 @@ export function EditDoctorDialog({ open, onOpenChange, doctor }: EditDoctorDialo
       toast({
           title: 'Doctor Updated',
           description: `Details for ${values.name} have been updated.`
-      })
-      handleDialogClose(false);
+      });
+      onOpenChange(false);
     } catch (error) {
        console.error("Failed to update doctor:", error);
        toast({
@@ -88,12 +81,12 @@ export function EditDoctorDialog({ open, onOpenChange, doctor }: EditDoctorDialo
         variant: 'destructive',
       });
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleDialogClose}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Edit Doctor</DialogTitle>
@@ -130,13 +123,11 @@ export function EditDoctorDialog({ open, onOpenChange, doctor }: EditDoctorDialo
                 )}
               />
             <DialogFooter>
-               <DialogClose asChild>
-                <Button type="button" variant="outline">
+               <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
                   Cancel
                 </Button>
-              </DialogClose>
-              <Button type="submit" disabled={loading}>
-                  {loading ? 'Saving...' : 'Save Changes'}
+              <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? 'Saving...' : 'Save Changes'}
               </Button>
             </DialogFooter>
           </form>

@@ -43,7 +43,6 @@ export function AddDoctorDialog({ open, onOpenChange }: AddDoctorDialogProps) {
     },
   });
 
-  // Effect to reset the form whenever the dialog opens
   useEffect(() => {
     if (open) {
       form.reset({
@@ -70,7 +69,7 @@ export function AddDoctorDialog({ open, onOpenChange }: AddDoctorDialogProps) {
         description: `${values.name} has been added to the clinic.`,
       });
 
-      onOpenChange(false); // Close the dialog on success
+      onOpenChange(false);
 
     } catch (error) {
       console.error(error);
@@ -79,7 +78,9 @@ export function AddDoctorDialog({ open, onOpenChange }: AddDoctorDialogProps) {
         description: 'Failed to add new doctor. Please try again.',
         variant: 'destructive'
       });
-      setIsSubmitting(false); // Only reset loading on error, as success closes dialog
+    } finally {
+        // This ensures the button is re-enabled even if the dialog doesn't close on error
+        setIsSubmitting(false);
     }
   };
 
