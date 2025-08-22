@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Play, Clock, FileText, Pill, Send, ArrowLeft } from 'lucide-react';
+import { Play, Clock, FileText, Pill, Send, ArrowLeft, Loader2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useClinicContext, Doctor, PatientStatus } from '@/context/clinic-context';
 import { useToast } from '@/hooks/use-toast';
@@ -84,10 +84,8 @@ function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => voi
   };
   
   const handleSendToPharmacy = (patientId: string) => {
-    // This is a mock list. In a real app, this would come from the doctor's input.
     const prescribedItems = ['Amoxicillin 500mg', 'Ibuprofen 200mg', 'Cough Syrup'];
     updatePatientStatus(patientId, 'sent_to_pharmacy', prescribedItems); 
-    // Unset active patient after sending to pharmacy
     if (activePatient?.id === patientId) {
         setActivePatientId(null);
     }
@@ -187,8 +185,16 @@ function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => voi
 
 
 export default function DoctorPage() {
-    const { doctors } = useClinicContext();
+    const { doctors, loading } = useClinicContext();
     const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
+
+    if (loading) {
+        return (
+            <div className="flex h-full items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin" />
+            </div>
+        );
+    }
 
     if (!selectedDoctor) {
         return <DoctorSelection doctors={doctors} onSelectDoctor={setSelectedDoctor} />
@@ -196,5 +202,3 @@ export default function DoctorPage() {
 
     return <DoctorDashboard doctor={selectedDoctor} onBack={() => setSelectedDoctor(null)} />;
 }
-
-    

@@ -55,17 +55,19 @@ export function AddPatientDialog({ open, onOpenChange }: AddPatientDialogProps) 
     defaultValues: {
       name: '',
       phone: '',
-      age: '' as any, // Changed from undefined to empty string to fix uncontrolled component error
+      age: '' as any, // To fix uncontrolled component error
       gender: 'Male',
       doctorId: '',
     },
   });
 
-  const onSubmit = (values: z.infer<typeof formSchema>) => {
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setLoading(true);
     try {
-      const newPatient = addPatient(values);
-      addPatientToWaitingList(newPatient.id, values.doctorId);
+      const newPatient = await addPatient(values);
+      if (newPatient) {
+        addPatientToWaitingList(newPatient.id, values.doctorId);
+      }
       
       reset();
       onOpenChange(false);
@@ -151,8 +153,6 @@ export function AddPatientDialog({ open, onOpenChange }: AddPatientDialogProps) 
                     id="age"
                     type="number"
                     {...field}
-                    // When resetting, react-hook-form sets value to '', which is not a valid number input value
-                    // so we ensure it's a number or an empty string for the value prop.
                     value={field.value === undefined || field.value === null ? '' : field.value}
                     className="col-span-3"
                   />
