@@ -2,7 +2,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
@@ -13,11 +13,13 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogClose,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useClinicContext, Doctor } from '@/context/clinic-context';
 import { useToast } from '@/hooks/use-toast';
+import { Form, FormControl, FormField, FormItem, FormMessage } from '../ui/form';
 
 const formSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters.'),
@@ -35,12 +37,7 @@ export function EditDoctorDialog({ open, onOpenChange, doctor }: EditDoctorDialo
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
 
-  const {
-    control,
-    handleSubmit,
-    reset,
-    formState: { errors },
-  } = useForm<z.infer<typeof formSchema>>({
+  const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: '',
@@ -50,13 +47,19 @@ export function EditDoctorDialog({ open, onOpenChange, doctor }: EditDoctorDialo
   
   useEffect(() => {
     if(doctor) {
-        reset({
+        form.reset({
             name: doctor.name,
             specialization: doctor.specialization,
         })
     }
-  }, [doctor, reset])
-
+  }, [doctor, form])
+  
+  const handleDialogClose = (isOpen: boolean) => {
+    if (!isOpen) {
+      form.reset();
+    }
+    onOpenChange(isOpen);
+  };
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setLoading(true);
@@ -65,7 +68,6 @@ export function EditDoctorDialog({ open, onOpenChange, doctor }: EditDoctorDialo
           ...values,
       };
       
-      // Only update initials and avatar if name has changed
       if (values.name !== doctor.name) {
           updatedData.initials = values.name.split(' ').map(n => n[0]).join('').toUpperCase();
           updatedData.avatarUrl = `https://placehold.co/100x100.png?text=${values.name.charAt(0)}`;
@@ -77,7 +79,7 @@ export function EditDoctorDialog({ open, onOpenChange, doctor }: EditDoctorDialo
           title: 'Doctor Updated',
           description: `Details for ${values.name} have been updated.`
       })
-      onOpenChange(false);
+      handleDialogClose(false);
     } catch (error) {
        console.error("Failed to update doctor:", error);
        toast({
@@ -91,7 +93,7 @@ export function EditDoctorDialog({ open, onOpenChange, doctor }: EditDoctorDialo
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleDialogClose}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Edit Doctor</DialogTitle>
@@ -99,46 +101,46 @@ export function EditDoctorDialog({ open, onOpenChange, doctor }: EditDoctorDialo
             Update the details for this doctor.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit(onSubmit)}>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="name" className="text-right">
-                Name
-              </Label>
-              <Controller
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+                control={form.control}
                 name="name"
-                control={control}
                 render={({ field }) => (
-                  <Input id="name" {...field} className="col-span-3" placeholder="e.g., Dr. Jane Smith" />
+                  <FormItem>
+                    <Label>Name</Label>
+                    <FormControl>
+                      <Input placeholder="e.g., Dr. Jane Smith" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
                 )}
               />
-              {errors.name && <p className="col-span-4 text-xs text-destructive text-right">{errors.name.message}</p>}
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="specialization" className="text-right">
-                Specialization
-              </Label>
-              <Controller
+               <FormField
+                control={form.control}
                 name="specialization"
-                control={control}
                 render={({ field }) => (
-                   <Input
-                    id="specialization"
-                    {...field}
-                    placeholder="e.g., Cardiologist"
-                    className="col-span-3"
-                  />
+                  <FormItem>
+                    <Label>Specialization</Label>
+                    <FormControl>
+                       <Input placeholder="e.g., Cardiologist" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
                 )}
               />
-               {errors.specialization && <p className="col-span-4 text-xs text-destructive text-right">{errors.specialization.message}</p>}
-            </div>
-          </div>
-          <DialogFooter>
-            <Button type="submit" disabled={loading}>
-                {loading ? 'Saving...' : 'Save Changes'}
-            </Button>
-          </DialogFooter>
-        </form>
+            <DialogFooter>
+               <DialogClose asChild>
+                <Button type="button" variant="outline">
+                  Cancel
+                </Button>
+              </DialogClose>
+              <Button type="submit" disabled={loading}>
+                  {loading ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );

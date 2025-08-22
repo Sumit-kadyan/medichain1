@@ -38,6 +38,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useClinicContext, Doctor } from '@/context/clinic-context';
 import { AddDoctorDialog } from './add-doctor-dialog';
 import { EditDoctorDialog } from './edit-doctor-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../ui/alert-dialog';
 
 export function DoctorsTab() {
   const { toast } = useToast();
@@ -52,20 +53,18 @@ export function DoctorsTab() {
   };
 
   const handleDeleteDoctor = async (id: string, name: string) => {
-    if (confirm(`Are you sure you want to delete ${name}?`)) {
-      try {
-        await deleteDoctor(id);
-        toast({
-          title: 'Doctor Deleted',
-          description: `${name} has been removed.`,
-        });
-      } catch (error) {
-        toast({
-          title: 'Error',
-          description: `Could not delete ${name}.`,
-          variant: 'destructive',
-        });
-      }
+    try {
+      await deleteDoctor(id);
+      toast({
+        title: 'Doctor Deleted',
+        description: `${name} has been removed.`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: `Could not delete ${name}.`,
+        variant: 'destructive',
+      });
     }
   };
 
@@ -125,10 +124,28 @@ export function DoctorsTab() {
                           <Edit className="mr-2 h-4 w-4" />
                           Edit Details
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteDoctor(doctor.id, doctor.name)}>
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete
-                        </DropdownMenuItem>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <DropdownMenuItem className="text-destructive" onSelect={(e) => e.preventDefault()}>
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete
+                            </DropdownMenuItem>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This action cannot be undone. This will permanently delete Dr. {doctor.name}.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleDeleteDoctor(doctor.id, doctor.name)}>
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
