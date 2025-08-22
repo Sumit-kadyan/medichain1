@@ -51,14 +51,21 @@ export function DoctorsTab() {
     setEditDoctorOpen(true);
   };
 
-  const handleDeleteDoctor = (id: string, name: string) => {
+  const handleDeleteDoctor = async (id: string, name: string) => {
     if (confirm(`Are you sure you want to delete ${name}?`)) {
-      deleteDoctor(id);
-      toast({
-        title: 'Doctor Deleted',
-        description: `${name} has been removed.`,
-        variant: 'destructive',
-      });
+      try {
+        await deleteDoctor(id);
+        toast({
+          title: 'Doctor Deleted',
+          description: `${name} has been removed.`,
+        });
+      } catch (error) {
+        toast({
+          title: 'Error',
+          description: `Could not delete ${name}.`,
+          variant: 'destructive',
+        });
+      }
     }
   };
 

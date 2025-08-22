@@ -17,6 +17,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useClinicContext } from '@/context/clinic-context';
+import { useToast } from '@/hooks/use-toast';
 
 const formSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters.'),
@@ -30,6 +31,7 @@ interface AddDoctorDialogProps {
 
 export function AddDoctorDialog({ open, onOpenChange }: AddDoctorDialogProps) {
   const { addDoctor } = useClinicContext();
+  const { toast } = useToast();
   const [loading, setLoading] = useState(false);
 
   const {
@@ -47,15 +49,31 @@ export function AddDoctorDialog({ open, onOpenChange }: AddDoctorDialogProps) {
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setLoading(true);
-    const doctorData = {
-        ...values,
-        avatarUrl: `https://placehold.co/100x100.png?text=${values.name.charAt(0)}`,
-        initials: values.name.split(' ').map(n => n[0]).join('').toUpperCase(),
+    try {
+      const doctorData = {
+          ...values,
+          avatarUrl: `https://placehold.co/100x100.png?text=${values.name.charAt(0)}`,
+          initials: values.name.split(' ').map(n => n[0]).join('').toUpperCase(),
+      }
+      await addDoctor(doctorData);
+      
+      toast({
+        title: 'Doctor Added',
+        description: `${values.name} has been added to the clinic.`,
+      });
+
+      reset();
+      onOpenChange(false);
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: 'Error',
+        description: 'Failed to add new doctor. Please try again.',
+        variant: 'destructive'
+      })
+    } finally {
+      setLoading(false);
     }
-    await addDoctor(doctorData);
-    setLoading(false);
-    reset();
-    onOpenChange(false);
   };
 
   return (
