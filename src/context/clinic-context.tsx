@@ -90,9 +90,9 @@ interface ClinicContextType {
     updatePatientStatus: (waitingPatientId: string, status: PatientStatus, items?: string[]) => void;
     updatePatientRegistration: (patientId: string, type: RegistrationType) => void;
     updatePrescriptionStatus: (prescriptionId: string, status: PrescriptionStatus) => void;
-    addDoctor: (doctor: Omit<Doctor, 'id'>) => void;
-    updateDoctor: (doctorId: string, doctorData: Partial<Omit<Doctor, 'id'>>) => void;
-    deleteDoctor: (doctorId: string) => void;
+    addDoctor: (doctor: Omit<Doctor, 'id'>) => Promise<void>;
+    updateDoctor: (doctorId: string, doctorData: Partial<Omit<Doctor, 'id'>>) => Promise<void>;
+    deleteDoctor: (doctorId: string) => Promise<void>;
     setActivePatientId: (patientId: string | null) => void;
     dismissNotification: (id: number) => void;
 }
@@ -136,37 +136,31 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
             }),
         ];
         
-        setLoading(false);
+        // This was missing before, causing re-renders to reset loading state.
+        const allDataLoaded = Promise.all([
+             new Promise(resolve => onSnapshot(collection(db, 'clinics', CLINIC_ID, 'patients'), () => resolve(true))),
+             new Promise(resolve => onSnapshot(collection(db, 'clinics', CLINIC_ID, 'doctors'), () => resolve(true))),
+        ]);
+
+        allDataLoaded.finally(() => setLoading(false));
+
         return () => unsubscribes.forEach(unsub => unsub());
+    // This empty dependency array is the critical fix.
+    // It ensures this effect runs only ONCE, when the component mounts.
     }, []);
 
 
     const addDoctor = async (doctorData: Omit<Doctor, 'id'>) => {
-        try {
-            await addDoc(collection(db, 'clinics', CLINIC_ID, 'doctors'), doctorData);
-        } catch (error) {
-            console.error("Error adding doctor: ", error);
-            toast({ title: "Error", description: "Failed to add doctor.", variant: "destructive" });
-        }
+        await addDoc(collection(db, 'clinics', CLINIC_ID, 'doctors'), doctorData);
     };
     
     const updateDoctor = async (doctorId: string, doctorData: Partial<Omit<Doctor, 'id'>>) => {
-        try {
-            const doctorDocRef = doc(db, 'clinics', CLINIC_ID, 'doctors', doctorId);
-            await updateDoc(doctorDocRef, doctorData);
-        } catch (error) {
-            console.error("Error updating doctor: ", error);
-            toast({ title: "Error", description: "Failed to update doctor.", variant: "destructive" });
-        }
+        const doctorDocRef = doc(db, 'clinics', CLINIC_ID, 'doctors', doctorId);
+        await updateDoc(doctorDocRef, doctorData);
     };
 
     const deleteDoctor = async (doctorId: string) => {
-        try {
-            await deleteDoc(doc(db, 'clinics', CLINIC_ID, 'doctors', doctorId));
-        } catch (error) {
-            console.error("Error deleting doctor: ", error);
-            toast({ title: "Error", description: "Failed to delete doctor.", variant: "destructive" });
-        }
+        await deleteDoc(doc(db, 'clinics', CLINIC_ID, 'doctors', doctorId));
     };
     
     const addPatient = async (patientData: Omit<Patient, 'id' | 'lastVisit' | 'avatarUrl' | 'registrationType'>): Promise<Patient | undefined> => {

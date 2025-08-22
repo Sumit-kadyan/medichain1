@@ -46,7 +46,7 @@ export function AddDoctorDialog({ open, onOpenChange }: AddDoctorDialogProps) {
   
   const handleDialogClose = (isOpen: boolean) => {
     if (!isOpen) {
-      form.reset(); // Reset form when dialog closes
+      form.reset();
     }
     onOpenChange(isOpen);
   };
@@ -76,7 +76,6 @@ export function AddDoctorDialog({ open, onOpenChange }: AddDoctorDialogProps) {
         variant: 'destructive'
       });
     } finally {
-      // This will now reliably execute, resetting the button state.
       setLoading(false);
     }
   };
