@@ -81,6 +81,21 @@ export function AddPatientDialog({ open, onOpenChange }: AddPatientDialogProps) 
     }
   };
 
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>, fieldChange: (value: string) => void) => {
+    const input = e.target.value.replace(/\D/g, '');
+    let formattedInput = '';
+    if (input.length > 0) {
+      formattedInput = input.substring(0, 3);
+    }
+    if (input.length >= 4) {
+      formattedInput += '-' + input.substring(3, 6);
+    }
+    if (input.length >= 7) {
+      formattedInput += '-' + input.substring(6, 10);
+    }
+    fieldChange(formattedInput);
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
@@ -113,7 +128,13 @@ export function AddPatientDialog({ open, onOpenChange }: AddPatientDialogProps) 
                 name="phone"
                 control={control}
                 render={({ field }) => (
-                  <Input id="phone" {...field} placeholder="555-123-4567" className="col-span-3" />
+                   <Input
+                    id="phone"
+                    {...field}
+                    onChange={(e) => handlePhoneChange(e, field.onChange)}
+                    placeholder="555-123-4567"
+                    className="col-span-3"
+                  />
                 )}
               />
                {errors.phone && <p className="col-span-4 text-xs text-destructive text-right">{errors.phone.message}</p>}
