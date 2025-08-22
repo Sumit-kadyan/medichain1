@@ -16,6 +16,7 @@ export interface Patient {
     age: number;
     lastVisit: string;
     avatarUrl: string;
+    registrationType: 'Added' | 'Renewed' | 'Continued';
 }
 
 export interface Doctor {
@@ -50,14 +51,11 @@ export interface Prescription {
 
 // Initial Data
 const initialPatients: Patient[] = [
-  { id: 'p1', name: 'Liam Johnson', phone: '555-0101', gender: 'Male', age: 28, lastVisit: '2023-10-26', avatarUrl: 'https://placehold.co/100x100/A6B1E1/FFFFFF.png' },
-  { id: 'p2', name: 'Olivia Smith', phone: '555-0102', gender: 'Female', age: 45, lastVisit: '2023-10-25', avatarUrl: 'https://placehold.co/100x100/F4A261/FFFFFF.png' },
-  { id: 'p3', name: 'Noah Williams', phone: '555-0103', gender: 'Male', age: 12, lastVisit: '2023-09-15', avatarUrl: 'https://placehold.co/100x100/E76F51/FFFFFF.png' },
-  { id: 'p4', name: 'Emma Brown', phone: '555-0104', gender: 'Female', age: 62, lastVisit: '2023-10-28', avatarUrl: 'https://placehold.co/100x100/2A9D8F/FFFFFF.png' },
-  { id: 'p5', name: 'James Wilson', phone: '555-0105', gender: 'Male', age: 35, lastVisit: '2023-11-01', avatarUrl: 'https://placehold.co/100x100/264653/FFFFFF.png' },
-  { id: 'p6', name: 'Sophia Miller', phone: '555-0106', gender: 'Female', age: 29, lastVisit: '2023-11-02', avatarUrl: 'https://placehold.co/100x100/8E9AAF/FFFFFF.png' },
-  { id: 'p7', name: 'Ava Davis', phone: '555-0107', gender: 'Female', age: 51, lastVisit: '2023-11-03', avatarUrl: 'https://placehold.co/100x100/DDA15E/FFFFFF.png' },
-  { id: 'p8', name: 'William Garcia', phone: '555-0108', gender: 'Male', age: 42, lastVisit: '2023-11-04', avatarUrl: 'https://placehold.co/100x100/BC6C25/FFFFFF.png' },
+  { id: 'p1', name: 'Liam Johnson', phone: '555-0101', gender: 'Male', age: 28, lastVisit: '2024-07-29', avatarUrl: 'https://placehold.co/100x100/A6B1E1/FFFFFF.png', registrationType: 'Added' },
+  { id: 'p2', name: 'Olivia Smith', phone: '555-0102', gender: 'Female', age: 45, lastVisit: '2024-07-29', avatarUrl: 'https://placehold.co/100x100/F4A261/FFFFFF.png', registrationType: 'Continued' },
+  { id: 'p3', name: 'Noah Williams', phone: '555-0103', gender: 'Male', age: 12, lastVisit: '2024-07-28', avatarUrl: 'https://placehold.co/100x100/E76F51/FFFFFF.png', registrationType: 'Added' },
+  { id: 'p4', name: 'Emma Brown', phone: '555-0104', gender: 'Female', age: 62, lastVisit: '2024-07-28', avatarUrl: 'https://placehold.co/100x100/2A9D8F/FFFFFF.png', registrationType: 'Renewed' },
+  { id: 'p5', name: 'James Wilson', phone: '555-0105', gender: 'Male', age: 35, lastVisit: '2024-07-27', avatarUrl: 'https://placehold.co/100x100/264653/FFFFFF.png', registrationType: 'Added' },
 ];
 
 const initialDoctors: Doctor[] = [
@@ -79,7 +77,7 @@ interface ClinicContextType {
     pharmacyQueue: Prescription[];
     activePatient: WaitingPatient | undefined;
     notifications: Notification[];
-    addPatient: (patient: Omit<Patient, 'id' | 'lastVisit' | 'avatarUrl'>) => Patient;
+    addPatient: (patient: Omit<Patient, 'id' | 'lastVisit' | 'avatarUrl' | 'registrationType'>) => Patient;
     addPatientToWaitingList: (patientId: string, doctorId: string) => void;
     updatePatientStatus: (waitingPatientId: string, status: PatientStatus, items?: string[]) => void;
     updatePrescriptionStatus: (prescriptionId: string, status: PrescriptionStatus) => void;
@@ -111,14 +109,19 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         setDoctors(prev => prev.filter(d => d.id !== doctorId));
     };
     
-    const addPatient = (patientData: Omit<Patient, 'id' | 'lastVisit' | 'avatarUrl'>): Patient => {
+    const addPatient = (patientData: Omit<Patient, 'id' | 'lastVisit' | 'avatarUrl' | 'registrationType'>): Patient => {
         const newPatient: Patient = {
             id: `p-${Date.now()}`,
             ...patientData,
             lastVisit: new Date().toISOString().split('T')[0],
-            avatarUrl: `https://placehold.co/100x100?text=${patientData.name.charAt(0)}`
+            avatarUrl: `https://placehold.co/100x100?text=${patientData.name.charAt(0)}`,
+            registrationType: 'Added',
         };
         setPatients(prev => [...prev, newPatient]);
+        toast({
+            title: 'Patient Added',
+            description: `${newPatient.name} has been registered.`
+        })
         return newPatient;
     };
     
@@ -146,8 +149,8 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
             };
             setWaitingList(prev => [...prev, newWaitingPatient]);
             toast({
-                title: 'Patient Added',
-                description: `${patient.name} has been added to Dr. ${doctor.name}'s waiting list.`
+                title: 'Added to Waitlist',
+                description: `${patient.name} is now waiting for Dr. ${doctor.name}.`
             })
         }
     };
