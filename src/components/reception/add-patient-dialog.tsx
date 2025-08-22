@@ -55,7 +55,7 @@ export function AddPatientDialog({ open, onOpenChange }: AddPatientDialogProps) 
     defaultValues: {
       name: '',
       phone: '',
-      age: undefined,
+      age: '' as any, // Changed from undefined to empty string to fix uncontrolled component error
       gender: 'Male',
       doctorId: '',
     },
@@ -126,7 +126,15 @@ export function AddPatientDialog({ open, onOpenChange }: AddPatientDialogProps) 
                 name="age"
                 control={control}
                 render={({ field }) => (
-                  <Input id="age" type="number" {...field} className="col-span-3" />
+                  <Input
+                    id="age"
+                    type="number"
+                    {...field}
+                    // When resetting, react-hook-form sets value to '', which is not a valid number input value
+                    // so we ensure it's a number or an empty string for the value prop.
+                    value={field.value === undefined || field.value === null ? '' : field.value}
+                    className="col-span-3"
+                  />
                 )}
               />
                {errors.age && <p className="col-span-4 text-xs text-destructive text-right">{errors.age.message}</p>}
