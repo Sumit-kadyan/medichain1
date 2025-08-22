@@ -43,14 +43,14 @@ export function AddDoctorDialog({ open, onOpenChange }: AddDoctorDialogProps) {
       specialization: '',
     },
   });
-
+  
   const handleDialogClose = (isOpen: boolean) => {
     if (!isOpen) {
-      form.reset();
+      form.reset(); // Reset form when dialog closes
     }
     onOpenChange(isOpen);
   };
-  
+
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setLoading(true);
     try {
@@ -76,6 +76,7 @@ export function AddDoctorDialog({ open, onOpenChange }: AddDoctorDialogProps) {
         variant: 'destructive'
       });
     } finally {
+      // This will now reliably execute, resetting the button state.
       setLoading(false);
     }
   };
