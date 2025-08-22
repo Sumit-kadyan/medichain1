@@ -16,16 +16,14 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { MoreHorizontal, User, Play, Check, Send, CircleCheck, AlertTriangle, Hourglass, Stethoscope, FlaskConical } from 'lucide-react';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+    Stethoscope,
+    Hourglass,
+    AlertTriangle,
+    Check,
+    FlaskConical,
+    CircleCheck,
+} from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,18 +39,14 @@ const statusConfig = {
     waiting: { label: 'Waiting', icon: Hourglass, color: 'bg-yellow-500' },
     called: { label: 'Called', icon: AlertTriangle, color: 'bg-orange-500' },
     in_consult: { label: 'In Consultation', icon: Stethoscope, color: 'bg-blue-500' },
-    prescribed: { label: 'Prescribed', icon: Check, color: 'bg-purple-500' },
+    prescribed: { label: 'Consulted', icon: Check, color: 'bg-purple-500' },
     sent_to_pharmacy: { label: 'At Pharmacy', icon: FlaskConical, color: 'bg-indigo-500' },
     dispensed: { label: 'Done', icon: CircleCheck, color: 'bg-green-500' },
 } as const;
 
 
 export function WaitingRoomTab() {
-    const { waitingList, updatePatientStatus, notifications, dismissNotification } = useClinicContext();
-    
-    const handleUpdateStatus = (patientId: string, newStatus: PatientStatus) => {
-        updatePatientStatus(patientId, newStatus);
-    };
+    const { waitingList, notifications, dismissNotification } = useClinicContext();
 
   return (
     <>
@@ -60,7 +54,7 @@ export function WaitingRoomTab() {
       <CardHeader>
         <CardTitle className="font-headline">Today's Waiting Room</CardTitle>
         <CardDescription>
-          Manage patients currently in the clinic.
+          Live view of patients currently in the clinic.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -71,9 +65,6 @@ export function WaitingRoomTab() {
               <TableHead>Assigned Doctor</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Time</TableHead>
-              <TableHead>
-                <span className="sr-only">Actions</span>
-              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -81,7 +72,7 @@ export function WaitingRoomTab() {
               const config = statusConfig[visit.status as keyof typeof statusConfig];
               const Icon = config.icon;
               return (
-              <TableRow key={visit.id}>
+              <TableRow key={visit.id} className={visit.status === 'dispensed' ? 'text-muted-foreground' : ''}>
                 <TableCell className="font-medium">{visit.patientName}</TableCell>
                 <TableCell>{visit.doctorName}</TableCell>
                 <TableCell>
@@ -91,32 +82,6 @@ export function WaitingRoomTab() {
                   </Badge>
                 </TableCell>
                 <TableCell>{visit.time}</TableCell>
-                <TableCell>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button aria-haspopup="true" size="icon" variant="ghost">
-                        <MoreHorizontal className="h-4 w-4" />
-                        <span className="sr-only">Toggle menu</span>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuLabel>Change Status</DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => handleUpdateStatus(visit.id, 'called')}>
-                        <User className="mr-2 h-4 w-4" /> Call Patient
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleUpdateStatus(visit.id, 'in_consult')}>
-                        <Play className="mr-2 h-4 w-4" /> Start Consultation
-                      </DropdownMenuItem>
-                       <DropdownMenuItem onClick={() => handleUpdateStatus(visit.id, 'prescribed')}>
-                        <Check className="mr-2 h-4 w-4" /> Mark Prescribed
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleUpdateStatus(visit.id, 'sent_to_pharmacy')}>
-                        <Send className="mr-2 h-4 w-4" /> Send to Pharmacy
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
               </TableRow>
             )})}
           </TableBody>
@@ -141,3 +106,5 @@ export function WaitingRoomTab() {
     </>
   );
 }
+
+    

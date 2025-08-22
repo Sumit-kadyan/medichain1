@@ -21,7 +21,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Play, Clock, FileText, Pill, Send, ArrowLeft } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useClinicContext, Doctor } from '@/context/clinic-context';
+import { useClinicContext, Doctor, PatientStatus } from '@/context/clinic-context';
 import { useToast } from '@/hooks/use-toast';
 
 const patientHistory = [
@@ -29,6 +29,16 @@ const patientHistory = [
     { date: '2023-08-15', type: 'prescription', description: 'Prescribed Lisinopril 10mg.', icon: Pill },
     { date: '2023-02-10', type: 'visit', description: 'Follow-up for hypertension management.', icon: FileText },
 ];
+
+const statusConfig: Record<PatientStatus, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' | null }> = {
+    waiting: { label: 'Waiting', variant: 'outline' },
+    called: { label: 'Called', variant: 'secondary' },
+    in_consult: { label: 'In Consultation', variant: 'default' },
+    prescribed: { label: 'Prescribed', variant: 'default' },
+    sent_to_pharmacy: { label: 'At Pharmacy', variant: 'secondary' },
+    dispensed: { label: 'Done', variant: 'secondary' },
+};
+
 
 function DoctorSelection({ doctors, onSelectDoctor }: { doctors: Doctor[], onSelectDoctor: (doctor: Doctor) => void }) {
   return (
@@ -66,7 +76,7 @@ function DoctorSelection({ doctors, onSelectDoctor }: { doctors: Doctor[], onSel
 function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => void }) {
   const { toast } = useToast();
   const { waitingList, updatePatientStatus, activePatient, setActivePatientId } = useClinicContext();
-  const doctorWaitingList = waitingList.filter(p => p.doctorId === doctor.id && ['called', 'in_consult', 'prescribed'].includes(p.status));
+  const doctorWaitingList = waitingList.filter(p => p.doctorId === doctor.id && p.status !== 'sent_to_pharmacy' && p.status !== 'dispensed');
 
   const handleStartConsultation = (patientId: string) => {
     updatePatientStatus(patientId, 'in_consult');
@@ -77,10 +87,6 @@ function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => voi
     // This is a mock list. In a real app, this would come from the doctor's input.
     const prescribedItems = ['Amoxicillin 500mg', 'Ibuprofen 200mg', 'Cough Syrup'];
     updatePatientStatus(patientId, 'sent_to_pharmacy', prescribedItems); 
-    toast({
-        title: 'Prescription Sent',
-        description: 'The prescription has been sent to the pharmacy queue.'
-    });
     // Unset active patient after sending to pharmacy
     if (activePatient?.id === patientId) {
         setActivePatientId(null);
@@ -113,25 +119,28 @@ function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => voi
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {doctorWaitingList.map((patient) => (
-                    <TableRow key={patient.id} className={patient.id === activePatient?.id ? 'bg-secondary' : ''}>
-                      <TableCell className="font-medium">{patient.patientName}</TableCell>
-                      <TableCell>
-                        <Badge variant={patient.status === 'in_consult' ? 'default' : 'secondary'}>{patient.status.replace('_', ' ')}</Badge>
-                      </TableCell>
-                      <TableCell>{patient.time}</TableCell>
-                      <TableCell className="space-x-2">
-                        <Button size="sm" variant="outline" onClick={() => handleStartConsultation(patient.id)} disabled={patient.status !== 'called'}>
-                          <Play className="mr-2 h-4 w-4" />
-                          Start 
-                        </Button>
-                        <Button size="sm" variant="default" onClick={() => handleSendToPharmacy(patient.id)} disabled={patient.status !== 'in_consult'}>
-                          <Send className="mr-2 h-4 w-4" />
-                          To Pharmacy
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {doctorWaitingList.map((patient) => {
+                    const config = statusConfig[patient.status];
+                    return (
+                        <TableRow key={patient.id} className={patient.id === activePatient?.id ? 'bg-secondary' : ''}>
+                          <TableCell className="font-medium">{patient.patientName}</TableCell>
+                          <TableCell>
+                            <Badge variant={config.variant || 'default'}>{config.label}</Badge>
+                          </TableCell>
+                          <TableCell>{patient.time}</TableCell>
+                          <TableCell className="space-x-2">
+                            <Button size="sm" variant="outline" onClick={() => handleStartConsultation(patient.id)} disabled={patient.status === 'in_consult'}>
+                              <Play className="mr-2 h-4 w-4" />
+                              {patient.status === 'in_consult' ? 'In Consult' : 'Start'}
+                            </Button>
+                            <Button size="sm" variant="default" onClick={() => handleSendToPharmacy(patient.id)} disabled={patient.status !== 'in_consult'}>
+                              <Send className="mr-2 h-4 w-4" />
+                              To Pharmacy
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </CardContent>
@@ -187,3 +196,5 @@ export default function DoctorPage() {
 
     return <DoctorDashboard doctor={selectedDoctor} onBack={() => setSelectedDoctor(null)} />;
 }
+
+    

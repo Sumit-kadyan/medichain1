@@ -171,45 +171,51 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
 
     const updatePatientStatus = (waitingPatientId: string, status: PatientStatus, items: string[] = []) => {
         
+        let patientToUpdate: WaitingPatient | undefined;
+
+        setWaitingList(prev => prev.map(p => {
+            if (p.id === waitingPatientId) {
+                patientToUpdate = { ...p, status };
+                return patientToUpdate;
+            }
+            return p;
+        }));
+
+        const patient = patientToUpdate;
+        if (!patient) return;
+        
+        // Handle "consulted" status for previous patient when a new one is called
         if (status === 'in_consult') {
-            const currentConsultingPatient = waitingList.find(p => p.status === 'in_consult');
-            if (currentConsultingPatient && currentConsultingPatient.id !== waitingPatientId) {
-                setWaitingList(prev => prev.map(p => p.id === currentConsultingPatient.id ? { ...p, status: 'prescribed' } : p));
+            const previousPatient = waitingList.find(p => p.status === 'in_consult' && p.doctorId === patient.doctorId);
+            if (previousPatient && previousPatient.id !== waitingPatientId) {
+                setWaitingList(prev => prev.map(p => p.id === previousPatient.id ? { ...p, status: 'prescribed' } : p));
                  toast({
                     title: 'Status Updated',
-                    description: `${currentConsultingPatient.patientName}'s status is now Prescribed.`,
+                    description: `${previousPatient.patientName}'s status is now 'Consulted'.`,
                 });
             }
         }
         
-        setWaitingList(prev => prev.map(p => p.id === waitingPatientId ? { ...p, status } : p));
-        
-        const patient = waitingList.find(p => p.id === waitingPatientId);
-        
-        if (status === 'called' && patient) {
+        if (status === 'called') {
              addNotification(`Dr. ${patient.doctorName} is calling for ${patient.patientName}.`);
         }
         
         if (status === 'sent_to_pharmacy') {
-            if (patient) {
-                const newPrescription: Prescription = {
-                    id: `presc-${Date.now()}`,
-                    patientName: patient.patientName,
-                    doctor: patient.doctorName,
-                    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                    items,
-                    status: 'pending',
-                }
-                setPharmacyQueue(prev => [...prev, newPrescription]);
-                toast({ title: 'Sent to Pharmacy', description: `${patient.patientName}'s prescription has been sent.` });
+            const newPrescription: Prescription = {
+                id: `presc-${Date.now()}`,
+                patientName: patient.patientName,
+                doctor: patient.doctorName,
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                items,
+                status: 'pending',
             }
+            setPharmacyQueue(prev => [...prev, newPrescription]);
+            toast({ title: 'Sent to Pharmacy', description: `${patient.patientName}'s prescription has been sent.` });
         } else {
-             if(patient) {
-                toast({
-                    title: 'Status Updated',
-                    description: `${patient.patientName}'s status is now ${status.replace(/_/g, ' ')}.`,
-                });
-             }
+            toast({
+                title: 'Status Updated',
+                description: `${patient.patientName}'s status is now ${status.replace(/_/g, ' ')}.`,
+            });
         }
     };
 
@@ -229,13 +235,18 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
     }
     
     const updatePrescriptionStatus = (prescriptionId: string, status: PrescriptionStatus) => {
-        setPharmacyQueue(prev => prev.map(p => p.id === prescriptionId ? { ...p, status } : p));
-        if (status === 'dispensed') {
-            const prescription = pharmacyQueue.find(p => p.id === prescriptionId);
-            if (prescription) {
-                setWaitingList(prev => prev.map(p => p.patientName === prescription.patientName ? { ...p, status: 'dispensed' } : p));
-                 toast({ title: 'Patient Processed', description: `${prescription.patientName} has been marked as Done.` });
+        let updatedPrescription: Prescription | undefined;
+        setPharmacyQueue(prev => prev.map(p => {
+            if (p.id === prescriptionId) {
+                updatedPrescription = { ...p, status };
+                return updatedPrescription;
             }
+            return p;
+        }));
+
+        if (status === 'dispensed' && updatedPrescription) {
+            setWaitingList(prev => prev.map(p => p.patientName === updatedPrescription!.patientName ? { ...p, status: 'dispensed' } : p));
+             toast({ title: 'Patient Processed', description: `${updatedPrescription.patientName} has been marked as Done.` });
         }
     };
 
@@ -270,3 +281,5 @@ export const useClinicContext = () => {
     }
     return context;
 };
+
+    

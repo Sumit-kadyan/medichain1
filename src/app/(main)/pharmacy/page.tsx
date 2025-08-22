@@ -18,22 +18,13 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { FileText, Printer, CheckCircle } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
 import { useClinicContext, Prescription } from '@/context/clinic-context';
 
 export default function PharmacyPage() {
-  const { toast } = useToast();
   const { pharmacyQueue, updatePrescriptionStatus } = useClinicContext();
   
   const handleMarkAsDispensed = (prescriptionId: string) => {
     updatePrescriptionStatus(prescriptionId, 'dispensed');
-    const prescription = pharmacyQueue.find(p => p.id === prescriptionId);
-    if(prescription) {
-      toast({
-        title: 'Success',
-        description: `${prescription.patientName}'s prescription marked as dispensed.`,
-      });
-    }
   };
 
   const handleGenerateBill = (prescription: Prescription) => {
@@ -67,12 +58,12 @@ export default function PharmacyPage() {
           </TableHeader>
           <TableBody>
             {pharmacyQueue.map((prescription) => (
-              <TableRow key={prescription.id} className={prescription.status === 'dispensed' ? 'bg-secondary/50' : ''}>
+              <TableRow key={prescription.id} className={prescription.status === 'dispensed' ? 'bg-secondary/50 text-muted-foreground' : ''}>
                 <TableCell className="font-medium">{prescription.patientName}</TableCell>
                 <TableCell>{prescription.doctor}</TableCell>
                 <TableCell>{prescription.time}</TableCell>
                 <TableCell>
-                  <Badge variant={prescription.status === 'dispensed' ? 'default' : 'outline'}>
+                  <Badge variant={prescription.status === 'dispensed' ? 'outline' : 'default'}>
                     {prescription.status}
                   </Badge>
                 </TableCell>
@@ -98,3 +89,5 @@ export default function PharmacyPage() {
     </Card>
   );
 }
+
+    
