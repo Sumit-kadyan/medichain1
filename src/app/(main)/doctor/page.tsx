@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/button';
 import { Play, Clock, FileText, Pill, Send } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useClinicContext } from '@/context/clinic-context';
+import { useToast } from '@/hooks/use-toast';
 
 const patientHistory = [
     { date: '2023-08-15', type: 'visit', description: 'Consultation with Dr. Smith for annual check-up.', icon: FileText },
@@ -29,6 +30,7 @@ const patientHistory = [
 ];
 
 export default function DoctorPage() {
+  const { toast } = useToast();
   const { waitingList, updatePatientStatus, activePatient, setActivePatientId } = useClinicContext();
   const doctorWaitingList = waitingList.filter(p => ['called', 'in_consult', 'prescribed'].includes(p.status));
 
@@ -38,7 +40,17 @@ export default function DoctorPage() {
   };
   
   const handleSendToPharmacy = (patientId: string) => {
-    updatePatientStatus(patientId, 'sent_to_pharmacy', ['Amoxicillin 500mg', 'Ibuprofen 200mg']); // Example items
+    // This is a mock list. In a real app, this would come from the doctor's input.
+    const prescribedItems = ['Amoxicillin 500mg', 'Ibuprofen 200mg', 'Cough Syrup'];
+    updatePatientStatus(patientId, 'sent_to_pharmacy', prescribedItems); 
+    toast({
+        title: 'Prescription Sent',
+        description: 'The prescription has been sent to the pharmacy queue.'
+    });
+    // Unset active patient after sending to pharmacy
+    if (activePatient?.id === patientId) {
+        setActivePatientId(null);
+    }
   };
 
   return (
@@ -63,14 +75,14 @@ export default function DoctorPage() {
               </TableHeader>
               <TableBody>
                 {doctorWaitingList.map((patient) => (
-                  <TableRow key={patient.id}>
+                  <TableRow key={patient.id} className={patient.id === activePatient?.id ? 'bg-secondary' : ''}>
                     <TableCell className="font-medium">{patient.patientName}</TableCell>
                     <TableCell>
-                      <Badge variant={patient.status === 'called' ? 'default' : 'secondary'}>{patient.status.replace('_', ' ')}</Badge>
+                      <Badge variant={patient.status === 'in_consult' ? 'default' : 'secondary'}>{patient.status.replace('_', ' ')}</Badge>
                     </TableCell>
                     <TableCell>{patient.time}</TableCell>
                     <TableCell className="space-x-2">
-                      <Button size="sm" variant="outline" onClick={() => handleStartConsultation(patient.id)} disabled={patient.status !== 'called'}>
+                      <Button size="sm" variant="outline" onClick={() => handleStartConsultation(patient.id)} disabled={patient.status !== 'called' && patient.status !== 'waiting'}>
                         <Play className="mr-2 h-4 w-4" />
                         Start 
                       </Button>

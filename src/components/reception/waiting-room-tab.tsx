@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, User, Play, Check, Send } from 'lucide-react';
+import { MoreHorizontal, User, Play, Check, Send, CircleCheck, AlertTriangle, Hourglass, Stethoscope, FlaskConical } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,26 +26,36 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useClinicContext, PatientStatus } from '@/context/clinic-context';
 
 const statusConfig = {
-    waiting: { label: 'Waiting', color: 'bg-yellow-500' },
-    called: { label: 'Called', color: 'bg-blue-500' },
-    in_consult: { label: 'In Consultation', color: 'bg-indigo-500' },
-    prescribed: { label: 'Prescribed', color: 'bg-purple-500' },
-    sent_to_pharmacy: { label: 'At Pharmacy', color: 'bg-green-500' },
+    waiting: { label: 'Waiting', icon: Hourglass, color: 'bg-yellow-500' },
+    called: { label: 'Called', icon: AlertTriangle, color: 'bg-orange-500' },
+    in_consult: { label: 'In Consultation', icon: Stethoscope, color: 'bg-blue-500' },
+    prescribed: { label: 'Prescribed', icon: Check, color: 'bg-purple-500' },
+    sent_to_pharmacy: { label: 'At Pharmacy', icon: FlaskConical, color: 'bg-indigo-500' },
+    dispensed: { label: 'Done', icon: CircleCheck, color: 'bg-green-500' },
 } as const;
 
 
 export function WaitingRoomTab() {
-    const { waitingList, updatePatientStatus } = useClinicContext();
-    const receptionWaitingList = waitingList.filter(p => p.status !== 'dispensed');
-
+    const { waitingList, updatePatientStatus, notifications, dismissNotification } = useClinicContext();
+    
     const handleUpdateStatus = (patientId: string, newStatus: PatientStatus) => {
         updatePatientStatus(patientId, newStatus);
     };
 
   return (
+    <>
     <Card>
       <CardHeader>
         <CardTitle className="font-headline">Today's Waiting Room</CardTitle>
@@ -67,13 +77,17 @@ export function WaitingRoomTab() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {receptionWaitingList.map((visit) => (
+            {waitingList.map((visit) => {
+              const config = statusConfig[visit.status as keyof typeof statusConfig];
+              const Icon = config.icon;
+              return (
               <TableRow key={visit.id}>
                 <TableCell className="font-medium">{visit.patientName}</TableCell>
                 <TableCell>{visit.doctorName}</TableCell>
                 <TableCell>
-                  <Badge variant="secondary" className="text-white" style={{backgroundColor: statusConfig[visit.status as keyof typeof statusConfig].color}}>
-                    {statusConfig[visit.status as keyof typeof statusConfig].label}
+                  <Badge variant="secondary" className="text-white flex items-center gap-2" style={{backgroundColor: config.color}}>
+                    <Icon className="h-3 w-3" />
+                    <span>{config.label}</span>
                   </Badge>
                 </TableCell>
                 <TableCell>{visit.time}</TableCell>
@@ -104,10 +118,26 @@ export function WaitingRoomTab() {
                   </DropdownMenu>
                 </TableCell>
               </TableRow>
-            ))}
+            )})}
           </TableBody>
         </Table>
       </CardContent>
     </Card>
+    {notifications.map((notification) => (
+        <AlertDialog key={notification.id} open={true} onOpenChange={() => dismissNotification(notification.id)}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Doctor Calling Patient</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        {notification.message}
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogAction onClick={() => dismissNotification(notification.id)}>OK</AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+    ))}
+    </>
   );
 }

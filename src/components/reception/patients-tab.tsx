@@ -16,7 +16,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -38,25 +37,21 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useClinicContext } from '@/context/clinic-context';
 import { useState } from 'react';
+import { AddPatientDialog } from './add-patient-dialog';
 
 export function PatientsTab() {
   const { toast } = useToast();
   const { patients, addPatientToWaitingList, doctors } = useClinicContext();
   const [searchTerm, setSearchTerm] = useState('');
+  const [isAddPatientOpen, setAddPatientOpen] = useState(false);
 
   const handleAddToWaitingList = (patientId: string) => {
     if (doctors.length === 0) {
       toast({ title: 'Error', description: 'Please add a doctor first.', variant: 'destructive' });
       return;
     }
-    // In a real app, you'd likely have a modal to select a doctor.
     const randomDoctor = doctors[Math.floor(Math.random() * doctors.length)];
     addPatientToWaitingList(patientId, randomDoctor.id);
-    const patient = patients.find(p => p.id === patientId);
-    toast({
-      title: 'Patient Added to Waiting List',
-      description: `${patient?.name} has been sent to ${randomDoctor.name}.`,
-    });
   };
   
   const handleAction = (action: string, patientName?: string) => {
@@ -73,6 +68,7 @@ export function PatientsTab() {
   );
 
   return (
+    <>
     <Card>
       <CardHeader>
         <CardTitle className="font-headline">Patient Management</CardTitle>
@@ -91,7 +87,7 @@ export function PatientsTab() {
                 />
             </div>
             <div className='flex gap-2'>
-            <Button variant="outline" onClick={() => handleAction('Add Patient')}>
+            <Button variant="outline" onClick={() => setAddPatientOpen(true)}>
               <UserPlus className="mr-2 h-4 w-4" />
               Add Patient
             </Button>
@@ -150,5 +146,8 @@ export function PatientsTab() {
         </Table>
       </CardContent>
     </Card>
+    <AddPatientDialog open={isAddPatientOpen} onOpenChange={setAddPatientOpen} />
+    </>
   );
 }
+
