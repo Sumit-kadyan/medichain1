@@ -91,6 +91,7 @@ interface ClinicContextType {
     updatePatientRegistration: (patientId: string, type: RegistrationType) => void;
     updatePrescriptionStatus: (prescriptionId: string, status: PrescriptionStatus) => void;
     addDoctor: (doctor: Omit<Doctor, 'id'>) => void;
+    updateDoctor: (doctorId: string, doctorData: Partial<Omit<Doctor, 'id'>>) => void;
     deleteDoctor: (doctorId: string) => void;
     setActivePatientId: (patientId: string | null) => void;
     dismissNotification: (id: number) => void;
@@ -146,6 +147,16 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         } catch (error) {
             console.error("Error adding doctor: ", error);
             toast({ title: "Error", description: "Failed to add doctor.", variant: "destructive" });
+        }
+    };
+    
+    const updateDoctor = async (doctorId: string, doctorData: Partial<Omit<Doctor, 'id'>>) => {
+        try {
+            const doctorDocRef = doc(db, 'clinics', CLINIC_ID, 'doctors', doctorId);
+            await updateDoc(doctorDocRef, doctorData);
+        } catch (error) {
+            console.error("Error updating doctor: ", error);
+            toast({ title: "Error", description: "Failed to update doctor.", variant: "destructive" });
         }
     };
 
@@ -334,6 +345,7 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
             updatePatientRegistration,
             updatePrescriptionStatus,
             addDoctor,
+            updateDoctor,
             deleteDoctor,
             setActivePatientId,
             dismissNotification

@@ -35,17 +35,20 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { useToast } from '@/hooks/use-toast';
-import { useClinicContext } from '@/context/clinic-context';
+import { useClinicContext, Doctor } from '@/context/clinic-context';
 import { AddDoctorDialog } from './add-doctor-dialog';
+import { EditDoctorDialog } from './edit-doctor-dialog';
 
 export function DoctorsTab() {
   const { toast } = useToast();
   const { doctors, deleteDoctor } = useClinicContext();
   const [isAddDoctorOpen, setAddDoctorOpen] = useState(false);
+  const [isEditDoctorOpen, setEditDoctorOpen] = useState(false);
+  const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
 
-  const handleEditDoctor = (name: string) => {
-    // In a real app, this would open a form to edit the doctor's details.
-    alert(`Editing details for ${name}. This is a mock action.`);
+  const handleEditDoctor = (doctor: Doctor) => {
+    setSelectedDoctor(doctor);
+    setEditDoctorOpen(true);
   };
 
   const handleDeleteDoctor = (id: string, name: string) => {
@@ -111,7 +114,7 @@ export function DoctorsTab() {
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => handleEditDoctor(doctor.name)}>
+                        <DropdownMenuItem onClick={() => handleEditDoctor(doctor)}>
                           <Edit className="mr-2 h-4 w-4" />
                           Edit Details
                         </DropdownMenuItem>
@@ -129,6 +132,13 @@ export function DoctorsTab() {
         </CardContent>
       </Card>
       <AddDoctorDialog open={isAddDoctorOpen} onOpenChange={setAddDoctorOpen} />
+      {selectedDoctor && (
+        <EditDoctorDialog 
+            open={isEditDoctorOpen} 
+            onOpenChange={setEditDoctorOpen}
+            doctor={selectedDoctor}
+        />
+      )}
     </>
   );
 }
