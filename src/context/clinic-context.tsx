@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
 // Types
@@ -71,6 +71,31 @@ type Notification = {
     message: string;
 };
 
+const usePersistentState = <T,>(key: string, initialValue: T): [T, React.Dispatch<React.SetStateAction<T>>] => {
+    const [state, setState] = useState<T>(() => {
+        if (typeof window === 'undefined') {
+            return initialValue;
+        }
+        try {
+            const item = window.localStorage.getItem(key);
+            return item ? JSON.parse(item) : initialValue;
+        } catch (error) {
+            console.error(error);
+            return initialValue;
+        }
+    });
+
+    useEffect(() => {
+        try {
+            window.localStorage.setItem(key, JSON.stringify(state));
+        } catch (error) {
+            console.error(error);
+        }
+    }, [key, state]);
+
+    return [state, setState];
+};
+
 // Context
 interface ClinicContextType {
     patients: Patient[];
@@ -95,11 +120,11 @@ const ClinicContext = createContext<ClinicContextType | undefined>(undefined);
 
 export const ClinicProvider = ({ children }: { children: ReactNode }) => {
     const { toast } = useToast();
-    const [patients, setPatients] = useState<Patient[]>(initialPatients);
-    const [doctors, setDoctors] = useState<Doctor[]>(initialDoctors);
-    const [waitingList, setWaitingList] = useState<WaitingPatient[]>([]);
-    const [pharmacyQueue, setPharmacyQueue] = useState<Prescription[]>([]);
-    const [activePatientId, setActivePatientId] = useState<string | null>(null);
+    const [patients, setPatients] = usePersistentState<Patient[]>('patients', initialPatients);
+    const [doctors, setDoctors] = usePersistentState<Doctor[]>('doctors', initialDoctors);
+    const [waitingList, setWaitingList] = usePersistentState<WaitingPatient[]>('waitingList', []);
+    const [pharmacyQueue, setPharmacyQueue] = usePersistentState<Prescription[]>('pharmacyQueue', []);
+    const [activePatientId, setActivePatientId] = usePersistentState<string | null>('activePatientId', null);
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [receiptValidityDays, setReceiptValidityDays] = useState(30);
 
@@ -281,5 +306,3 @@ export const useClinicContext = () => {
     }
     return context;
 };
-
-    
