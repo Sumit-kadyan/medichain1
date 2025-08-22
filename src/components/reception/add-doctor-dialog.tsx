@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -13,7 +13,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogClose,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -34,7 +33,7 @@ interface AddDoctorDialogProps {
 export function AddDoctorDialog({ open, onOpenChange }: AddDoctorDialogProps) {
   const { addDoctor } = useClinicContext();
   const { toast } = useToast();
-  const [loading, setLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -43,22 +42,27 @@ export function AddDoctorDialog({ open, onOpenChange }: AddDoctorDialogProps) {
       specialization: '',
     },
   });
-  
-  const handleDialogClose = (isOpen: boolean) => {
-    if (!isOpen) {
-      form.reset();
-    }
-    onOpenChange(isOpen);
-  };
 
+  // Effect to reset the form whenever the dialog opens
+  useEffect(() => {
+    if (open) {
+      form.reset({
+        name: '',
+        specialization: '',
+      });
+      setIsSubmitting(false);
+    }
+  }, [open, form]);
+  
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    setLoading(true);
+    setIsSubmitting(true);
     try {
       const doctorData = {
           ...values,
           avatarUrl: `https://placehold.co/100x100.png?text=${values.name.charAt(0)}`,
           initials: values.name.split(' ').map(n => n[0]).join('').toUpperCase(),
       };
+      
       await addDoctor(doctorData);
       
       toast({
@@ -66,7 +70,7 @@ export function AddDoctorDialog({ open, onOpenChange }: AddDoctorDialogProps) {
         description: `${values.name} has been added to the clinic.`,
       });
 
-      handleDialogClose(false);
+      onOpenChange(false); // Close the dialog on success
 
     } catch (error) {
       console.error(error);
@@ -75,13 +79,12 @@ export function AddDoctorDialog({ open, onOpenChange }: AddDoctorDialogProps) {
         description: 'Failed to add new doctor. Please try again.',
         variant: 'destructive'
       });
-    } finally {
-      setLoading(false);
+      setIsSubmitting(false); // Only reset loading on error, as success closes dialog
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleDialogClose}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Add New Doctor</DialogTitle>
@@ -118,13 +121,11 @@ export function AddDoctorDialog({ open, onOpenChange }: AddDoctorDialogProps) {
                 )}
               />
             <DialogFooter>
-               <DialogClose asChild>
-                <Button type="button" variant="outline">
+               <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
                   Cancel
                 </Button>
-              </DialogClose>
-              <Button type="submit" disabled={loading}>
-                  {loading ? 'Saving...' : 'Save Doctor'}
+              <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? 'Saving...' : 'Save Doctor'}
               </Button>
             </DialogFooter>
           </form>
