@@ -227,24 +227,7 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         const patientToUpdate = waitingList.find(p => p.id === waitingPatientId);
         if (!patientToUpdate) return;
         
-        let newWaitingList = [...waitingList];
-
-        // Handle "consulted" status for previous patient when a new one is called
-        if (status === 'in_consult') {
-            const previousPatientIndex = newWaitingList.findIndex(p => p.status === 'in_consult' && p.doctorId === patientToUpdate.doctorId);
-            if (previousPatientIndex > -1 && newWaitingList[previousPatientIndex].id !== waitingPatientId) {
-                newWaitingList[previousPatientIndex].status = 'prescribed';
-                toast({
-                    title: 'Status Updated',
-                    description: `${newWaitingList[previousPatientIndex].patientName}'s status is now 'Consulted'.`,
-                });
-            }
-        }
-        
-        const currentPatientIndex = newWaitingList.findIndex(p => p.id === waitingPatientId);
-        if (currentPatientIndex > -1) {
-            newWaitingList[currentPatientIndex].status = status;
-        }
+        let newWaitingList = waitingList.map(p => p.id === waitingPatientId ? {...p, status: status} : p);
 
         saveData('waitingList', newWaitingList);
 
@@ -298,10 +281,13 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         if (status === 'dispensed') {
             const waitingPatientToEnd = waitingList.find(p => p.id === prescription.waitingPatientId);
             if (waitingPatientToEnd) {
-                const updatedWaitingList = waitingList.map(p => p.id === waitingPatientToEnd.id ? { ...p, status: 'dispensed'} : p);
+                // IMPORTANT FIX: Create a new array with the updated status
+                const updatedWaitingList = waitingList.map(p => 
+                    p.id === waitingPatientToEnd.id ? { ...p, status: 'dispensed'} : p
+                );
                 saveData('waitingList', updatedWaitingList);
+                 toast({ title: 'Patient Processed', description: `${prescription.patientName} has been marked as Done.` });
             }
-             toast({ title: 'Patient Processed', description: `${prescription.patientName} has been marked as Done.` });
         }
     };
 
