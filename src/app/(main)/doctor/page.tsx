@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Play, Clock, FileText, Pill, Send, ArrowLeft, Loader2, BookMarked, XCircle } from 'lucide-react';
+import { Play, Clock, FileText, Pill, Send, ArrowLeft, Loader2, BookMarked, XCircle, CheckCircle } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useClinicContext, Doctor, PatientStatus, WaitingPatient } from '@/context/clinic-context';
 import { useToast } from '@/hooks/use-toast';
@@ -81,6 +81,7 @@ function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => voi
   const [activePatient, setActivePatient] = useState<WaitingPatient | null>(null);
 
   const doctorWaitingList = waitingList.filter(p => p.doctorId === doctor.id && p.status !== 'sent_to_pharmacy' && p.status !== 'dispensed' && p.status !== 'prescribed');
+  const patientInConsultation = waitingList.find(p => p.doctorId === doctor.id && p.status === 'in_consult');
 
   const handleStartConsultation = (patient: WaitingPatient) => {
     updatePatientStatus(patient.id, 'in_consult');
@@ -104,9 +105,8 @@ function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => voi
     setPrescription('');
   };
   
-  const handleEndConsultation = () => {
-      if (!activePatient) return;
-      updatePatientStatus(activePatient.id, 'prescribed');
+  const handleEndConsultation = (patientId: string) => {
+      updatePatientStatus(patientId, 'prescribed');
       setActivePatient(null);
       setPrescription('');
   };
@@ -135,14 +135,14 @@ function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => voi
                     <TableHead>Patient</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Waiting Since</TableHead>
-                    <TableHead>Action</TableHead>
+                    <TableHead className="text-right">Action</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {doctorWaitingList.map((patient) => {
                     const config = statusConfig[patient.status];
-                    const isInConsult = patient.id === activePatient?.id && activePatient.status === 'in_consult';
-                    const isAnyInConsult = waitingList.some(p => p.doctorId === doctor.id && p.status === 'in_consult');
+                    const isInConsult = patient.id === patientInConsultation?.id;
+                    const isAnotherPatientInConsult = !!patientInConsultation && patientInConsultation.id !== patient.id;
 
                     return (
                         <TableRow key={patient.id} className={isInConsult ? 'bg-secondary' : ''}>
@@ -151,11 +151,24 @@ function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => voi
                             <Badge variant={config.variant || 'default'}>{config.label}</Badge>
                           </TableCell>
                           <TableCell>{patient.time}</TableCell>
-                          <TableCell className="space-x-2">
-                            <Button size="sm" variant="outline" onClick={() => handleStartConsultation(patient)} disabled={isAnyInConsult}>
-                              <Play className="mr-2 h-4 w-4" />
-                              Start
-                            </Button>
+                          <TableCell className="text-right space-x-2">
+                             {isInConsult ? (
+                                <>
+                                  <Button size="sm" variant="secondary" disabled>
+                                    <CheckCircle className="mr-2 h-4 w-4" />
+                                    In Consultation
+                                  </Button>
+                                   <Button size="sm" variant="outline" onClick={() => handleEndConsultation(patient.id)}>
+                                     <XCircle className="mr-2 h-4 w-4" />
+                                     End
+                                   </Button>
+                                </>
+                             ) : (
+                                <Button size="sm" variant="outline" onClick={() => handleStartConsultation(patient)} disabled={isAnotherPatientInConsult}>
+                                  <Play className="mr-2 h-4 w-4" />
+                                  Start
+                                </Button>
+                             )}
                           </TableCell>
                         </TableRow>
                     );
@@ -173,7 +186,7 @@ function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => voi
                         Prescription Pad
                     </CardTitle>
                     <CardDescription>
-                        Write the prescription below. Each item should be on a new line. Then send to pharmacy or end the consultation.
+                        Write the prescription below. Each item should be on a new line. Then send to pharmacy.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -185,10 +198,6 @@ function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => voi
                     />
                 </CardContent>
                 <CardContent className="flex justify-end gap-2">
-                    <Button variant="outline" onClick={handleEndConsultation}>
-                        <XCircle className="mr-2 h-4 w-4" />
-                        End Consultation
-                    </Button>
                     <Button onClick={handleSendToPharmacy}>
                         <Send className="mr-2 h-4 w-4" />
                         Send to Pharmacy
