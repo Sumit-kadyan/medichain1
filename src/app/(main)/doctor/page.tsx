@@ -21,7 +21,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Play, Clock, FileText, Pill, Send, ArrowLeft, Loader2, BookMarked } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useClinicContext, Doctor, PatientStatus } from '@/context/clinic-context';
+import { useClinicContext, Doctor, PatientStatus, WaitingPatient } from '@/context/clinic-context';
 import { useToast } from '@/hooks/use-toast';
 import { Textarea } from '@/components/ui/textarea';
 
@@ -76,13 +76,15 @@ function DoctorSelection({ doctors, onSelectDoctor }: { doctors: Doctor[], onSel
 
 function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => void }) {
   const { toast } = useToast();
-  const { waitingList, updatePatientStatus, activePatient, setActivePatientId } = useClinicContext();
+  const { waitingList, updatePatientStatus } = useClinicContext();
   const [prescription, setPrescription] = useState('');
+  const [activePatient, setActivePatient] = useState<WaitingPatient | null>(null);
+
   const doctorWaitingList = waitingList.filter(p => p.doctorId === doctor.id && p.status !== 'sent_to_pharmacy' && p.status !== 'dispensed');
 
-  const handleStartConsultation = (patientId: string) => {
-    updatePatientStatus(patientId, 'in_consult');
-    setActivePatientId(patientId);
+  const handleStartConsultation = (patient: WaitingPatient) => {
+    updatePatientStatus(patient.id, 'in_consult');
+    setActivePatient(patient);
     setPrescription(''); // Clear previous prescription
   };
   
@@ -98,10 +100,12 @@ function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => voi
     const prescribedItems = prescription.split('\n').filter(line => line.trim() !== '');
     updatePatientStatus(patientId, 'sent_to_pharmacy', prescribedItems); 
     if (activePatient?.id === patientId) {
-        setActivePatientId(null);
+        setActivePatient(null);
         setPrescription('');
     }
   };
+  
+  const currentActivePatientInList = waitingList.find(p => p.id === activePatient?.id);
 
   return (
     <>
@@ -131,6 +135,7 @@ function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => voi
                 <TableBody>
                   {doctorWaitingList.map((patient) => {
                     const config = statusConfig[patient.status];
+                    const isInConsult = patient.status === 'in_consult';
                     return (
                         <TableRow key={patient.id} className={patient.id === activePatient?.id ? 'bg-secondary' : ''}>
                           <TableCell className="font-medium">{patient.patientName}</TableCell>
@@ -139,11 +144,11 @@ function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => voi
                           </TableCell>
                           <TableCell>{patient.time}</TableCell>
                           <TableCell className="space-x-2">
-                            <Button size="sm" variant="outline" onClick={() => handleStartConsultation(patient.id)} disabled={patient.status === 'in_consult'}>
+                            <Button size="sm" variant="outline" onClick={() => handleStartConsultation(patient)} disabled={isInConsult}>
                               <Play className="mr-2 h-4 w-4" />
-                              {patient.status === 'in_consult' ? 'In Consult' : 'Start'}
+                              {isInConsult ? 'In Consult' : 'Start'}
                             </Button>
-                            <Button size="sm" variant="default" onClick={() => handleSendToPharmacy(patient.id)} disabled={patient.status !== 'in_consult'}>
+                            <Button size="sm" variant="default" onClick={() => handleSendToPharmacy(patient.id)} disabled={!isInConsult}>
                               <Send className="mr-2 h-4 w-4" />
                               To Pharmacy
                             </Button>
@@ -190,7 +195,7 @@ function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => voi
             </CardContent>
           </Card>
 
-           {activePatient && activePatient.status === 'in_consult' && (
+           {currentActivePatientInList && currentActivePatientInList.status === 'in_consult' && (
             <Card>
                 <CardHeader>
                     <CardTitle className="font-headline flex items-center gap-2">

@@ -77,7 +77,6 @@ interface ClinicContextType {
     doctors: Doctor[];
     waitingList: WaitingPatient[];
     pharmacyQueue: Prescription[];
-    activePatient: WaitingPatient | undefined;
     notifications: Notification[];
     receiptValidityDays: number;
     loading: boolean;
@@ -89,7 +88,6 @@ interface ClinicContextType {
     addDoctor: (doctor: Omit<Doctor, 'id'>) => Promise<Doctor | undefined>;
     updateDoctor: (doctorId: string, doctorData: Partial<Omit<Doctor, 'id'>>) => Promise<void>;
     deleteDoctor: (doctorId: string) => Promise<void>;
-    setActivePatientId: (patientId: string | null) => void;
     dismissNotification: (id: number) => void;
 }
 
@@ -101,12 +99,9 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
     const [doctors, setDoctors] = useState<Doctor[]>([]);
     const [waitingList, setWaitingList] = useState<WaitingPatient[]>([]);
     const [pharmacyQueue, setPharmacyQueue] = useState<Prescription[]>([]);
-    const [activePatientId, setActivePatientId] = useState<string | null>(null);
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [receiptValidityDays, setReceiptValidityDays] = useState(30);
     const [loading, setLoading] = useState(true);
-
-    const activePatient = waitingList.find(p => p.id === activePatientId);
 
     // Load initial data from localStorage
     useEffect(() => {
@@ -308,7 +303,6 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
             doctors, 
             waitingList, 
             pharmacyQueue, 
-            activePatient,
             notifications,
             receiptValidityDays,
             loading,
@@ -320,7 +314,6 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
             addDoctor,
             updateDoctor,
             deleteDoctor,
-            setActivePatientId,
             dismissNotification
         }}>
             {children}
