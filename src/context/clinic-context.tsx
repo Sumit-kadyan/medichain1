@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { createContext, useContext, useState, ReactNode, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { 
@@ -14,8 +14,6 @@ import {
     query,
     where,
     writeBatch,
-    Timestamp,
-    getDocs
 } from 'firebase/firestore';
 
 // Types
@@ -110,69 +108,69 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [receiptValidityDays, setReceiptValidityDays] = useState(30);
     const [loading, setLoading] = useState(true);
-    
-    // State to track if initial load for each collection is complete
-    const loadingStates = useRef({
-        patients: true,
-        doctors: true,
-        waitingList: true,
-        pharmacyQueue: true,
-    });
-
 
     const activePatient = waitingList.find(p => p.id === activePatientId);
     
-    // --- Firestore Listeners ---
     useEffect(() => {
+        setLoading(true);
         const todayStr = new Date().toISOString().split('T')[0];
-        
+
+        const collectionsToLoad = {
+            patients: false,
+            doctors: false,
+            waitingList: false,
+            pharmacyQueue: false,
+        };
+
         const checkAllLoaded = () => {
-            if (
-                !loadingStates.current.patients &&
-                !loadingStates.current.doctors &&
-                !loadingStates.current.waitingList &&
-                !loadingStates.current.pharmacyQueue
-            ) {
+            if (Object.values(collectionsToLoad).every(loaded => loaded)) {
                 setLoading(false);
             }
         };
 
-        const unsubscribes = [
-            onSnapshot(collection(db, 'clinics', CLINIC_ID, 'patients'), (snapshot) => {
-                const patientsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Patient));
-                setPatients(patientsData);
-                if (loadingStates.current.patients) {
-                    loadingStates.current.patients = false;
-                    checkAllLoaded();
-                }
-            }),
-            onSnapshot(collection(db, 'clinics', CLINIC_ID, 'doctors'), (snapshot) => {
-                const doctorsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Doctor));
-                setDoctors(doctorsData);
-                 if (loadingStates.current.doctors) {
-                    loadingStates.current.doctors = false;
-                    checkAllLoaded();
-                }
-            }),
-            onSnapshot(query(collection(db, 'clinics', CLINIC_ID, 'waitingList'), where('visitDate', '==', todayStr)), (snapshot) => {
-                const waitingListData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as WaitingPatient));
-                setWaitingList(waitingListData);
-                 if (loadingStates.current.waitingList) {
-                    loadingStates.current.waitingList = false;
-                    checkAllLoaded();
-                }
-            }),
-             onSnapshot(collection(db, 'clinics', CLINIC_ID, 'pharmacyQueue'), (snapshot) => {
-                const pharmacyQueueData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Prescription));
-                setPharmacyQueue(pharmacyQueueData);
-                 if (loadingStates.current.pharmacyQueue) {
-                    loadingStates.current.pharmacyQueue = false;
-                    checkAllLoaded();
-                }
-            }),
-        ];
+        const unsubPatients = onSnapshot(collection(db, 'clinics', CLINIC_ID, 'patients'), (snapshot) => {
+            const patientsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Patient));
+            setPatients(patientsData);
+            if (!collectionsToLoad.patients) {
+                collectionsToLoad.patients = true;
+                checkAllLoaded();
+            }
+        });
 
-        return () => unsubscribes.forEach(unsub => unsub());
+        const unsubDoctors = onSnapshot(collection(db, 'clinics', CLINIC_ID, 'doctors'), (snapshot) => {
+            const doctorsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Doctor));
+            setDoctors(doctorsData);
+            if (!collectionsToLoad.doctors) {
+                collectionsToLoad.doctors = true;
+                checkAllLoaded();
+            }
+        });
+
+        const unsubWaitingList = onSnapshot(query(collection(db, 'clinics', CLINIC_ID, 'waitingList'), where('visitDate', '==', todayStr)), (snapshot) => {
+            const waitingListData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as WaitingPatient));
+            setWaitingList(waitingListData);
+            if (!collectionsToLoad.waitingList) {
+                collectionsToLoad.waitingList = true;
+                checkAllLoaded();
+            }
+        });
+
+        const unsubPharmacyQueue = onSnapshot(collection(db, 'clinics', CLINIC_ID, 'pharmacyQueue'), (snapshot) => {
+            const pharmacyQueueData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Prescription));
+            setPharmacyQueue(pharmacyQueueData);
+            if (!collectionsToLoad.pharmacyQueue) {
+                collectionsToLoad.pharmacyQueue = true;
+                checkAllLoaded();
+            }
+        });
+
+        // Cleanup function
+        return () => {
+            unsubPatients();
+            unsubDoctors();
+            unsubWaitingList();
+            unsubPharmacyQueue();
+        };
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
