@@ -50,13 +50,14 @@ export function PatientsTab() {
   const [isAddPatientOpen, setAddPatientOpen] = useState(false);
 
   const handleAddToWaitingList = (patientId: string) => {
-    if (doctors.length === 0) {
-      toast({ title: 'Error', description: 'Please add a doctor first.', variant: 'destructive' });
-      return;
+    const patient = patients.find(p => p.id === patientId);
+    if (!patient) return;
+    
+    if (!patient.doctorId) {
+        toast({ title: 'Error', description: 'This patient is not assigned to a doctor.', variant: 'destructive' });
+        return;
     }
-    // In a real app, we might let the user choose. For now, assign to first available.
-    const doctor = doctors[0];
-    addPatientToWaitingList(patientId, doctor.id);
+    addPatientToWaitingList(patient.id, patient.doctorId);
   };
   
   const handleAction = (action: string, patientName?: string) => {
@@ -215,3 +216,5 @@ export function PatientsTab() {
     </>
   );
 }
+
+    

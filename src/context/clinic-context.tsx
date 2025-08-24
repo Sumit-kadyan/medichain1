@@ -21,6 +21,7 @@ export interface Patient extends FirestoreDocument {
     lastVisit: string; // Storing as ISO string
     avatarUrl: string;
     registrationType: RegistrationType;
+    doctorId: string;
 }
 
 export interface Doctor extends FirestoreDocument {
@@ -131,8 +132,8 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         setLoading(false);
     }, []);
 
-    const saveData = <K extends keyof ClinicContextType>(key: K, data: ClinicContextType[K]) => {
-        const fullKey = `${CLINIC_ID}_${key}`;
+    const saveData = <K extends keyof Omit<ClinicContextType, 'loading' | 'notifications' | 'receiptValidityDays' | 'addPatient' | 'addPatientToWaitingList' | 'updatePatientStatus' | 'updatePatientRegistration' | 'updatePrescriptionStatus' | 'addDoctor' | 'updateDoctor' | 'deleteDoctor' | 'dismissNotification' >>(key: K, data: any) => {
+        const fullKey = `${CLINIC_ID}_${String(key)}`;
         setInLocalStorage(fullKey, data);
         
         switch(key) {
@@ -236,7 +237,7 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         const patientToUpdate = waitingList.find(p => p.id === waitingPatientId);
         if (!patientToUpdate) return;
         
-        let newWaitingList = waitingList.map(p => p.id === waitingPatientId ? {...p, status: status} : p);
+        const newWaitingList = waitingList.map(p => p.id === waitingPatientId ? {...p, status: status} : p);
         saveData('waitingList', newWaitingList);
 
         if (status === 'called') {
@@ -295,9 +296,12 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
             }
             return p;
         });
+        
+        setWaitingList(finalWaitingList);
+        setPharmacyQueue(updatedQueue);
 
-        saveData('pharmacyQueue', updatedQueue);
-        saveData('waitingList', finalWaitingList);
+        setInLocalStorage(`${CLINIC_ID}_pharmacyQueue`, updatedQueue);
+        setInLocalStorage(`${CLINIC_ID}_waitingList`, finalWaitingList);
         
         if (status === 'dispensed' && dispensedPatientName) {
             toast({ title: 'Patient Processed', description: `${dispensedPatientName} has been marked as Done.` });
@@ -335,5 +339,7 @@ export const useClinicContext = () => {
     }
     return context;
 };
+
+    
 
     
