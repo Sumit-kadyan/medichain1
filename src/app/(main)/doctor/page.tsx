@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Play, Clock, FileText, Pill, Send, ArrowLeft, Loader2, BookMarked } from 'lucide-react';
+import { Play, Clock, FileText, Pill, Send, ArrowLeft, Loader2, BookMarked, XCircle } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useClinicContext, Doctor, PatientStatus, WaitingPatient } from '@/context/clinic-context';
 import { useToast } from '@/hooks/use-toast';
@@ -35,7 +35,7 @@ const statusConfig: Record<PatientStatus, { label: string; variant: 'default' | 
     waiting: { label: 'Waiting', variant: 'outline' },
     called: { label: 'Called', variant: 'secondary' },
     in_consult: { label: 'In Consultation', variant: 'default' },
-    prescribed: { label: 'Prescribed', variant: 'default' },
+    prescribed: { label: 'Consulted', variant: 'default' },
     sent_to_pharmacy: { label: 'At Pharmacy', variant: 'secondary' },
     dispensed: { label: 'Done', variant: 'secondary' },
 };
@@ -53,8 +53,8 @@ function DoctorSelection({ doctors, onSelectDoctor }: { doctors: Doctor[], onSel
             </CardHeader>
             <CardContent className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                 {doctors.map(doctor => (
-                    <Card 
-                        key={doctor.id} 
+                    <Card
+                        key={doctor.id}
                         className="p-4 flex flex-col items-center gap-4 hover:bg-secondary transition-colors cursor-pointer"
                         onClick={() => onSelectDoctor(doctor)}
                     >
@@ -80,15 +80,16 @@ function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => voi
   const [prescription, setPrescription] = useState('');
   const [activePatient, setActivePatient] = useState<WaitingPatient | null>(null);
 
-  const doctorWaitingList = waitingList.filter(p => p.doctorId === doctor.id && p.status !== 'sent_to_pharmacy' && p.status !== 'dispensed');
+  const doctorWaitingList = waitingList.filter(p => p.doctorId === doctor.id && p.status !== 'sent_to_pharmacy' && p.status !== 'dispensed' && p.status !== 'prescribed');
 
   const handleStartConsultation = (patient: WaitingPatient) => {
     updatePatientStatus(patient.id, 'in_consult');
     setActivePatient(patient);
     setPrescription(''); // Clear previous prescription
   };
-  
-  const handleSendToPharmacy = (patientId: string) => {
+
+  const handleSendToPharmacy = () => {
+    if (!activePatient) return;
     if (!prescription.trim()) {
         toast({
             title: 'Empty Prescription',
@@ -98,11 +99,16 @@ function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => voi
         return;
     }
     const prescribedItems = prescription.split('\n').filter(line => line.trim() !== '');
-    updatePatientStatus(patientId, 'sent_to_pharmacy', prescribedItems); 
-    if (activePatient?.id === patientId) {
-        setActivePatient(null);
-        setPrescription('');
-    }
+    updatePatientStatus(activePatient.id, 'sent_to_pharmacy', prescribedItems);
+    setActivePatient(null);
+    setPrescription('');
+  };
+  
+  const handleEndConsultation = () => {
+      if (!activePatient) return;
+      updatePatientStatus(activePatient.id, 'prescribed');
+      setActivePatient(null);
+      setPrescription('');
   };
   
   const currentActivePatientInList = waitingList.find(p => p.id === activePatient?.id);
@@ -135,22 +141,20 @@ function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => voi
                 <TableBody>
                   {doctorWaitingList.map((patient) => {
                     const config = statusConfig[patient.status];
-                    const isInConsult = patient.status === 'in_consult';
+                    const isInConsult = patient.id === activePatient?.id && activePatient.status === 'in_consult';
+                    const isAnyInConsult = waitingList.some(p => p.doctorId === doctor.id && p.status === 'in_consult');
+
                     return (
-                        <TableRow key={patient.id} className={patient.id === activePatient?.id ? 'bg-secondary' : ''}>
+                        <TableRow key={patient.id} className={isInConsult ? 'bg-secondary' : ''}>
                           <TableCell className="font-medium">{patient.patientName}</TableCell>
                           <TableCell>
                             <Badge variant={config.variant || 'default'}>{config.label}</Badge>
                           </TableCell>
                           <TableCell>{patient.time}</TableCell>
                           <TableCell className="space-x-2">
-                            <Button size="sm" variant="outline" onClick={() => handleStartConsultation(patient)} disabled={isInConsult}>
+                            <Button size="sm" variant="outline" onClick={() => handleStartConsultation(patient)} disabled={isAnyInConsult}>
                               <Play className="mr-2 h-4 w-4" />
-                              {isInConsult ? 'In Consult' : 'Start'}
-                            </Button>
-                            <Button size="sm" variant="default" onClick={() => handleSendToPharmacy(patient.id)} disabled={!isInConsult}>
-                              <Send className="mr-2 h-4 w-4" />
-                              To Pharmacy
+                              Start
                             </Button>
                           </TableCell>
                         </TableRow>
@@ -160,6 +164,39 @@ function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => voi
               </Table>
             </CardContent>
           </Card>
+
+          {currentActivePatientInList && currentActivePatientInList.status === 'in_consult' && (
+            <Card>
+                <CardHeader>
+                    <CardTitle className="font-headline flex items-center gap-2">
+                        <BookMarked className="h-6 w-6 text-primary" />
+                        Prescription Pad
+                    </CardTitle>
+                    <CardDescription>
+                        Write the prescription below. Each item should be on a new line. Then send to pharmacy or end the consultation.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Textarea
+                        placeholder="e.g.,&#10;Amoxicillin 500mg - 1 tab 3 times a day for 7 days&#10;Ibuprofen 200mg - as needed for pain"
+                        className="min-h-[150px] font-mono text-sm"
+                        value={prescription}
+                        onChange={(e) => setPrescription(e.target.value)}
+                    />
+                </CardContent>
+                <CardContent className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={handleEndConsultation}>
+                        <XCircle className="mr-2 h-4 w-4" />
+                        End Consultation
+                    </Button>
+                    <Button onClick={handleSendToPharmacy}>
+                        <Send className="mr-2 h-4 w-4" />
+                        Send to Pharmacy
+                    </Button>
+                </CardContent>
+            </Card>
+           )}
+
           <DrugSuggestionForm />
         </div>
         <div className="lg:col-span-1 space-y-6">
@@ -194,29 +231,6 @@ function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => voi
               </div>
             </CardContent>
           </Card>
-
-           {currentActivePatientInList && currentActivePatientInList.status === 'in_consult' && (
-            <Card>
-                <CardHeader>
-                    <CardTitle className="font-headline flex items-center gap-2">
-                        <BookMarked className="h-6 w-6 text-primary" />
-                        Prescription Pad
-                    </CardTitle>
-                    <CardDescription>
-                        Write the prescription below. Each item should be on a new line.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <Textarea
-                        placeholder="e.g.,&#10;Amoxicillin 500mg - 1 tab 3 times a day for 7 days&#10;Ibuprofen 200mg - as needed for pain"
-                        className="min-h-[150px] font-mono text-sm"
-                        value={prescription}
-                        onChange={(e) => setPrescription(e.target.value)}
-                    />
-                </CardContent>
-            </Card>
-           )}
-
         </div>
       </div>
     </>
@@ -242,5 +256,3 @@ export default function DoctorPage() {
 
     return <DoctorDashboard doctor={selectedDoctor} onBack={() => setSelectedDoctor(null)} />;
 }
-
-    
