@@ -133,7 +133,7 @@ export function WaitingRoomTab() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {waitingList.map((visit) => {
+            {[...waitingList].reverse().map((visit) => {
               const config = statusConfig[visit.status as keyof typeof statusConfig];
               const Icon = config.icon;
               return (
