@@ -7,7 +7,6 @@ import { useToast } from '@/hooks/use-toast';
 // Types
 export type PatientStatus = 'waiting' | 'called' | 'in_consult' | 'prescribed' | 'sent_to_pharmacy' | 'dispensed';
 export type PrescriptionStatus = 'pending' | 'dispensed';
-export type RegistrationType = 'Added' | 'Renewed' | 'Continued';
 
 export interface FirestoreDocument {
     id: string;
@@ -18,9 +17,7 @@ export interface Patient extends FirestoreDocument {
     phone: string;
     gender: 'Male' | 'Female' | 'Other';
     age: number;
-    lastVisit: string; // Storing as ISO string
     avatarUrl: string;
-    registrationType: RegistrationType;
     doctorId: string;
 }
 
@@ -89,12 +86,10 @@ interface ClinicContextType {
     waitingList: WaitingPatient[];
     pharmacyQueue: Prescription[];
     notifications: Notification[];
-    receiptValidityDays: number;
     loading: boolean;
-    addPatient: (patient: Omit<Patient, 'id' | 'lastVisit' | 'avatarUrl' | 'registrationType'>) => Promise<Patient | undefined>;
+    addPatient: (patient: Omit<Patient, 'id' | 'avatarUrl'>) => Promise<Patient | undefined>;
     addPatientToWaitingList: (patientId: string, doctorId: string) => void;
     updatePatientStatus: (waitingPatientId: string, status: PatientStatus, items?: string[]) => void;
-    updatePatientRegistration: (patientId: string, type: RegistrationType) => void;
     updatePrescriptionStatus: (prescriptionId: string, status: PrescriptionStatus) => void;
     addDoctor: (doctor: Omit<Doctor, 'id'>) => Promise<Doctor | undefined>;
     updateDoctor: (doctorId: string, doctorData: Partial<Omit<Doctor, 'id'>>) => Promise<void>;
@@ -111,7 +106,6 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
     const [waitingList, setWaitingList] = useState<WaitingPatient[]>([]);
     const [pharmacyQueue, setPharmacyQueue] = useState<Prescription[]>([]);
     const [notifications, setNotifications] = useState<Notification[]>([]);
-    const [receiptValidityDays, setReceiptValidityDays] = useState(30);
     const [loading, setLoading] = useState(true);
 
     // Load initial data from localStorage
@@ -132,7 +126,7 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         setLoading(false);
     }, []);
 
-    const saveData = <K extends keyof Omit<ClinicContextType, 'loading' | 'notifications' | 'receiptValidityDays' | 'addPatient' | 'addPatientToWaitingList' | 'updatePatientStatus' | 'updatePatientRegistration' | 'updatePrescriptionStatus' | 'addDoctor' | 'updateDoctor' | 'deleteDoctor' | 'dismissNotification' >>(key: K, data: any) => {
+    const saveData = <K extends keyof Omit<ClinicContextType, 'loading' | 'notifications' | 'addPatient' | 'addPatientToWaitingList' | 'updatePatientStatus' | 'updatePrescriptionStatus' | 'addDoctor' | 'updateDoctor' | 'deleteDoctor' | 'dismissNotification' >>(key: K, data: any) => {
         const fullKey = `${CLINIC_ID}_${String(key)}`;
         setInLocalStorage(fullKey, data);
         
@@ -164,14 +158,12 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         saveData('doctors', updatedDoctors);
     };
     
-    const addPatient = async (patientData: Omit<Patient, 'id' | 'lastVisit' | 'avatarUrl' | 'registrationType'>): Promise<Patient | undefined> => {
+    const addPatient = async (patientData: Omit<Patient, 'id' | 'avatarUrl'>): Promise<Patient | undefined> => {
         try {
             const newPatient: Patient = {
                 id: `pat_${Date.now()}`,
                 ...patientData,
-                lastVisit: new Date().toISOString(),
                 avatarUrl: `https://placehold.co/100x100?text=${patientData.name.charAt(0)}`,
-                registrationType: 'Added',
             };
             const updatedPatients = [...patients, newPatient];
             saveData('patients', updatedPatients);
@@ -194,7 +186,7 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         if (patient && doctor) {
             const isPatientActive = waitingList.some(p => 
                 p.patientId === patientId && 
-                p.status !== 'dispensed' && p.status !== 'prescribed'
+                (p.status === 'waiting' || p.status === 'called' || p.status === 'in_consult' || p.status === 'sent_to_pharmacy')
             );
 
             if (isPatientActive) {
@@ -263,22 +255,6 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
             });
         }
     };
-
-    const updatePatientRegistration = async (patientId: string, type: RegistrationType) => {
-        const patient = patients.find(p => p.id === patientId);
-        if (!patient) return;
-        
-        const updatedPatients = patients.map(p => 
-            p.id === patientId 
-            ? { ...p, registrationType: type, lastVisit: new Date().toISOString() } 
-            : p
-        );
-        saveData('patients', updatedPatients);
-        toast({
-            title: 'Patient Updated',
-            description: `${patient.name} has been marked as ${type}.`
-        });
-    }
     
     const updatePrescriptionStatus = async (prescriptionId: string, status: PrescriptionStatus) => {
         let finalWaitingList = [...waitingList];
@@ -315,12 +291,10 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
             waitingList, 
             pharmacyQueue, 
             notifications,
-            receiptValidityDays,
             loading,
             addPatient,
             addPatientToWaitingList,
             updatePatientStatus,
-            updatePatientRegistration,
             updatePrescriptionStatus,
             addDoctor,
             updateDoctor,
@@ -339,7 +313,3 @@ export const useClinicContext = () => {
     }
     return context;
 };
-
-    
-
-    

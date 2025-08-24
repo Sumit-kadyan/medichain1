@@ -25,9 +25,6 @@ import {
   Edit,
   FileText,
   Send,
-  CalendarDays,
-  RefreshCw,
-  ArrowRight,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -41,11 +38,10 @@ import { useToast } from '@/hooks/use-toast';
 import { useClinicContext, Patient } from '@/context/clinic-context';
 import { useState, useMemo } from 'react';
 import { AddPatientDialog } from './add-patient-dialog';
-import { Badge } from '../ui/badge';
 
 export function PatientsTab() {
   const { toast } = useToast();
-  const { patients, addPatientToWaitingList, doctors, receiptValidityDays, updatePatientRegistration } = useClinicContext();
+  const { patients, addPatientToWaitingList } = useClinicContext();
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddPatientOpen, setAddPatientOpen] = useState(false);
 
@@ -68,42 +64,12 @@ export function PatientsTab() {
     });
   };
 
-  const isReceiptValid = (lastVisit: string) => {
-    const lastVisitDate = new Date(lastVisit);
-    const expiryDate = new Date(lastVisitDate);
-    expiryDate.setDate(expiryDate.getDate() + receiptValidityDays);
-    return new Date() < expiryDate;
-  }
-
-  const groupedPatients = useMemo(() => {
-    const filtered = patients.filter(patient =>
+  const filteredPatients = useMemo(() => {
+    return patients.filter(patient =>
         patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         patient.phone.includes(searchTerm)
       );
-
-    return filtered.reduce((acc, patient) => {
-        const date = new Date(patient.lastVisit).toDateString();
-        if (!acc[date]) {
-            acc[date] = [];
-        }
-        acc[date].push(patient);
-        return acc;
-    }, {} as Record<string, Patient[]>);
-
   }, [patients, searchTerm]);
-
-  const sortedDates = useMemo(() => {
-    return Object.keys(groupedPatients).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
-  }, [groupedPatients]);
-
-  const getStatusVariant = (status: 'Added' | 'Renewed' | 'Continued') => {
-    switch (status) {
-        case 'Added': return 'default';
-        case 'Renewed': return 'secondary';
-        case 'Continued': return 'outline';
-        default: return 'default';
-    }
-  }
 
 
   return (
@@ -112,7 +78,7 @@ export function PatientsTab() {
       <CardHeader>
         <CardTitle className="font-headline">Patient Management</CardTitle>
         <CardDescription>
-          Search, add, and manage patient records and visits.
+          Search, add, and manage patient records.
         </CardDescription>
         <div className="flex flex-col sm:flex-row gap-2 pt-2">
             <div className="relative flex-1">
@@ -134,81 +100,56 @@ export function PatientsTab() {
         </div>
       </CardHeader>
       <CardContent>
-        {sortedDates.length === 0 ? (
+        {filteredPatients.length === 0 ? (
           <p className="text-center text-muted-foreground py-8">No patients found.</p>
         ) : (
-          sortedDates.map(date => (
-            <div key={date} className="mb-8">
-               <h3 className="text-lg font-semibold mb-3 flex items-center gap-2 text-muted-foreground">
-                <CalendarDays className="h-5 w-5" />
-                <span>{new Date(date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
-               </h3>
-               <div className="border rounded-lg">
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                          <TableHead>Name</TableHead>
-                          <TableHead className="hidden sm:table-cell">Phone</TableHead>
-                          <TableHead className="hidden md:table-cell">Gender / Age</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Actions</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {groupedPatients[date].map((patient) => (
-                        <TableRow key={patient.id}>
-                            <TableCell className="font-medium">{patient.name}</TableCell>
-                            <TableCell className="hidden sm:table-cell">{patient.phone}</TableCell>
-                            <TableCell className="hidden md:table-cell">{`${patient.gender}, ${patient.age}`}</TableCell>
-                            <TableCell>
-                                <Badge variant={getStatusVariant(patient.registrationType)}>
-                                    {patient.registrationType}
-                                </Badge>
-                            </TableCell>
-                            <TableCell className="space-x-2">
-                              {isReceiptValid(patient.lastVisit) ? (
-                                <Button size="sm" variant="secondary" onClick={() => updatePatientRegistration(patient.id, 'Renewed')}>
-                                  <RefreshCw className="mr-2 h-4 w-4"/>
-                                  Renew
+            <div className="border rounded-lg">
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead className="hidden sm:table-cell">Phone</TableHead>
+                        <TableHead className="hidden md:table-cell">Gender / Age</TableHead>
+                        <TableHead>Actions</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {filteredPatients.map((patient) => (
+                    <TableRow key={patient.id}>
+                        <TableCell className="font-medium">{patient.name}</TableCell>
+                        <TableCell className="hidden sm:table-cell">{patient.phone}</TableCell>
+                        <TableCell className="hidden md:table-cell">{`${patient.gender}, ${patient.age}`}</TableCell>
+                        <TableCell>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                <Button aria-haspopup="true" size="icon" variant="ghost">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                    <span className="sr-only">Toggle menu</span>
                                 </Button>
-                              ) : (
-                                 <Button size="sm" variant="outline" onClick={() => updatePatientRegistration(patient.id, 'Continued')}>
-                                  <ArrowRight className="mr-2 h-4 w-4"/>
-                                  Continue
-                                </Button>
-                              )}
-                              <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                  <Button aria-haspopup="true" size="icon" variant="ghost">
-                                      <MoreHorizontal className="h-4 w-4" />
-                                      <span className="sr-only">Toggle menu</span>
-                                  </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end">
-                                  <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem onClick={() => handleAddToWaitingList(patient.id)}>
-                                      <Send className="mr-2 h-4 w-4" />
-                                      Add to Waiting List
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => handleAction('Edit Patient', patient.name)}>
-                                      <Edit className="mr-2 h-4 w-4" />
-                                      Edit Patient
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => handleAction('View History', patient.name)}>
-                                      <FileText className="mr-2 h-4 w-4" />
-                                      View History
-                                  </DropdownMenuItem>
-                                  </DropdownMenuContent>
-                              </DropdownMenu>
-                            </TableCell>
-                        </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
-               </div>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => handleAddToWaitingList(patient.id)}>
+                                    <Send className="mr-2 h-4 w-4" />
+                                    Add to Waiting List
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleAction('Edit Patient', patient.name)}>
+                                    <Edit className="mr-2 h-4 w-4" />
+                                    Edit Patient
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleAction('View History', patient.name)}>
+                                    <FileText className="mr-2 h-4 w-4" />
+                                    View History
+                                </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </TableCell>
+                    </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
             </div>
-          ))
         )}
       </CardContent>
     </Card>
@@ -216,5 +157,3 @@ export function PatientsTab() {
     </>
   );
 }
-
-    

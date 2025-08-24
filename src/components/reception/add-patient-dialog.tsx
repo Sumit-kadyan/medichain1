@@ -222,5 +222,3 @@ export function AddPatientDialog({ open, onOpenChange }: AddPatientDialogProps) 
     </Dialog>
   );
 }
-
-    
