@@ -15,7 +15,7 @@ import { Separator } from '@/components/ui/separator';
 import { Prescription } from '@/context/clinic-context';
 import { useClinicContext } from '@/context/clinic-context';
 import { Download, QrCode } from 'lucide-react';
-import { toPng } from 'html-to-image';
+import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import QRCode from 'react-qr-code';
 
@@ -47,23 +47,26 @@ export function BillPreviewDialog({
     if (!billRef.current) return;
 
     try {
-        const dataUrl = await toPng(billRef.current, { cacheBust: true, pixelRatio: 2 });
+        const canvas = await html2canvas(billRef.current, { scale: 2 });
+        const dataUrl = canvas.toDataURL('image/png');
+
         const pdf = new jsPDF('p', 'px', 'a4');
         const pdfWidth = pdf.internal.pageSize.getWidth();
         const pdfHeight = pdf.internal.pageSize.getHeight();
-        const imgWidth = pdfWidth;
-        const imgHeight = billRef.current.offsetHeight * (pdfWidth / billRef.current.offsetWidth);
+        
+        const imgProps= pdf.getImageProperties(dataUrl);
+        const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
         
         let heightLeft = imgHeight;
         let position = 0;
         
-        pdf.addImage(dataUrl, 'PNG', 0, position, imgWidth, imgHeight);
+        pdf.addImage(dataUrl, 'PNG', 0, position, pdfWidth, imgHeight);
         heightLeft -= pdfHeight;
 
         while (heightLeft >= 0) {
             position = heightLeft - imgHeight;
             pdf.addPage();
-            pdf.addImage(dataUrl, 'PNG', 0, position, imgWidth, imgHeight);
+            pdf.addImage(dataUrl, 'PNG', 0, position, pdfWidth, imgHeight);
             heightLeft -= pdfHeight;
         }
 
