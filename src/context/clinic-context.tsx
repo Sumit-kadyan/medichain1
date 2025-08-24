@@ -14,7 +14,8 @@ import {
     query,
     where,
     writeBatch,
-    Timestamp
+    Timestamp,
+    getDocs
 } from 'firebase/firestore';
 
 // Types
@@ -117,6 +118,28 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         setLoading(true);
         const todayStr = new Date().toISOString().split('T')[0];
 
+        const collectionsToFetch = [
+            collection(db, 'clinics', CLINIC_ID, 'patients'),
+            collection(db, 'clinics', CLINIC_ID, 'doctors'),
+            query(collection(db, 'clinics', CLINIC_ID, 'waitingList'), where('visitDate', '==', todayStr)),
+            collection(db, 'clinics', CLINIC_ID, 'pharmacyQueue'),
+        ];
+        
+        // Fetch initial data to set loading state correctly
+        const fetchInitialData = async () => {
+            try {
+                const initialSnapshots = await Promise.all(collectionsToFetch.map(coll => getDocs(coll)));
+                // We can set initial data here if needed, but for now, just waiting is enough
+            } catch (error) {
+                console.error("Error fetching initial data:", error);
+                toast({ title: "Error", description: "Could not load clinic data.", variant: "destructive" });
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchInitialData();
+
         const unsubscribes = [
             onSnapshot(collection(db, 'clinics', CLINIC_ID, 'patients'), (snapshot) => {
                 const patientsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Patient));
@@ -135,19 +158,9 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
                 setPharmacyQueue(pharmacyQueueData);
             }),
         ];
-        
-        // This was missing before, causing re-renders to reset loading state.
-        const allDataLoaded = Promise.all([
-             new Promise(resolve => onSnapshot(collection(db, 'clinics', CLINIC_ID, 'patients'), () => resolve(true))),
-             new Promise(resolve => onSnapshot(collection(db, 'clinics', CLINIC_ID, 'doctors'), () => resolve(true))),
-        ]);
-
-        allDataLoaded.finally(() => setLoading(false));
 
         return () => unsubscribes.forEach(unsub => unsub());
-    // This empty dependency array is the critical fix.
-    // It ensures this effect runs only ONCE, when the component mounts.
-    }, []);
+    }, [toast]);
 
 
     const addDoctor = async (doctorData: Omit<Doctor, 'id'>) => {
