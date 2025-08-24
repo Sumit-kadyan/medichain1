@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { 
@@ -110,57 +110,71 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [receiptValidityDays, setReceiptValidityDays] = useState(30);
     const [loading, setLoading] = useState(true);
+    
+    // State to track if initial load for each collection is complete
+    const loadingStates = useRef({
+        patients: true,
+        doctors: true,
+        waitingList: true,
+        pharmacyQueue: true,
+    });
+
 
     const activePatient = waitingList.find(p => p.id === activePatientId);
     
     // --- Firestore Listeners ---
     useEffect(() => {
-        setLoading(true);
         const todayStr = new Date().toISOString().split('T')[0];
-
-        const collectionsToFetch = [
-            collection(db, 'clinics', CLINIC_ID, 'patients'),
-            collection(db, 'clinics', CLINIC_ID, 'doctors'),
-            query(collection(db, 'clinics', CLINIC_ID, 'waitingList'), where('visitDate', '==', todayStr)),
-            collection(db, 'clinics', CLINIC_ID, 'pharmacyQueue'),
-        ];
         
-        // Fetch initial data to set loading state correctly
-        const fetchInitialData = async () => {
-            try {
-                const initialSnapshots = await Promise.all(collectionsToFetch.map(coll => getDocs(coll)));
-                // We can set initial data here if needed, but for now, just waiting is enough
-            } catch (error) {
-                console.error("Error fetching initial data:", error);
-                toast({ title: "Error", description: "Could not load clinic data.", variant: "destructive" });
-            } finally {
+        const checkAllLoaded = () => {
+            if (
+                !loadingStates.current.patients &&
+                !loadingStates.current.doctors &&
+                !loadingStates.current.waitingList &&
+                !loadingStates.current.pharmacyQueue
+            ) {
                 setLoading(false);
             }
         };
-
-        fetchInitialData();
 
         const unsubscribes = [
             onSnapshot(collection(db, 'clinics', CLINIC_ID, 'patients'), (snapshot) => {
                 const patientsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Patient));
                 setPatients(patientsData);
+                if (loadingStates.current.patients) {
+                    loadingStates.current.patients = false;
+                    checkAllLoaded();
+                }
             }),
             onSnapshot(collection(db, 'clinics', CLINIC_ID, 'doctors'), (snapshot) => {
                 const doctorsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Doctor));
                 setDoctors(doctorsData);
+                 if (loadingStates.current.doctors) {
+                    loadingStates.current.doctors = false;
+                    checkAllLoaded();
+                }
             }),
             onSnapshot(query(collection(db, 'clinics', CLINIC_ID, 'waitingList'), where('visitDate', '==', todayStr)), (snapshot) => {
                 const waitingListData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as WaitingPatient));
                 setWaitingList(waitingListData);
+                 if (loadingStates.current.waitingList) {
+                    loadingStates.current.waitingList = false;
+                    checkAllLoaded();
+                }
             }),
              onSnapshot(collection(db, 'clinics', CLINIC_ID, 'pharmacyQueue'), (snapshot) => {
                 const pharmacyQueueData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Prescription));
                 setPharmacyQueue(pharmacyQueueData);
+                 if (loadingStates.current.pharmacyQueue) {
+                    loadingStates.current.pharmacyQueue = false;
+                    checkAllLoaded();
+                }
             }),
         ];
 
         return () => unsubscribes.forEach(unsub => unsub());
-    }, [toast]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
 
     const addDoctor = async (doctorData: Omit<Doctor, 'id'>) => {

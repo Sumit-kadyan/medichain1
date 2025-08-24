@@ -18,6 +18,7 @@ import {
   Settings,
   CircleHelp,
   BriefcaseMedical,
+  Database,
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -38,6 +39,11 @@ const menuItems = [
     label: 'Pharmacy',
     icon: Pill,
   },
+  {
+    href: '/database',
+    label: 'Database',
+    icon: Database,
+  }
 ];
 
 export default function MainSidebar() {
@@ -85,7 +91,7 @@ export default function MainSidebar() {
                 isActive={pathname.startsWith('/settings')}
                 className="w-full"
               >
-                <Link href="/reception">
+                <Link href="/reception?tab=settings">
                   <Settings className="mr-3 h-5 w-5" />
                   <span>Settings</span>
                 </Link>
