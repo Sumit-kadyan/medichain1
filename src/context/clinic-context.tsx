@@ -63,13 +63,22 @@ const CLINIC_ID = 'default-clinic'; // This can be dynamic in a real multi-tenan
 const getFromLocalStorage = <T>(key: string, defaultValue: T): T => {
     if (typeof window === 'undefined') return defaultValue;
     const item = window.localStorage.getItem(key);
-    return item ? JSON.parse(item) : defaultValue;
+    try {
+        return item ? JSON.parse(item) : defaultValue;
+    } catch (e) {
+        console.error(`Failed to parse localStorage item ${key}:`, e);
+        return defaultValue;
+    }
 };
 
 // Helper function to set data to localStorage
 const setInLocalStorage = <T>(key: string, value: T) => {
     if (typeof window === 'undefined') return;
-    window.localStorage.setItem(key, JSON.stringify(value));
+    try {
+        window.localStorage.setItem(key, JSON.stringify(value));
+    } catch (e) {
+        console.error(`Failed to set localStorage item ${key}:`, e);
+    }
 };
 
 
@@ -112,7 +121,7 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         const storedPatients = getFromLocalStorage<Patient[]>(`${CLINIC_ID}_patients`, []);
         const storedDoctors = getFromLocalStorage<Doctor[]>(`${CLINIC_ID}_doctors`, []);
         const storedWaitingList = getFromLocalStorage<WaitingPatient[]>(`${CLINIC_ID}_waitingList`, []).filter(p => p.visitDate === todayStr);
-        const storedPharmacyQueue = getFromLocalStorage<Prescription[]>(`${CLINIC_ID}_pharmacyQueue`, []);
+        const storedPharmacyQueue = getFromLocalStorage<Prescription[]>(`${CLINIC_ID}_pharmacyQueue`, []).filter(p => storedWaitingList.some(wp => wp.id === p.waitingPatientId));
         
         setPatients(storedPatients);
         setDoctors(storedDoctors);
@@ -122,14 +131,15 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         setLoading(false);
     }, []);
 
-    const saveData = (key: 'patients' | 'doctors' | 'waitingList' | 'pharmacyQueue', data: any) => {
+    const saveData = <K extends keyof ClinicContextType>(key: K, data: ClinicContextType[K]) => {
         const fullKey = `${CLINIC_ID}_${key}`;
         setInLocalStorage(fullKey, data);
+        
         switch(key) {
-            case 'patients': setPatients(data); break;
-            case 'doctors': setDoctors(data); break;
-            case 'waitingList': setWaitingList(data); break;
-            case 'pharmacyQueue': setPharmacyQueue(data); break;
+            case 'patients': setPatients(data as Patient[]); break;
+            case 'doctors': setDoctors(data as Doctor[]); break;
+            case 'waitingList': setWaitingList(data as WaitingPatient[]); break;
+            case 'pharmacyQueue': setPharmacyQueue(data as Prescription[]); break;
         }
     }
     
@@ -176,7 +186,6 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         }
     };
     
-
     const addPatientToWaitingList = async (patientId: string, doctorId: string) => {
         const patient = patients.find(p => p.id === patientId);
         const doctor = doctors.find(d => d.id === doctorId);
@@ -228,7 +237,6 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         if (!patientToUpdate) return;
         
         let newWaitingList = waitingList.map(p => p.id === waitingPatientId ? {...p, status: status} : p);
-
         saveData('waitingList', newWaitingList);
 
         if (status === 'called') {
@@ -272,22 +280,27 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
     }
     
     const updatePrescriptionStatus = async (prescriptionId: string, status: PrescriptionStatus) => {
-        const prescription = pharmacyQueue.find(p => p.id === prescriptionId);
-        if (!prescription) return;
-        
-        const updatedQueue = pharmacyQueue.map(p => p.id === prescriptionId ? { ...p, status } : p);
-        saveData('pharmacyQueue', updatedQueue);
-        
-        if (status === 'dispensed') {
-            const waitingPatientToEnd = waitingList.find(p => p.id === prescription.waitingPatientId);
-            if (waitingPatientToEnd) {
-                // IMPORTANT FIX: Create a new array with the updated status
-                const updatedWaitingList = waitingList.map(p => 
-                    p.id === waitingPatientToEnd.id ? { ...p, status: 'dispensed'} : p
-                );
-                saveData('waitingList', updatedWaitingList);
-                 toast({ title: 'Patient Processed', description: `${prescription.patientName} has been marked as Done.` });
+        let finalWaitingList = [...waitingList];
+        let dispensedPatientName = '';
+
+        const updatedQueue = pharmacyQueue.map(p => {
+            if (p.id === prescriptionId) {
+                if (status === 'dispensed') {
+                    dispensedPatientName = p.patientName;
+                    finalWaitingList = finalWaitingList.map(wp => 
+                        wp.id === p.waitingPatientId ? { ...wp, status: 'dispensed' } : wp
+                    );
+                }
+                return { ...p, status };
             }
+            return p;
+        });
+
+        saveData('pharmacyQueue', updatedQueue);
+        saveData('waitingList', finalWaitingList);
+        
+        if (status === 'dispensed' && dispensedPatientName) {
+            toast({ title: 'Patient Processed', description: `${dispensedPatientName} has been marked as Done.` });
         }
     };
 
@@ -322,3 +335,5 @@ export const useClinicContext = () => {
     }
     return context;
 };
+
+    
