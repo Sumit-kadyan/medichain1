@@ -44,6 +44,7 @@ export interface WaitingPatient extends FirestoreDocument {
 }
 
 export interface Prescription extends FirestoreDocument {
+  waitingPatientId: string;
   patientName: string;
   doctor: string;
   time: string;
@@ -183,7 +184,7 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         if (patient && doctor) {
             const isPatientActive = waitingList.some(p => 
                 p.patientId === patientId && 
-                (p.status === 'waiting' || p.status === 'called' || p.status === 'in_consult' || p.status === 'sent_to_pharmacy')
+                p.status !== 'dispensed' && p.status !== 'prescribed'
             );
 
             if (isPatientActive) {
@@ -254,6 +255,7 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         if (status === 'sent_to_pharmacy') {
             const newPrescription: Prescription = {
                 id: `presc_${Date.now()}`,
+                waitingPatientId: waitingPatientId,
                 patientName: patientToUpdate.patientName,
                 doctor: patientToUpdate.doctorName,
                 time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -294,7 +296,7 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         saveData('pharmacyQueue', updatedQueue);
         
         if (status === 'dispensed') {
-            const waitingPatientToEnd = waitingList.find(p => p.patientName === prescription.patientName && p.status !== 'dispensed');
+            const waitingPatientToEnd = waitingList.find(p => p.id === prescription.waitingPatientId);
             if (waitingPatientToEnd) {
                 const updatedWaitingList = waitingList.map(p => p.id === waitingPatientToEnd.id ? { ...p, status: 'dispensed'} : p);
                 saveData('waitingList', updatedWaitingList);
