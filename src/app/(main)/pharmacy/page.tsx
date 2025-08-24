@@ -21,19 +21,24 @@ import { Button } from '@/components/ui/button';
 import { FileText, Printer, CheckCircle } from 'lucide-react';
 import { useClinicContext, Prescription } from '@/context/clinic-context';
 import { PrescriptionDetailsDialog } from '@/components/pharmacy/prescription-details-dialog';
+import { GenerateBillDialog } from '@/components/pharmacy/generate-bill-dialog';
+import { BillPreviewDialog } from '@/components/pharmacy/bill-preview-dialog';
 
 
 export default function PharmacyPage() {
   const { pharmacyQueue, updatePrescriptionStatus } = useClinicContext();
   const [selectedPrescription, setSelectedPrescription] = useState<Prescription | null>(null);
+  const [billGenerationPrescription, setBillGenerationPrescription] = useState<Prescription | null>(null);
+  const [billPreviewData, setBillPreviewData] = useState<{ prescription: Prescription, prices: Record<string, number>, dueDate: Date } | null>(null);
   
   const handleMarkAsDispensed = (prescriptionId: string) => {
     updatePrescriptionStatus(prescriptionId, 'dispensed');
   };
 
-  const handleGenerateBill = (prescription: Prescription) => {
-    // In a real app, this would generate a bill.
-    alert(`Bill Generated for ${prescription.patientName}:\n\nItems: ${prescription.items.join(', ')}\n\nThis is a mock action.`);
+  const handleBillGenerated = (prices: Record<string, number>, dueDate: Date) => {
+    if (!billGenerationPrescription) return;
+    setBillPreviewData({ prescription: billGenerationPrescription, prices, dueDate });
+    setBillGenerationPrescription(null); // Close the generation dialog
   };
 
 
@@ -73,7 +78,7 @@ export default function PharmacyPage() {
                       <FileText className="mr-2 h-4 w-4" />
                       View Details
                     </Button>
-                     <Button size="sm" variant="outline" disabled={prescription.status === 'dispensed'} onClick={() => handleGenerateBill(prescription)}>
+                     <Button size="sm" variant="outline" disabled={prescription.status === 'dispensed'} onClick={() => setBillGenerationPrescription(prescription)}>
                       <Printer className="mr-2 h-4 w-4" />
                       Generate Bill
                     </Button>
@@ -88,6 +93,7 @@ export default function PharmacyPage() {
           </Table>
         </CardContent>
       </Card>
+      
       <PrescriptionDetailsDialog 
         prescription={selectedPrescription}
         open={!!selectedPrescription}
@@ -95,6 +101,27 @@ export default function PharmacyPage() {
           if(!open) {
             setSelectedPrescription(null);
           }
+        }}
+      />
+
+      <GenerateBillDialog
+        prescription={billGenerationPrescription}
+        open={!!billGenerationPrescription}
+        onOpenChange={(open) => {
+            if(!open) {
+                setBillGenerationPrescription(null)
+            }
+        }}
+        onBillGenerated={handleBillGenerated}
+      />
+      
+      <BillPreviewDialog
+        billData={billPreviewData}
+        open={!!billPreviewData}
+        onOpenChange={(open) => {
+            if(!open) {
+                setBillPreviewData(null)
+            }
         }}
       />
     </>

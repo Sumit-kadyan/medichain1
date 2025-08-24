@@ -53,7 +53,7 @@ export function PatientsTab() {
         toast({ title: 'Error', description: 'This patient is not assigned to a doctor.', variant: 'destructive' });
         return;
     }
-    addPatientToWaitingList(patient.id, patient.doctorId);
+    addPatientToWaitingList(patient.id);
   };
   
   const handleAction = (action: string, patientName?: string) => {

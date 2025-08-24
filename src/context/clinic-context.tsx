@@ -39,6 +39,7 @@ export interface WaitingPatient extends FirestoreDocument {
     status: PatientStatus;
     time: string;
     visitDate: string; // YYYY-MM-DD
+    advice?: string;
 }
 
 export interface Prescription extends FirestoreDocument {
@@ -48,6 +49,13 @@ export interface Prescription extends FirestoreDocument {
   time: string;
   items: string[];
   status: PrescriptionStatus;
+  advice?: string;
+}
+
+export interface ClinicSettings {
+    clinicName: string;
+    clinicAddress: string;
+    receiptValidityDays: number;
 }
 
 type Notification = {
@@ -86,15 +94,17 @@ interface ClinicContextType {
     waitingList: WaitingPatient[];
     pharmacyQueue: Prescription[];
     notifications: Notification[];
+    settings: ClinicSettings;
     loading: boolean;
     addPatient: (patient: Omit<Patient, 'id' | 'avatarUrl'>) => Promise<Patient | undefined>;
-    addPatientToWaitingList: (patientId: string, doctorId: string) => void;
-    updatePatientStatus: (waitingPatientId: string, status: PatientStatus, items?: string[]) => void;
+    addPatientToWaitingList: (patientId: string) => void;
+    updatePatientStatus: (waitingPatientId: string, status: PatientStatus, items?: string[], advice?: string) => void;
     updatePrescriptionStatus: (prescriptionId: string, status: PrescriptionStatus) => void;
     addDoctor: (doctor: Omit<Doctor, 'id'>) => Promise<Doctor | undefined>;
     updateDoctor: (doctorId: string, doctorData: Partial<Omit<Doctor, 'id'>>) => Promise<void>;
     deleteDoctor: (doctorId: string) => Promise<void>;
     dismissNotification: (id: number) => void;
+    updateSettings: (newSettings: Partial<ClinicSettings>) => void;
 }
 
 const ClinicContext = createContext<ClinicContextType | undefined>(undefined);
@@ -106,6 +116,11 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
     const [waitingList, setWaitingList] = useState<WaitingPatient[]>([]);
     const [pharmacyQueue, setPharmacyQueue] = useState<Prescription[]>([]);
     const [notifications, setNotifications] = useState<Notification[]>([]);
+    const [settings, setSettings] = useState<ClinicSettings>({
+        clinicName: 'MediChain Clinic',
+        clinicAddress: '123 Health St, Wellness City',
+        receiptValidityDays: 30,
+    });
     const [loading, setLoading] = useState(true);
 
     // Load initial data from localStorage
@@ -117,16 +132,18 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         const storedDoctors = getFromLocalStorage<Doctor[]>(`${CLINIC_ID}_doctors`, []);
         const storedWaitingList = getFromLocalStorage<WaitingPatient[]>(`${CLINIC_ID}_waitingList`, []).filter(p => p.visitDate === todayStr);
         const storedPharmacyQueue = getFromLocalStorage<Prescription[]>(`${CLINIC_ID}_pharmacyQueue`, []).filter(p => storedWaitingList.some(wp => wp.id === p.waitingPatientId));
+        const storedSettings = getFromLocalStorage<ClinicSettings>(`${CLINIC_ID}_settings`, settings);
         
         setPatients(storedPatients);
         setDoctors(storedDoctors);
         setWaitingList(storedWaitingList);
         setPharmacyQueue(storedPharmacyQueue);
+        setSettings(storedSettings);
 
         setLoading(false);
     }, []);
 
-    const saveData = <K extends keyof Omit<ClinicContextType, 'loading' | 'notifications' | 'addPatient' | 'addPatientToWaitingList' | 'updatePatientStatus' | 'updatePrescriptionStatus' | 'addDoctor' | 'updateDoctor' | 'deleteDoctor' | 'dismissNotification' >>(key: K, data: any) => {
+    const saveData = <K extends keyof Omit<ClinicContextType, 'loading' | 'notifications' | 'addPatient' | 'addPatientToWaitingList' | 'updatePatientStatus' | 'updatePrescriptionStatus' | 'addDoctor' | 'updateDoctor' | 'deleteDoctor' | 'dismissNotification' | 'updateSettings' >>(key: K, data: any) => {
         const fullKey = `${CLINIC_ID}_${String(key)}`;
         setInLocalStorage(fullKey, data);
         
@@ -135,8 +152,14 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
             case 'doctors': setDoctors(data as Doctor[]); break;
             case 'waitingList': setWaitingList(data as WaitingPatient[]); break;
             case 'pharmacyQueue': setPharmacyQueue(data as Prescription[]); break;
+            case 'settings': setSettings(data as ClinicSettings); break;
         }
     }
+
+     const updateSettings = (newSettings: Partial<ClinicSettings>) => {
+        const updatedSettings = { ...settings, ...newSettings };
+        saveData('settings', updatedSettings);
+    };
     
     const addDoctor = async (doctorData: Omit<Doctor, 'id'>): Promise<Doctor | undefined> => {
         const newDoctor: Doctor = {
@@ -179,41 +202,42 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         }
     };
     
-    const addPatientToWaitingList = async (patientId: string, doctorId: string) => {
+    const addPatientToWaitingList = async (patientId: string) => {
         const patient = patients.find(p => p.id === patientId);
-        const doctor = doctors.find(d => d.id === doctorId);
+        if (!patient || !patient.doctorId) return;
 
-        if (patient && doctor) {
-            const isPatientActive = waitingList.some(p => 
-                p.patientId === patientId && 
-                (p.status === 'waiting' || p.status === 'called' || p.status === 'in_consult' || p.status === 'sent_to_pharmacy')
-            );
+        const doctor = doctors.find(d => d.id === patient.doctorId);
+        if (!doctor) return;
 
-            if (isPatientActive) {
-                toast({ title: 'Already Waiting', description: `${patient.name} is still in the active clinic queue.`, variant: 'destructive' });
-                return;
-            }
+        const isPatientActive = waitingList.some(p => 
+            p.patientId === patientId && 
+            p.status !== 'dispensed' && p.status !== 'prescribed'
+        );
 
-             const newWaitingPatient: WaitingPatient = {
-                id: `wait_${Date.now()}`,
-                patientId,
-                patientName: patient.name,
-                gender: patient.gender,
-                age: patient.age,
-                avatarUrl: patient.avatarUrl,
-                doctorId,
-                doctorName: doctor.name,
-                status: 'waiting',
-                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                visitDate: new Date().toISOString().split('T')[0],
-            };
-            const updatedWaitingList = [...waitingList, newWaitingPatient];
-            saveData('waitingList', updatedWaitingList);
-            toast({
-                title: 'Added to Waitlist',
-                description: `${patient.name} is now waiting for Dr. ${doctor.name}.`
-            });
+        if (isPatientActive) {
+            toast({ title: 'Already Waiting', description: `${patient.name} is still in the active clinic queue.`, variant: 'destructive' });
+            return;
         }
+
+        const newWaitingPatient: WaitingPatient = {
+            id: `wait_${Date.now()}`,
+            patientId,
+            patientName: patient.name,
+            gender: patient.gender,
+            age: patient.age,
+            avatarUrl: patient.avatarUrl,
+            doctorId: patient.doctorId,
+            doctorName: doctor.name,
+            status: 'waiting',
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            visitDate: new Date().toISOString().split('T')[0],
+        };
+        const updatedWaitingList = [...waitingList, newWaitingPatient];
+        saveData('waitingList', updatedWaitingList);
+        toast({
+            title: 'Added to Waitlist',
+            description: `${patient.name} is now waiting for Dr. ${doctor.name}.`
+        });
     };
     
     const addNotification = (message: string) => {
@@ -225,11 +249,11 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         setNotifications(prev => prev.filter(n => n.id !== id));
     }
 
-    const updatePatientStatus = async (waitingPatientId: string, status: PatientStatus, items: string[] = []) => {
+    const updatePatientStatus = async (waitingPatientId: string, status: PatientStatus, items: string[] = [], advice?: string) => {
         const patientToUpdate = waitingList.find(p => p.id === waitingPatientId);
         if (!patientToUpdate) return;
         
-        const newWaitingList = waitingList.map(p => p.id === waitingPatientId ? {...p, status: status} : p);
+        const newWaitingList = waitingList.map(p => p.id === waitingPatientId ? {...p, status, advice } : p);
         saveData('waitingList', newWaitingList);
 
         if (status === 'called') {
@@ -244,11 +268,12 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
                 doctor: patientToUpdate.doctorName,
                 time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                 items,
+                advice,
                 status: 'pending',
             };
             saveData('pharmacyQueue', [...pharmacyQueue, newPrescription]);
             toast({ title: 'Sent to Pharmacy', description: `${patientToUpdate.patientName}'s prescription has been sent.` });
-        } else {
+        } else if (status !== 'in_consult') {
              toast({
                 title: 'Status Updated',
                 description: `${patientToUpdate.patientName}'s status is now ${status.replace(/_/g, ' ')}.`,
@@ -272,12 +297,10 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
             }
             return p;
         });
-        
-        setWaitingList(finalWaitingList);
-        setPharmacyQueue(updatedQueue);
 
-        setInLocalStorage(`${CLINIC_ID}_pharmacyQueue`, updatedQueue);
-        setInLocalStorage(`${CLINIC_ID}_waitingList`, finalWaitingList);
+        // Use the new finalWaitingList for saving
+        saveData('waitingList', finalWaitingList);
+        saveData('pharmacyQueue', updatedQueue);
         
         if (status === 'dispensed' && dispensedPatientName) {
             toast({ title: 'Patient Processed', description: `${dispensedPatientName} has been marked as Done.` });
@@ -291,6 +314,7 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
             waitingList, 
             pharmacyQueue, 
             notifications,
+            settings,
             loading,
             addPatient,
             addPatientToWaitingList,
@@ -299,7 +323,8 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
             addDoctor,
             updateDoctor,
             deleteDoctor,
-            dismissNotification
+            dismissNotification,
+            updateSettings,
         }}>
             {children}
         </ClinicContext.Provider>

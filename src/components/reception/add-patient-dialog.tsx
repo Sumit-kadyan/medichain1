@@ -66,7 +66,7 @@ export function AddPatientDialog({ open, onOpenChange }: AddPatientDialogProps) 
     try {
       const newPatient = await addPatient(values);
       if (newPatient) {
-        addPatientToWaitingList(newPatient.id, values.doctorId);
+        addPatientToWaitingList(newPatient.id);
       }
       
       reset();

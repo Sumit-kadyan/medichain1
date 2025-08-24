@@ -6,6 +6,7 @@ import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
@@ -19,7 +20,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Play, Clock, FileText, Pill, Send, ArrowLeft, Loader2, BookMarked, XCircle, CheckCircle } from 'lucide-react';
+import { Play, Clock, FileText, Pill, Send, ArrowLeft, Loader2, BookMarked, XCircle, CheckCircle, MessageSquareQuote } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useClinicContext, Doctor, PatientStatus, WaitingPatient } from '@/context/clinic-context';
 import { useToast } from '@/hooks/use-toast';
@@ -78,6 +79,7 @@ function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => voi
   const { toast } = useToast();
   const { waitingList, updatePatientStatus } = useClinicContext();
   const [prescription, setPrescription] = useState('');
+  const [advice, setAdvice] = useState('');
   const [activePatient, setActivePatient] = useState<WaitingPatient | null>(null);
 
   const doctorWaitingList = waitingList.filter(p => p.doctorId === doctor.id && p.status !== 'sent_to_pharmacy' && p.status !== 'dispensed' && p.status !== 'prescribed');
@@ -87,6 +89,7 @@ function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => voi
     updatePatientStatus(patient.id, 'in_consult');
     setActivePatient(patient);
     setPrescription(''); // Clear previous prescription
+    setAdvice(''); // Clear previous advice
   };
 
   const handleSendToPharmacy = () => {
@@ -100,15 +103,17 @@ function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => voi
         return;
     }
     const prescribedItems = prescription.split('\n').filter(line => line.trim() !== '');
-    updatePatientStatus(activePatient.id, 'sent_to_pharmacy', prescribedItems);
+    updatePatientStatus(activePatient.id, 'sent_to_pharmacy', prescribedItems, advice);
     setActivePatient(null);
     setPrescription('');
+    setAdvice('');
   };
   
   const handleEndConsultation = (patientId: string) => {
       updatePatientStatus(patientId, 'prescribed');
       setActivePatient(null);
       setPrescription('');
+      setAdvice('');
   };
   
   const currentActivePatientInList = waitingList.find(p => p.id === activePatient?.id);
@@ -179,6 +184,7 @@ function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => voi
           </Card>
 
           {currentActivePatientInList && currentActivePatientInList.status === 'in_consult' && (
+            <>
             <Card>
                 <CardHeader>
                     <CardTitle className="font-headline flex items-center gap-2">
@@ -197,13 +203,34 @@ function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => voi
                         onChange={(e) => setPrescription(e.target.value)}
                     />
                 </CardContent>
-                <CardContent className="flex justify-end gap-2">
+                <CardFooter className="flex justify-end gap-2">
                     <Button onClick={handleSendToPharmacy}>
                         <Send className="mr-2 h-4 w-4" />
                         Send to Pharmacy
                     </Button>
+                </CardFooter>
+            </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle className="font-headline flex items-center gap-2">
+                        <MessageSquareQuote className="h-6 w-6 text-primary" />
+                        Patient Advice (Optional)
+                    </CardTitle>
+                    <CardDescription>
+                       Provide any additional advice or notes for the patient. This will appear on their bill.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Textarea
+                        placeholder="e.g., Recommend bed rest for 2 days and plenty of fluids."
+                        className="min-h-[100px]"
+                        value={advice}
+                        onChange={(e) => setAdvice(e.target.value)}
+                    />
                 </CardContent>
             </Card>
+            </>
            )}
 
           <DrugSuggestionForm />
