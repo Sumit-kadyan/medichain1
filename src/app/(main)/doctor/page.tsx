@@ -19,10 +19,11 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Play, Clock, FileText, Pill, Send, ArrowLeft, Loader2 } from 'lucide-react';
+import { Play, Clock, FileText, Pill, Send, ArrowLeft, Loader2, BookMarked } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useClinicContext, Doctor, PatientStatus } from '@/context/clinic-context';
 import { useToast } from '@/hooks/use-toast';
+import { Textarea } from '@/components/ui/textarea';
 
 const patientHistory = [
     { date: '2023-08-15', type: 'visit', description: 'Consultation for annual check-up.', icon: FileText },
@@ -76,18 +77,29 @@ function DoctorSelection({ doctors, onSelectDoctor }: { doctors: Doctor[], onSel
 function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => void }) {
   const { toast } = useToast();
   const { waitingList, updatePatientStatus, activePatient, setActivePatientId } = useClinicContext();
+  const [prescription, setPrescription] = useState('');
   const doctorWaitingList = waitingList.filter(p => p.doctorId === doctor.id && p.status !== 'sent_to_pharmacy' && p.status !== 'dispensed');
 
   const handleStartConsultation = (patientId: string) => {
     updatePatientStatus(patientId, 'in_consult');
     setActivePatientId(patientId);
+    setPrescription(''); // Clear previous prescription
   };
   
   const handleSendToPharmacy = (patientId: string) => {
-    const prescribedItems = ['Amoxicillin 500mg', 'Ibuprofen 200mg', 'Cough Syrup'];
+    if (!prescription.trim()) {
+        toast({
+            title: 'Empty Prescription',
+            description: 'Please write a prescription before sending to the pharmacy.',
+            variant: 'destructive',
+        });
+        return;
+    }
+    const prescribedItems = prescription.split('\n').filter(line => line.trim() !== '');
     updatePatientStatus(patientId, 'sent_to_pharmacy', prescribedItems); 
     if (activePatient?.id === patientId) {
         setActivePatientId(null);
+        setPrescription('');
     }
   };
 
@@ -145,13 +157,13 @@ function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => voi
           </Card>
           <DrugSuggestionForm />
         </div>
-        <div className="lg:col-span-1">
+        <div className="lg:col-span-1 space-y-6">
           <Card>
             <CardHeader>
               <div className="flex items-center gap-3 mb-2">
                   <Avatar className="h-12 w-12">
-                      <AvatarImage src={activePatient?.avatarUrl || 'https://placehold.co/100x100.png'} alt={activePatient?.patientName} data-ai-hint="person" />
-                      <AvatarFallback>{activePatient?.patientName.charAt(0)}</AvatarFallback>
+                      <AvatarImage src={activePatient?.avatarUrl || 'https://placehold.co/100x100.png'} alt={activePatient?.patientName || ''} data-ai-hint="person" />
+                      <AvatarFallback>{activePatient?.patientName.charAt(0) || '?'}</AvatarFallback>
                   </Avatar>
                   <div>
                       <CardTitle className="font-headline">{activePatient?.patientName || 'No Patient Selected'}</CardTitle>
@@ -177,6 +189,29 @@ function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => voi
               </div>
             </CardContent>
           </Card>
+
+           {activePatient && activePatient.status === 'in_consult' && (
+            <Card>
+                <CardHeader>
+                    <CardTitle className="font-headline flex items-center gap-2">
+                        <BookMarked className="h-6 w-6 text-primary" />
+                        Prescription Pad
+                    </CardTitle>
+                    <CardDescription>
+                        Write the prescription below. Each item should be on a new line.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Textarea
+                        placeholder="e.g.,&#10;Amoxicillin 500mg - 1 tab 3 times a day for 7 days&#10;Ibuprofen 200mg - as needed for pain"
+                        className="min-h-[150px] font-mono text-sm"
+                        value={prescription}
+                        onChange={(e) => setPrescription(e.target.value)}
+                    />
+                </CardContent>
+            </Card>
+           )}
+
         </div>
       </div>
     </>
@@ -202,3 +237,5 @@ export default function DoctorPage() {
 
     return <DoctorDashboard doctor={selectedDoctor} onBack={() => setSelectedDoctor(null)} />;
 }
+
+    
