@@ -181,10 +181,16 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         const doctor = doctors.find(d => d.id === doctorId);
 
         if (patient && doctor) {
-            if (waitingList.some(p => p.patientId === patientId && p.status !== 'dispensed')) {
-                toast({ title: 'Already Waiting', description: `${patient.name} is already in the waiting list.`, variant: 'destructive' });
+            const isPatientActive = waitingList.some(p => 
+                p.patientId === patientId && 
+                (p.status === 'waiting' || p.status === 'called' || p.status === 'in_consult' || p.status === 'sent_to_pharmacy')
+            );
+
+            if (isPatientActive) {
+                toast({ title: 'Already Waiting', description: `${patient.name} is still in the active clinic queue.`, variant: 'destructive' });
                 return;
             }
+
              const newWaitingPatient: WaitingPatient = {
                 id: `wait_${Date.now()}`,
                 patientId,
