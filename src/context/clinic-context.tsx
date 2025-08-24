@@ -14,6 +14,7 @@ import {
     query,
     where,
     writeBatch,
+    getDocs,
 } from 'firebase/firestore';
 
 // Types
@@ -115,61 +116,64 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         setLoading(true);
         const todayStr = new Date().toISOString().split('T')[0];
 
-        const collectionsToLoad = {
+        const collectionsToMonitor = {
+            patients: collection(db, 'clinics', CLINIC_ID, 'patients'),
+            doctors: collection(db, 'clinics', CLINIC_ID, 'doctors'),
+            waitingList: query(collection(db, 'clinics', CLINIC_ID, 'waitingList'), where('visitDate', '==', todayStr)),
+            pharmacyQueue: collection(db, 'clinics', CLINIC_ID, 'pharmacyQueue'),
+        };
+
+        const unsubscribers: (() => void)[] = [];
+        const initialLoadPromises: Promise<void>[] = [];
+        let loadedFlags = {
             patients: false,
             doctors: false,
             waitingList: false,
             pharmacyQueue: false,
         };
-
+        
         const checkAllLoaded = () => {
-            if (Object.values(collectionsToLoad).every(loaded => loaded)) {
+             if (Object.values(loadedFlags).every(Boolean)) {
                 setLoading(false);
             }
+        }
+
+        const createListener = <T extends FirestoreDocument>(
+            collectionName: keyof typeof collectionsToMonitor,
+            setData: React.Dispatch<React.SetStateAction<T[]>>
+        ) => {
+            const q = collectionsToMonitor[collectionName];
+            
+            const loadPromise = new Promise<void>((resolve) => {
+                 unsubscribers.push(onSnapshot(q, (snapshot) => {
+                    const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as T));
+                    setData(data);
+                    if (!loadedFlags[collectionName]) {
+                        loadedFlags[collectionName] = true;
+                        checkAllLoaded();
+                        resolve();
+                    }
+                }, (error) => {
+                    console.error(`Error fetching ${collectionName}:`, error);
+                    // Still resolve to not block other collections from loading
+                    if (!loadedFlags[collectionName]) {
+                       loadedFlags[collectionName] = true;
+                       checkAllLoaded();
+                       resolve();
+                    }
+                }));
+            });
+            initialLoadPromises.push(loadPromise);
         };
-
-        const unsubPatients = onSnapshot(collection(db, 'clinics', CLINIC_ID, 'patients'), (snapshot) => {
-            const patientsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Patient));
-            setPatients(patientsData);
-            if (!collectionsToLoad.patients) {
-                collectionsToLoad.patients = true;
-                checkAllLoaded();
-            }
-        });
-
-        const unsubDoctors = onSnapshot(collection(db, 'clinics', CLINIC_ID, 'doctors'), (snapshot) => {
-            const doctorsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Doctor));
-            setDoctors(doctorsData);
-            if (!collectionsToLoad.doctors) {
-                collectionsToLoad.doctors = true;
-                checkAllLoaded();
-            }
-        });
-
-        const unsubWaitingList = onSnapshot(query(collection(db, 'clinics', CLINIC_ID, 'waitingList'), where('visitDate', '==', todayStr)), (snapshot) => {
-            const waitingListData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as WaitingPatient));
-            setWaitingList(waitingListData);
-            if (!collectionsToLoad.waitingList) {
-                collectionsToLoad.waitingList = true;
-                checkAllLoaded();
-            }
-        });
-
-        const unsubPharmacyQueue = onSnapshot(collection(db, 'clinics', CLINIC_ID, 'pharmacyQueue'), (snapshot) => {
-            const pharmacyQueueData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Prescription));
-            setPharmacyQueue(pharmacyQueueData);
-            if (!collectionsToLoad.pharmacyQueue) {
-                collectionsToLoad.pharmacyQueue = true;
-                checkAllLoaded();
-            }
-        });
+        
+        createListener('patients', setPatients);
+        createListener('doctors', setDoctors);
+        createListener('waitingList', setWaitingList);
+        createListener('pharmacyQueue', setPharmacyQueue);
 
         // Cleanup function
         return () => {
-            unsubPatients();
-            unsubDoctors();
-            unsubWaitingList();
-            unsubPharmacyQueue();
+            unsubscribers.forEach(unsub => unsub());
         };
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -381,3 +385,5 @@ export const useClinicContext = () => {
     }
     return context;
 };
+
+    
