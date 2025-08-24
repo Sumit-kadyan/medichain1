@@ -42,7 +42,7 @@ function DataTable({
           {data.length === 0 ? (
             <TableRow>
                 <TableCell colSpan={columns.length} className="h-24 text-center">
-                    No records found.
+                    No records found in local storage.
                 </TableCell>
             </TableRow>
           ) : (
@@ -87,7 +87,7 @@ export default function DatabaseViewerPage() {
     return (
         <div className="flex h-full items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin" />
-            <p className="ml-2">Loading database...</p>
+            <p className="ml-2">Loading data from local storage...</p>
         </div>
     )
   }
@@ -95,9 +95,9 @@ export default function DatabaseViewerPage() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="font-headline">Database Viewer</CardTitle>
+        <CardTitle className="font-headline">Local Storage Viewer</CardTitle>
         <CardDescription>
-          A read-only view of your Firestore collections.
+          A read-only view of your locally stored data.
         </CardDescription>
       </CardHeader>
       <CardContent>

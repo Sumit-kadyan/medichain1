@@ -3,26 +3,12 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { db } from '@/lib/firebase';
-import { 
-    collection, 
-    onSnapshot, 
-    addDoc, 
-    updateDoc, 
-    deleteDoc, 
-    doc,
-    query,
-    where,
-    writeBatch,
-    getDocs,
-} from 'firebase/firestore';
 
 // Types
 export type PatientStatus = 'waiting' | 'called' | 'in_consult' | 'prescribed' | 'sent_to_pharmacy' | 'dispensed';
 export type PrescriptionStatus = 'pending' | 'dispensed';
 export type RegistrationType = 'Added' | 'Renewed' | 'Continued';
 
-// Firestore documents will have an `id` field.
 export interface FirestoreDocument {
     id: string;
 }
@@ -65,17 +51,27 @@ export interface Prescription extends FirestoreDocument {
   status: PrescriptionStatus;
 }
 
-
 type Notification = {
     id: number;
     message: string;
 };
 
-// This will be used to scope all data to a specific clinic.
-// In a multi-tenant app, this would be determined by user authentication.
-const CLINIC_ID = 'default-clinic';
+const CLINIC_ID = 'default-clinic'; // This can be dynamic in a real multi-tenant app
 
-// Context
+// Helper function to get data from localStorage
+const getFromLocalStorage = <T>(key: string, defaultValue: T): T => {
+    if (typeof window === 'undefined') return defaultValue;
+    const item = window.localStorage.getItem(key);
+    return item ? JSON.parse(item) : defaultValue;
+};
+
+// Helper function to set data to localStorage
+const setInLocalStorage = <T>(key: string, value: T) => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(key, JSON.stringify(value));
+};
+
+
 interface ClinicContextType {
     patients: Patient[];
     doctors: Doctor[];
@@ -90,7 +86,7 @@ interface ClinicContextType {
     updatePatientStatus: (waitingPatientId: string, status: PatientStatus, items?: string[]) => void;
     updatePatientRegistration: (patientId: string, type: RegistrationType) => void;
     updatePrescriptionStatus: (prescriptionId: string, status: PrescriptionStatus) => void;
-    addDoctor: (doctor: Omit<Doctor, 'id'>) => Promise<void>;
+    addDoctor: (doctor: Omit<Doctor, 'id'>) => Promise<Doctor | undefined>;
     updateDoctor: (doctorId: string, doctorData: Partial<Omit<Doctor, 'id'>>) => Promise<void>;
     deleteDoctor: (doctorId: string) => Promise<void>;
     setActivePatientId: (patientId: string | null) => void;
@@ -111,101 +107,72 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
     const [loading, setLoading] = useState(true);
 
     const activePatient = waitingList.find(p => p.id === activePatientId);
-    
+
+    // Load initial data from localStorage
     useEffect(() => {
         setLoading(true);
         const todayStr = new Date().toISOString().split('T')[0];
 
-        const collectionsToMonitor = {
-            patients: collection(db, 'clinics', CLINIC_ID, 'patients'),
-            doctors: collection(db, 'clinics', CLINIC_ID, 'doctors'),
-            waitingList: query(collection(db, 'clinics', CLINIC_ID, 'waitingList'), where('visitDate', '==', todayStr)),
-            pharmacyQueue: collection(db, 'clinics', CLINIC_ID, 'pharmacyQueue'),
-        };
-
-        const unsubscribers: (() => void)[] = [];
-        const initialLoadPromises: Promise<void>[] = [];
-        let loadedFlags = {
-            patients: false,
-            doctors: false,
-            waitingList: false,
-            pharmacyQueue: false,
-        };
+        const storedPatients = getFromLocalStorage<Patient[]>(`${CLINIC_ID}_patients`, []);
+        const storedDoctors = getFromLocalStorage<Doctor[]>(`${CLINIC_ID}_doctors`, []);
+        const storedWaitingList = getFromLocalStorage<WaitingPatient[]>(`${CLINIC_ID}_waitingList`, []).filter(p => p.visitDate === todayStr);
+        const storedPharmacyQueue = getFromLocalStorage<Prescription[]>(`${CLINIC_ID}_pharmacyQueue`, []);
         
-        const checkAllLoaded = () => {
-             if (Object.values(loadedFlags).every(Boolean)) {
-                setLoading(false);
-            }
-        }
+        setPatients(storedPatients);
+        setDoctors(storedDoctors);
+        setWaitingList(storedWaitingList);
+        setPharmacyQueue(storedPharmacyQueue);
 
-        const createListener = <T extends FirestoreDocument>(
-            collectionName: keyof typeof collectionsToMonitor,
-            setData: React.Dispatch<React.SetStateAction<T[]>>
-        ) => {
-            const q = collectionsToMonitor[collectionName];
-            
-            const loadPromise = new Promise<void>((resolve) => {
-                 unsubscribers.push(onSnapshot(q, (snapshot) => {
-                    const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as T));
-                    setData(data);
-                    if (!loadedFlags[collectionName]) {
-                        loadedFlags[collectionName] = true;
-                        checkAllLoaded();
-                        resolve();
-                    }
-                }, (error) => {
-                    console.error(`Error fetching ${collectionName}:`, error);
-                    // Still resolve to not block other collections from loading
-                    if (!loadedFlags[collectionName]) {
-                       loadedFlags[collectionName] = true;
-                       checkAllLoaded();
-                       resolve();
-                    }
-                }));
-            });
-            initialLoadPromises.push(loadPromise);
-        };
-        
-        createListener('patients', setPatients);
-        createListener('doctors', setDoctors);
-        createListener('waitingList', setWaitingList);
-        createListener('pharmacyQueue', setPharmacyQueue);
-
-        // Cleanup function
-        return () => {
-            unsubscribers.forEach(unsub => unsub());
-        };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        setLoading(false);
     }, []);
 
-
-    const addDoctor = async (doctorData: Omit<Doctor, 'id'>) => {
-        await addDoc(collection(db, 'clinics', CLINIC_ID, 'doctors'), doctorData);
+    const saveData = (key: 'patients' | 'doctors' | 'waitingList' | 'pharmacyQueue', data: any) => {
+        const fullKey = `${CLINIC_ID}_${key}`;
+        setInLocalStorage(fullKey, data);
+        switch(key) {
+            case 'patients': setPatients(data); break;
+            case 'doctors': setDoctors(data); break;
+            case 'waitingList': setWaitingList(data); break;
+            case 'pharmacyQueue': setPharmacyQueue(data); break;
+        }
+    }
+    
+    const addDoctor = async (doctorData: Omit<Doctor, 'id'>): Promise<Doctor | undefined> => {
+        const newDoctor: Doctor = {
+            id: `doc_${Date.now()}`,
+            ...doctorData
+        };
+        const updatedDoctors = [...doctors, newDoctor];
+        saveData('doctors', updatedDoctors);
+        return newDoctor;
     };
     
     const updateDoctor = async (doctorId: string, doctorData: Partial<Omit<Doctor, 'id'>>) => {
-        const doctorDocRef = doc(db, 'clinics', CLINIC_ID, 'doctors', doctorId);
-        await updateDoc(doctorDocRef, doctorData);
+        const updatedDoctors = doctors.map(doc => doc.id === doctorId ? {...doc, ...doctorData} : doc);
+        saveData('doctors', updatedDoctors);
     };
 
     const deleteDoctor = async (doctorId: string) => {
-        await deleteDoc(doc(db, 'clinics', CLINIC_ID, 'doctors', doctorId));
+        const updatedDoctors = doctors.filter(doc => doc.id !== doctorId);
+        saveData('doctors', updatedDoctors);
     };
     
     const addPatient = async (patientData: Omit<Patient, 'id' | 'lastVisit' | 'avatarUrl' | 'registrationType'>): Promise<Patient | undefined> => {
         try {
-            const newPatientData = {
+            const newPatient: Patient = {
+                id: `pat_${Date.now()}`,
                 ...patientData,
                 lastVisit: new Date().toISOString(),
                 avatarUrl: `https://placehold.co/100x100?text=${patientData.name.charAt(0)}`,
-                registrationType: 'Added' as RegistrationType,
+                registrationType: 'Added',
             };
-            const docRef = await addDoc(collection(db, 'clinics', CLINIC_ID, 'patients'), newPatientData);
+            const updatedPatients = [...patients, newPatient];
+            saveData('patients', updatedPatients);
             toast({
                 title: 'Patient Added',
                 description: `${patientData.name} has been registered.`
             });
-            return { id: docRef.id, ...newPatientData };
+            return newPatient;
         } catch (error) {
             console.error("Error adding patient: ", error);
             toast({ title: "Error", description: "Failed to add patient.", variant: "destructive" });
@@ -217,14 +184,14 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
     const addPatientToWaitingList = async (patientId: string, doctorId: string) => {
         const patient = patients.find(p => p.id === patientId);
         const doctor = doctors.find(d => d.id === doctorId);
-        const todayStr = new Date().toISOString().split('T')[0];
 
         if (patient && doctor) {
             if (waitingList.some(p => p.patientId === patientId && p.status !== 'dispensed')) {
                 toast({ title: 'Already Waiting', description: `${patient.name} is already in the waiting list.`, variant: 'destructive' });
                 return;
             }
-             const newWaitingPatient: Omit<WaitingPatient, 'id'> = {
+             const newWaitingPatient: WaitingPatient = {
+                id: `wait_${Date.now()}`,
                 patientId,
                 patientName: patient.name,
                 gender: patient.gender,
@@ -234,18 +201,14 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
                 doctorName: doctor.name,
                 status: 'waiting',
                 time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                visitDate: todayStr,
+                visitDate: new Date().toISOString().split('T')[0],
             };
-            try {
-                await addDoc(collection(db, 'clinics', CLINIC_ID, 'waitingList'), newWaitingPatient);
-                 toast({
-                    title: 'Added to Waitlist',
-                    description: `${patient.name} is now waiting for Dr. ${doctor.name}.`
-                });
-            } catch (error) {
-                console.error("Error adding to waiting list: ", error);
-                toast({ title: "Error", description: "Failed to add to waiting list.", variant: "destructive" });
-            }
+            const updatedWaitingList = [...waitingList, newWaitingPatient];
+            saveData('waitingList', updatedWaitingList);
+            toast({
+                title: 'Added to Waitlist',
+                description: `${patient.name} is now waiting for Dr. ${doctor.name}.`
+            });
         }
     };
     
@@ -262,93 +225,80 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         const patientToUpdate = waitingList.find(p => p.id === waitingPatientId);
         if (!patientToUpdate) return;
         
-        try {
-            const batch = writeBatch(db);
-            const patientDocRef = doc(db, 'clinics', CLINIC_ID, 'waitingList', waitingPatientId);
-            batch.update(patientDocRef, { status });
+        let newWaitingList = [...waitingList];
 
-            // Handle "consulted" status for previous patient when a new one is called
-            if (status === 'in_consult') {
-                const previousPatient = waitingList.find(p => p.status === 'in_consult' && p.doctorId === patientToUpdate.doctorId);
-                if (previousPatient && previousPatient.id !== waitingPatientId) {
-                    const prevPatientDocRef = doc(db, 'clinics', CLINIC_ID, 'waitingList', previousPatient.id);
-                    batch.update(prevPatientDocRef, { status: 'prescribed' });
-                    toast({
-                        title: 'Status Updated',
-                        description: `${previousPatient.patientName}'s status is now 'Consulted'.`,
-                    });
-                }
-            }
-            
-            await batch.commit();
-
-            if (status === 'called') {
-                addNotification(`Dr. ${patientToUpdate.doctorName} is calling for ${patientToUpdate.patientName}.`);
-            }
-            
-            if (status === 'sent_to_pharmacy') {
-                const newPrescriptionData = {
-                    patientName: patientToUpdate.patientName,
-                    doctor: patientToUpdate.doctorName,
-                    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                    items,
-                    status: 'pending',
-                };
-                await addDoc(collection(db, 'clinics', CLINIC_ID, 'pharmacyQueue'), newPrescriptionData);
-                toast({ title: 'Sent to Pharmacy', description: `${patientToUpdate.patientName}'s prescription has been sent.` });
-            } else {
-                 toast({
+        // Handle "consulted" status for previous patient when a new one is called
+        if (status === 'in_consult') {
+            const previousPatientIndex = newWaitingList.findIndex(p => p.status === 'in_consult' && p.doctorId === patientToUpdate.doctorId);
+            if (previousPatientIndex > -1 && newWaitingList[previousPatientIndex].id !== waitingPatientId) {
+                newWaitingList[previousPatientIndex].status = 'prescribed';
+                toast({
                     title: 'Status Updated',
-                    description: `${patientToUpdate.patientName}'s status is now ${status.replace(/_/g, ' ')}.`,
+                    description: `${newWaitingList[previousPatientIndex].patientName}'s status is now 'Consulted'.`,
                 });
             }
-        } catch (error) {
-            console.error("Error updating patient status: ", error);
-            toast({ title: "Error", description: "Failed to update patient status.", variant: "destructive" });
+        }
+        
+        const currentPatientIndex = newWaitingList.findIndex(p => p.id === waitingPatientId);
+        if (currentPatientIndex > -1) {
+            newWaitingList[currentPatientIndex].status = status;
+        }
+
+        saveData('waitingList', newWaitingList);
+
+        if (status === 'called') {
+            addNotification(`Dr. ${patientToUpdate.doctorName} is calling for ${patientToUpdate.patientName}.`);
+        }
+        
+        if (status === 'sent_to_pharmacy') {
+            const newPrescription: Prescription = {
+                id: `presc_${Date.now()}`,
+                patientName: patientToUpdate.patientName,
+                doctor: patientToUpdate.doctorName,
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                items,
+                status: 'pending',
+            };
+            saveData('pharmacyQueue', [...pharmacyQueue, newPrescription]);
+            toast({ title: 'Sent to Pharmacy', description: `${patientToUpdate.patientName}'s prescription has been sent.` });
+        } else {
+             toast({
+                title: 'Status Updated',
+                description: `${patientToUpdate.patientName}'s status is now ${status.replace(/_/g, ' ')}.`,
+            });
         }
     };
 
     const updatePatientRegistration = async (patientId: string, type: RegistrationType) => {
         const patient = patients.find(p => p.id === patientId);
         if (!patient) return;
-        try {
-            const patientDocRef = doc(db, 'clinics', CLINIC_ID, 'patients', patientId);
-            await updateDoc(patientDocRef, { 
-                registrationType: type, 
-                lastVisit: new Date().toISOString() 
-            });
-            toast({
-                title: 'Patient Updated',
-                description: `${patient.name} has been marked as ${type}.`
-            });
-        } catch (error) {
-            console.error("Error updating patient registration: ", error);
-            toast({ title: "Error", description: "Failed to update patient registration.", variant: "destructive" });
-        }
+        
+        const updatedPatients = patients.map(p => 
+            p.id === patientId 
+            ? { ...p, registrationType: type, lastVisit: new Date().toISOString() } 
+            : p
+        );
+        saveData('patients', updatedPatients);
+        toast({
+            title: 'Patient Updated',
+            description: `${patient.name} has been marked as ${type}.`
+        });
     }
     
     const updatePrescriptionStatus = async (prescriptionId: string, status: PrescriptionStatus) => {
         const prescription = pharmacyQueue.find(p => p.id === prescriptionId);
         if (!prescription) return;
         
-        try {
-            const batch = writeBatch(db);
-            const prescriptionDocRef = doc(db, 'clinics', CLINIC_ID, 'pharmacyQueue', prescriptionId);
-            batch.update(prescriptionDocRef, { status });
-
-            if (status === 'dispensed') {
-                const waitingPatientToEnd = waitingList.find(p => p.patientName === prescription.patientName && p.status !== 'dispensed');
-                if (waitingPatientToEnd) {
-                    const waitingPatientDocRef = doc(db, 'clinics', CLINIC_ID, 'waitingList', waitingPatientToEnd.id);
-                    batch.update(waitingPatientDocRef, { status: 'dispensed' });
-                }
-                 toast({ title: 'Patient Processed', description: `${prescription.patientName} has been marked as Done.` });
+        const updatedQueue = pharmacyQueue.map(p => p.id === prescriptionId ? { ...p, status } : p);
+        saveData('pharmacyQueue', updatedQueue);
+        
+        if (status === 'dispensed') {
+            const waitingPatientToEnd = waitingList.find(p => p.patientName === prescription.patientName && p.status !== 'dispensed');
+            if (waitingPatientToEnd) {
+                const updatedWaitingList = waitingList.map(p => p.id === waitingPatientToEnd.id ? { ...p, status: 'dispensed'} : p);
+                saveData('waitingList', updatedWaitingList);
             }
-             await batch.commit();
-
-        } catch (error) {
-            console.error("Error updating prescription status: ", error);
-            toast({ title: "Error", description: "Failed to update prescription status.", variant: "destructive" });
+             toast({ title: 'Patient Processed', description: `${prescription.patientName} has been marked as Done.` });
         }
     };
 
@@ -385,5 +335,3 @@ export const useClinicContext = () => {
     }
     return context;
 };
-
-    

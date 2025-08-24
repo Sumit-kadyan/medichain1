@@ -3,12 +3,12 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
-  projectId: "medichain-of3u",
-  appId: "1:250475667538:web:2324574f92d6d5a34bff8b",
-  storageBucket: "medichain-of3u.appspot.com",
-  apiKey: "AIzaSyAyYsik0fydSxsBvnSs5StPQ4fCjKB_TMc",
-  authDomain: "medichain-of3u.firebaseapp.com",
-  messagingSenderId: "250475667538"
+  projectId: "YOUR_PROJECT_ID",
+  appId: "YOUR_APP_ID",
+  storageBucket: "YOUR_STORAGE_BUCKET",
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_AUTH_DOMAIN",
+  messagingSenderId: "YOUR_MESSAGING_SENDER_ID"
 };
 
 // Initialize Firebase

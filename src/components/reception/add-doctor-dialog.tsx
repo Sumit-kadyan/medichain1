@@ -78,9 +78,7 @@ export function AddDoctorDialog({ open, onOpenChange }: AddDoctorDialogProps) {
         description: 'Failed to add new doctor. Please try again.',
         variant: 'destructive'
       });
-    } finally {
-        // This ensures the button is re-enabled even if the dialog doesn't close on error
-        setIsSubmitting(false);
+      setIsSubmitting(false);
     }
   };
 
