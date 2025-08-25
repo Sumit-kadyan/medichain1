@@ -19,6 +19,7 @@ import { Label } from '@/components/ui/label';
 import { useClinicContext, Doctor } from '@/context/clinic-context';
 import { useToast } from '@/hooks/use-toast';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '../ui/form';
+import { Loader2 } from 'lucide-react';
 
 const formSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters.'),
@@ -50,9 +51,14 @@ export function EditDoctorDialog({ open, onOpenChange, doctor }: EditDoctorDialo
             name: doctor.name,
             specialization: doctor.specialization,
         });
-        setIsSubmitting(false);
     }
   }, [open, doctor, form])
+
+  const handleOpenChange = (isOpen: boolean) => {
+    if (!isSubmitting) {
+      onOpenChange(isOpen);
+    }
+  }
   
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     if (!doctor) return;
@@ -86,52 +92,55 @@ export function EditDoctorDialog({ open, onOpenChange, doctor }: EditDoctorDialo
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Edit Doctor</DialogTitle>
+          <DialogTitle>Edit Doctor Details</DialogTitle>
           <DialogDescription>
-            Update the details for this doctor.
+            Update the details for {doctor?.name}.
           </DialogDescription>
         </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <Label>Name</Label>
-                    <FormControl>
-                      <Input placeholder="e.g., Dr. Jane Smith" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-               <FormField
-                control={form.control}
-                name="specialization"
-                render={({ field }) => (
-                  <FormItem>
-                    <Label>Specialization</Label>
-                    <FormControl>
-                       <Input placeholder="e.g., Cardiologist" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            <DialogFooter>
-               <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
-                  Cancel
+        {doctor && (
+            <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
+                <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                    <FormItem>
+                        <Label>Name</Label>
+                        <FormControl>
+                        <Input placeholder="e.g., Dr. Jane Smith" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                    )}
+                />
+                <FormField
+                    control={form.control}
+                    name="specialization"
+                    render={({ field }) => (
+                    <FormItem>
+                        <Label>Specialization</Label>
+                        <FormControl>
+                        <Input placeholder="e.g., Cardiologist" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                    )}
+                />
+                <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} disabled={isSubmitting}>
+                    Cancel
+                    </Button>
+                <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {isSubmitting ? 'Saving...' : 'Save Changes'}
                 </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? 'Saving...' : 'Save Changes'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
+                </DialogFooter>
+            </form>
+            </Form>
+        )}
       </DialogContent>
     </Dialog>
   );

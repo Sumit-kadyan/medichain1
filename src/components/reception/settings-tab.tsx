@@ -14,32 +14,33 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, Save } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useClinicContext } from '@/context/clinic-context';
+import { useClinicContext, ClinicSettings } from '@/context/clinic-context';
 
 export function SettingsTab() {
   const { toast } = useToast();
   const { settings, updateSettings, loading: contextLoading } = useClinicContext();
-  const [clinicName, setClinicName] = useState('');
-  const [clinicAddress, setClinicAddress] = useState('');
-  const [receiptValidityDays, setReceiptValidityDays] = useState(0);
+  const [localSettings, setLocalSettings] = useState<ClinicSettings>({
+      clinicName: '',
+      clinicAddress: '',
+      receiptValidityDays: 0,
+  });
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (settings) {
-      setClinicName(settings.clinicName);
-      setClinicAddress(settings.clinicAddress);
-      setReceiptValidityDays(settings.receiptValidityDays);
+        setLocalSettings(settings);
     }
   }, [settings]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const { id, value } = e.target;
+      setLocalSettings(prev => ({...prev, [id]: id === 'receiptValidityDays' ? Number(value) : value }))
+  }
 
   const handleSave = async () => {
     setIsSaving(true);
     try {
-        await updateSettings({
-          clinicName,
-          clinicAddress,
-          receiptValidityDays: Number(receiptValidityDays),
-        });
+        await updateSettings(localSettings);
         toast({
             title: 'Settings Saved',
             description: 'Your clinic profile has been updated.',
@@ -72,20 +73,20 @@ export function SettingsTab() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="clinic-name">Clinic Name</Label>
-            <Input id="clinic-name" value={clinicName} onChange={(e) => setClinicName(e.target.value)} />
+            <Label htmlFor="clinicName">Clinic Name</Label>
+            <Input id="clinicName" value={localSettings.clinicName} onChange={handleInputChange} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="clinic-address">Address</Label>
-            <Input id="clinic-address" value={clinicAddress} onChange={(e) => setClinicAddress(e.target.value)} />
+            <Label htmlFor="clinicAddress">Address</Label>
+            <Input id="clinicAddress" value={localSettings.clinicAddress} onChange={handleInputChange} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="receipt-validity">Receipt Validity (Days)</Label>
+            <Label htmlFor="receiptValidityDays">Receipt Validity (Days)</Label>
             <Input 
-              id="receipt-validity" 
+              id="receiptValidityDays" 
               type="number"
-              value={receiptValidityDays} 
-              onChange={(e) => setReceiptValidityDays(Number(e.target.value))} 
+              value={localSettings.receiptValidityDays} 
+              onChange={handleInputChange} 
               min="0"
             />
             <p className="text-sm text-muted-foreground">

@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -19,6 +19,7 @@ import { Label } from '@/components/ui/label';
 import { useClinicContext } from '@/context/clinic-context';
 import { useToast } from '@/hooks/use-toast';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
+import { Loader2 } from 'lucide-react';
 
 const formSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters.'),
@@ -42,17 +43,16 @@ export function AddDoctorDialog({ open, onOpenChange }: AddDoctorDialogProps) {
       specialization: '',
     },
   });
-
-  useEffect(() => {
-    if (open) {
-      form.reset({
-        name: '',
-        specialization: '',
-      });
-      setIsSubmitting(false);
-    }
-  }, [open, form]);
   
+  const handleOpenChange = (isOpen: boolean) => {
+    if (!isSubmitting) {
+      onOpenChange(isOpen);
+      if (!isOpen) {
+        form.reset();
+      }
+    }
+  }
+
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsSubmitting(true);
     try {
@@ -68,8 +68,9 @@ export function AddDoctorDialog({ open, onOpenChange }: AddDoctorDialogProps) {
         title: 'Doctor Added',
         description: `${values.name} has been added to the clinic.`,
       });
-
+      
       onOpenChange(false);
+      form.reset();
 
     } catch (error) {
       console.error(error);
@@ -78,12 +79,13 @@ export function AddDoctorDialog({ open, onOpenChange }: AddDoctorDialogProps) {
         description: 'Failed to add new doctor. Please try again.',
         variant: 'destructive'
       });
+    } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Add New Doctor</DialogTitle>
@@ -92,7 +94,7 @@ export function AddDoctorDialog({ open, onOpenChange }: AddDoctorDialogProps) {
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
               <FormField
                 control={form.control}
                 name="name"
@@ -120,10 +122,11 @@ export function AddDoctorDialog({ open, onOpenChange }: AddDoctorDialogProps) {
                 )}
               />
             <DialogFooter>
-               <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
+               <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} disabled={isSubmitting}>
                   Cancel
                 </Button>
               <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {isSubmitting ? 'Saving...' : 'Save Doctor'}
               </Button>
             </DialogFooter>
