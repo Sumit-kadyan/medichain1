@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import Header from '@/components/layout/header';
 import MainSidebar from '@/components/layout/main-sidebar';
 import { Sidebar, SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
-import { ClinicProvider, useClinicContext } from '@/context/clinic-context';
+import { useClinicContext } from '@/context/clinic-context';
 import { Loader2 } from 'lucide-react';
 
 function ProtectedLayout({ children }: { children: React.ReactNode }) {
@@ -51,8 +51,6 @@ export default function MainLayout({
   children: React.ReactNode;
 }) {
   return (
-    <ClinicProvider>
       <ProtectedLayout>{children}</ProtectedLayout>
-    </ClinicProvider>
   );
 }
