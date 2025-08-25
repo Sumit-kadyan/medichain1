@@ -1,3 +1,7 @@
+
+'use client';
+
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -9,10 +13,38 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { BriefcaseMedical } from 'lucide-react';
+import { BriefcaseMedical, Loader2 } from 'lucide-react';
 import Link from 'next/link';
+import { useClinicContext } from '@/context/clinic-context';
+import { useToast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation';
+
 
 export default function LoginPage() {
+  const { login } = useClinicContext();
+  const { toast } = useToast();
+  const router = useRouter();
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = async () => {
+    if (!username || !password) {
+        toast({ title: 'Error', description: 'Please enter username and password.', variant: 'destructive' });
+        return;
+    }
+    setLoading(true);
+    try {
+        await login(username, password);
+        toast({ title: 'Login Successful', description: 'Redirecting to your dashboard...' });
+        router.push('/reception');
+    } catch (error: any) {
+        toast({ title: 'Login Failed', description: error.message, variant: 'destructive' });
+    } finally {
+        setLoading(false);
+    }
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-sm shadow-2xl">
@@ -22,24 +54,27 @@ export default function LoginPage() {
                 <h1 className="text-3xl font-bold font-headline text-primary">MediChain</h1>
             </div>
           <CardTitle className="font-headline text-2xl">Welcome Back</CardTitle>
-          <CardDescription>Enter your credentials to access your clinic dashboard.</CardDescription>
+          <CardDescription>Enter your clinic credentials to access your dashboard.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" placeholder="doctor@medichain.com" required />
+            <Label htmlFor="username">Username</Label>
+            <Input id="username" type="text" placeholder="yourclinic_username" required value={username} onChange={(e) => setUsername(e.target.value)} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
-            <Input id="password" type="password" required />
+            <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
           </div>
         </CardContent>
         <CardFooter className='flex flex-col gap-4'>
-          <Button className="w-full" asChild>
-            <Link href="/reception">Log in</Link>
+          <Button className="w-full" onClick={handleLogin} disabled={loading}>
+            {loading ? <Loader2 className="animate-spin" /> : 'Log in'}
           </Button>
            <p className="text-xs text-center text-muted-foreground">
-            Having trouble logging in? <a href="#" className="underline">Contact support</a>
+            Don't have an account?{' '}
+            <Link href="/signup" className="underline">
+                Sign up
+            </Link>
           </p>
         </CardFooter>
       </Card>

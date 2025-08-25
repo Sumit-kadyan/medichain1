@@ -1,7 +1,6 @@
 
 'use client';
 import { useState } from 'react';
-import { DrugSuggestionForm } from '@/components/ai/drug-suggestion-form';
 import {
   Card,
   CardContent,
@@ -22,15 +21,11 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Play, Clock, FileText, Pill, Send, ArrowLeft, Loader2, BookMarked, XCircle, CheckCircle, MessageSquareQuote } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useClinicContext, Doctor, PatientStatus, WaitingPatient } from '@/context/clinic-context';
+import { useClinicContext, Doctor, PatientStatus, WaitingPatient, PatientHistory } from '@/context/clinic-context';
 import { useToast } from '@/hooks/use-toast';
 import { Textarea } from '@/components/ui/textarea';
+import { DrugSuggestionForm } from '@/components/ai/drug-suggestion-form';
 
-const patientHistory = [
-    { date: '2023-08-15', type: 'visit', description: 'Consultation for annual check-up.', icon: FileText },
-    { date: '2023-08-15', type: 'prescription', description: 'Prescribed Lisinopril 10mg.', icon: Pill },
-    { date: '2023-02-10', type: 'visit', description: 'Follow-up for hypertension management.', icon: FileText },
-];
 
 const statusConfig: Record<PatientStatus, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' | null }> = {
     waiting: { label: 'Waiting', variant: 'outline' },
@@ -77,13 +72,16 @@ function DoctorSelection({ doctors, onSelectDoctor }: { doctors: Doctor[], onSel
 
 function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => void }) {
   const { toast } = useToast();
-  const { waitingList, updatePatientStatus } = useClinicContext();
+  const { waitingList, patients, updatePatientStatus } = useClinicContext();
   const [prescription, setPrescription] = useState('');
   const [advice, setAdvice] = useState('');
   const [activePatient, setActivePatient] = useState<WaitingPatient | null>(null);
 
   const doctorWaitingList = waitingList.filter(p => p.doctorId === doctor.id && p.status !== 'sent_to_pharmacy' && p.status !== 'dispensed' && p.status !== 'prescribed');
   const patientInConsultation = waitingList.find(p => p.doctorId === doctor.id && p.status === 'in_consult');
+  
+  const patientDetails = activePatient ? patients.find(p => p.id === activePatient.patientId) : null;
+  const patientHistory: PatientHistory[] = patientDetails?.history || [];
 
   const handleStartConsultation = (patient: WaitingPatient) => {
     updatePatientStatus(patient.id, 'in_consult');
@@ -253,17 +251,18 @@ function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => voi
               <h3 className="font-semibold text-lg mb-4 text-foreground">Patient History</h3>
               <div className="relative pl-6">
                   <div className="absolute left-0 top-0 h-full w-0.5 bg-border -translate-x-1/2 ml-3"></div>
-                  {activePatient ? patientHistory.map((item, index) => (
+                  {activePatient ? (patientHistory.length > 0 ? patientHistory.map((item, index) => (
                       <div key={index} className="mb-6 flex items-start gap-4">
                           <div className="absolute left-0 top-1 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-primary/20 text-primary">
-                              <item.icon className="h-4 w-4"/>
+                              <FileText className="h-4 w-4"/>
                           </div>
                           <div className="flex-1">
-                              <p className="text-sm font-semibold text-foreground">{item.description}</p>
-                              <p className="text-xs text-muted-foreground flex items-center gap-1.5"><Clock className="h-3 w-3" />{item.date}</p>
+                              <p className="text-sm font-semibold text-foreground">{item.notes}</p>
+                              <p className="text-xs text-muted-foreground flex items-center gap-1.5"><Clock className="h-3 w-3" />{new Date(item.date).toLocaleDateString()} - Dr. {item.doctorName}</p>
                           </div>
                       </div>
-                  )) : <p className="text-sm text-muted-foreground">Select a patient to view their history.</p>}
+                  )) : <p className="text-sm text-muted-foreground">No history found for this patient.</p>)
+                  : <p className="text-sm text-muted-foreground">Select a patient to view their history.</p>}
               </div>
             </CardContent>
           </Card>

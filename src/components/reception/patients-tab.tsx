@@ -38,22 +38,23 @@ import { useToast } from '@/hooks/use-toast';
 import { useClinicContext, Patient } from '@/context/clinic-context';
 import { useState, useMemo } from 'react';
 import { AddPatientDialog } from './add-patient-dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
 export function PatientsTab() {
   const { toast } = useToast();
-  const { patients, addPatientToWaitingList } = useClinicContext();
+  const { patients, doctors, addPatientToWaitingList } = useClinicContext();
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddPatientOpen, setAddPatientOpen] = useState(false);
+  const [selectedDoctorId, setSelectedDoctorId] = useState<Record<string, string>>({});
+
 
   const handleAddToWaitingList = (patientId: string) => {
-    const patient = patients.find(p => p.id === patientId);
-    if (!patient) return;
-    
-    if (!patient.doctorId) {
-        toast({ title: 'Error', description: 'This patient is not assigned to a doctor.', variant: 'destructive' });
+    const doctorId = selectedDoctorId[patientId];
+     if (!doctorId) {
+        toast({ title: 'Error', description: 'Please select a doctor for this patient.', variant: 'destructive' });
         return;
     }
-    addPatientToWaitingList(patient.id);
+    addPatientToWaitingList(patientId, doctorId);
   };
   
   const handleAction = (action: string, patientName?: string) => {
@@ -109,7 +110,7 @@ export function PatientsTab() {
                     <TableRow>
                         <TableHead>Name</TableHead>
                         <TableHead className="hidden sm:table-cell">Phone</TableHead>
-                        <TableHead className="hidden md:table-cell">Gender / Age</TableHead>
+                        <TableHead className="w-[200px]">Assign Doctor</TableHead>
                         <TableHead>Actions</TableHead>
                     </TableRow>
                 </TableHeader>
@@ -118,32 +119,21 @@ export function PatientsTab() {
                     <TableRow key={patient.id}>
                         <TableCell className="font-medium">{patient.name}</TableCell>
                         <TableCell className="hidden sm:table-cell">{patient.phone}</TableCell>
-                        <TableCell className="hidden md:table-cell">{`${patient.gender}, ${patient.age}`}</TableCell>
+                         <TableCell>
+                           <Select onValueChange={(docId) => setSelectedDoctorId(prev => ({...prev, [patient.id]: docId}))}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select Doctor" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {doctors.map(doc => <SelectItem key={doc.id} value={doc.id}>{doc.name}</SelectItem>)}
+                                </SelectContent>
+                           </Select>
+                        </TableCell>
                         <TableCell>
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                <Button aria-haspopup="true" size="icon" variant="ghost">
-                                    <MoreHorizontal className="h-4 w-4" />
-                                    <span className="sr-only">Toggle menu</span>
-                                </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => handleAddToWaitingList(patient.id)}>
-                                    <Send className="mr-2 h-4 w-4" />
-                                    Add to Waiting List
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleAction('Edit Patient', patient.name)}>
-                                    <Edit className="mr-2 h-4 w-4" />
-                                    Edit Patient
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleAction('View History', patient.name)}>
-                                    <FileText className="mr-2 h-4 w-4" />
-                                    View History
-                                </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
+                            <Button size="sm" onClick={() => handleAddToWaitingList(patient.id)}>
+                                <Send className="mr-2 h-4 w-4" />
+                                Add to Waitlist
+                            </Button>
                         </TableCell>
                     </TableRow>
                     ))}

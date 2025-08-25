@@ -16,11 +16,13 @@ import { SidebarTrigger } from '../ui/sidebar';
 import { LogOut, User } from 'lucide-react';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
+import { useClinicContext } from '@/context/clinic-context';
 
 export default function Header() {
   const pathname = usePathname();
   const router = useRouter();
   const { toast } = useToast();
+  const { logout, user } = useClinicContext();
 
   const getTitle = () => {
     const segments = pathname.split('/').filter(Boolean);
@@ -35,12 +37,21 @@ export default function Header() {
     return title.charAt(0).toUpperCase() + title.slice(1);
   };
   
-  const handleLogout = () => {
-    toast({
-        title: 'Logged Out',
-        description: 'You have been successfully logged out.',
-    });
-    router.push('/login');
+  const handleLogout = async () => {
+    try {
+        await logout();
+        toast({
+            title: 'Logged Out',
+            description: 'You have been successfully logged out.',
+        });
+        router.push('/login');
+    } catch (error) {
+         toast({
+            title: 'Logout Failed',
+            description: 'Could not log you out. Please try again.',
+            variant: 'destructive'
+        });
+    }
   }
 
   const handleProfileClick = () => {
@@ -63,16 +74,16 @@ export default function Header() {
             <Button variant="ghost" className="relative h-10 w-10 rounded-full">
               <Avatar className="h-10 w-10">
                 <AvatarImage src="https://placehold.co/100x100.png" alt="@user" data-ai-hint="person doctor" />
-                <AvatarFallback>DR</AvatarFallback>
+                <AvatarFallback>U</AvatarFallback>
               </Avatar>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-56" align="end" forceMount>
             <DropdownMenuLabel className="font-normal">
               <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">Dr. Smith</p>
+                <p className="text-sm font-medium leading-none">Clinic Admin</p>
                 <p className="text-xs leading-none text-muted-foreground">
-                  doctor@medichain.com
+                  {user?.email}
                 </p>
               </div>
             </DropdownMenuLabel>

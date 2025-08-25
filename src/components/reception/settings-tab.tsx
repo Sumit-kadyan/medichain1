@@ -12,16 +12,17 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Save } from 'lucide-react';
+import { Loader2, Save } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useClinicContext } from '@/context/clinic-context';
 
 export function SettingsTab() {
   const { toast } = useToast();
-  const { settings, updateSettings } = useClinicContext();
+  const { settings, updateSettings, loading: contextLoading } = useClinicContext();
   const [clinicName, setClinicName] = useState('');
   const [clinicAddress, setClinicAddress] = useState('');
   const [receiptValidityDays, setReceiptValidityDays] = useState(0);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (settings) {
@@ -31,16 +32,35 @@ export function SettingsTab() {
     }
   }, [settings]);
 
-  const handleSave = () => {
-    updateSettings({
-      clinicName,
-      clinicAddress,
-      receiptValidityDays: Number(receiptValidityDays),
-    });
-    toast({
-        title: 'Settings Saved',
-        description: 'Your clinic profile has been updated.',
-    });
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+        await updateSettings({
+          clinicName,
+          clinicAddress,
+          receiptValidityDays: Number(receiptValidityDays),
+        });
+        toast({
+            title: 'Settings Saved',
+            description: 'Your clinic profile has been updated.',
+        });
+    } catch (error) {
+         toast({
+            title: 'Error',
+            description: 'Failed to save settings. Please try again.',
+            variant: 'destructive'
+        });
+    } finally {
+        setIsSaving(false);
+    }
+  }
+
+  if (contextLoading) {
+      return (
+        <div className="flex justify-center items-center h-40">
+            <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      )
   }
 
   return (
@@ -76,8 +96,8 @@ export function SettingsTab() {
       </Card>
       
       <div className="flex justify-end">
-        <Button onClick={handleSave}>
-            <Save className="mr-2 h-4 w-4" />
+        <Button onClick={handleSave} disabled={isSaving}>
+            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
             Save All Settings
         </Button>
       </div>
