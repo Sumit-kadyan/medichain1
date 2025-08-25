@@ -90,7 +90,7 @@ interface ClinicContextType {
     addPatientToWaitingList: (patientId: string, doctorId: string) => void;
     updatePatientStatus: (waitingPatientId: string, status: PatientStatus, items?: string[], advice?: string) => void;
     updatePrescriptionStatus: (prescriptionId: string, status: PrescriptionStatus) => void;
-    addDoctor: (doctor: Omit<Doctor, 'id'>) => Promise<void>;
+    addDoctor: (doctor: Omit<Doctor, 'id'>) => Promise<Doctor | undefined>;
     updateDoctor: (doctorId: string, doctorData: Partial<Omit<Doctor, 'id'>>) => Promise<void>;
     deleteDoctor: (doctorId: string) => Promise<void>;
     dismissNotification: (id: number) => void;
@@ -114,28 +114,6 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         receiptValidityDays: 30,
     });
     const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, async (user) => {
-            setLoading(true);
-            if (user) {
-                setUser(user);
-                setClinicId(user.uid);
-                await loadClinicData(user.uid);
-            } else {
-                setUser(null);
-                setClinicId(null);
-                // Reset states
-                setPatients([]);
-                setDoctors([]);
-                setWaitingList([]);
-                setPharmacyQueue([]);
-                setSettings({ clinicName: '', clinicAddress: '', receiptValidityDays: 30 });
-            }
-            setLoading(false);
-        });
-        return () => unsubscribe();
-    }, []);
 
     const loadClinicData = async (uid: string) => {
         try {
@@ -177,8 +155,32 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         } catch (error) {
             console.error("Failed to load clinic data:", error);
             toast({ title: 'Error', description: 'Could not load your clinic data.', variant: 'destructive'});
+        } finally {
+            setLoading(false);
         }
     }
+
+    useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, async (user) => {
+            setLoading(true);
+            if (user) {
+                setUser(user);
+                setClinicId(user.uid);
+                await loadClinicData(user.uid);
+            } else {
+                setUser(null);
+                setClinicId(null);
+                setPatients([]);
+                setDoctors([]);
+                setWaitingList([]);
+                setPharmacyQueue([]);
+                setSettings({ clinicName: '', clinicAddress: '', receiptValidityDays: 30 });
+                setLoading(false);
+            }
+        });
+        return () => unsubscribe();
+    }, []);
+
     
     // AUTH FUNCTIONS
     const signup = async (email: string, password: string, clinicName: string, username: string) => {
@@ -191,9 +193,7 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
             receiptValidityDays: 30,
         };
         await setDoc(doc(db, 'clinics', user.uid), { ...newSettings, username });
-        setUser(user);
-        setClinicId(user.uid);
-        setSettings(newSettings);
+        // The onAuthStateChanged listener will handle setting user, clinicId, and loading data.
     };
 
     const login = async (username: string, password: string) => {
@@ -206,16 +206,18 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
     };
     
     // DATA FUNCTIONS
-    const addDoctor = async (doctorData: Omit<Doctor, 'id'>) => {
+    const addDoctor = async (doctorData: Omit<Doctor, 'id'>): Promise<Doctor | undefined> => {
         if (!clinicId) throw new Error("Not authenticated");
         const docRef = await addDoc(collection(db, 'clinics', clinicId, 'doctors'), doctorData);
         const newDoctor = { id: docRef.id, ...doctorData };
         setDoctors(prev => [...prev, newDoctor]);
+        return newDoctor;
     };
     
     const updateDoctor = async (doctorId: string, doctorData: Partial<Omit<Doctor, 'id'>>) => {
         if (!clinicId) throw new Error("Not authenticated");
-        await updateDoc(doc(db, 'clinics', clinicId, 'doctors', doctorId), doctorData);
+        const docRef = doc(db, 'clinics', clinicId, 'doctors', doctorId);
+        await updateDoc(docRef, doctorData);
         setDoctors(prev => prev.map(d => d.id === doctorId ? {...d, ...doctorData} as Doctor : d));
     };
 
@@ -226,24 +228,18 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
     };
     
     const addPatient = async (patientData: Omit<Patient, 'id' | 'avatarUrl' | 'history'>): Promise<Patient | undefined> => {
-        if (!clinicId) return;
-        try {
-            const newPatientData = {
-                ...patientData,
-                avatarUrl: `https://placehold.co/100x100?text=${patientData.name.charAt(0)}`,
-                history: [],
-            }
-            const docRef = await addDoc(collection(db, 'clinics', clinicId, 'patients'), newPatientData);
-            const newPatient: Patient = { id: docRef.id, ...newPatientData };
-            setPatients(prev => [...prev, newPatient]);
-
-            toast({ title: 'Patient Added', description: `${patientData.name} has been registered.` });
-            return newPatient;
-        } catch (error) {
-            console.error("Error adding patient: ", error);
-            toast({ title: "Error", description: "Failed to add patient.", variant: "destructive" });
-            return undefined;
+        if (!clinicId) return undefined;
+        const newPatientData = {
+            ...patientData,
+            avatarUrl: `https://placehold.co/100x100?text=${patientData.name.charAt(0)}`,
+            history: [],
         }
+        const docRef = await addDoc(collection(db, 'clinics', clinicId, 'patients'), newPatientData);
+        const newPatient: Patient = { id: docRef.id, ...newPatientData };
+        setPatients(prev => [...prev, newPatient]);
+
+        toast({ title: 'Patient Added', description: `${newPatient.name} has been registered.` });
+        return newPatient;
     };
     
     const addPatientToWaitingList = async (patientId: string, doctorId: string) => {
@@ -349,7 +345,8 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
     
      const updateSettings = async (newSettings: Partial<ClinicSettings>) => {
         if (!clinicId) throw new Error("Not authenticated");
-        await updateDoc(doc(db, 'clinics', clinicId), newSettings);
+        const settingsRef = doc(db, 'clinics', clinicId);
+        await updateDoc(settingsRef, newSettings);
         setSettings(prev => ({ ...prev, ...newSettings }));
     };
 
