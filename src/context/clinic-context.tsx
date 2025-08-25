@@ -90,7 +90,7 @@ interface ClinicContextType {
     addPatientToWaitingList: (patientId: string, doctorId: string) => void;
     updatePatientStatus: (waitingPatientId: string, status: PatientStatus, items?: string[], advice?: string) => void;
     updatePrescriptionStatus: (prescriptionId: string, status: PrescriptionStatus) => void;
-    addDoctor: (doctor: Omit<Doctor, 'id'>) => Promise<Doctor | undefined>;
+    addDoctor: (doctor: Omit<Doctor, 'id'>) => Promise<void>;
     updateDoctor: (doctorId: string, doctorData: Partial<Omit<Doctor, 'id'>>) => Promise<void>;
     deleteDoctor: (doctorId: string) => Promise<void>;
     dismissNotification: (id: number) => void;
@@ -206,18 +206,17 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
     };
     
     // DATA FUNCTIONS
-    const addDoctor = async (doctorData: Omit<Doctor, 'id'>): Promise<Doctor | undefined> => {
-        if (!clinicId) return;
+    const addDoctor = async (doctorData: Omit<Doctor, 'id'>) => {
+        if (!clinicId) throw new Error("Not authenticated");
         const docRef = await addDoc(collection(db, 'clinics', clinicId, 'doctors'), doctorData);
         const newDoctor = { id: docRef.id, ...doctorData };
         setDoctors(prev => [...prev, newDoctor]);
-        return newDoctor;
     };
     
     const updateDoctor = async (doctorId: string, doctorData: Partial<Omit<Doctor, 'id'>>) => {
-        if (!clinicId) return;
+        if (!clinicId) throw new Error("Not authenticated");
         await updateDoc(doc(db, 'clinics', clinicId, 'doctors', doctorId), doctorData);
-        setDoctors(prev => prev.map(d => d.id === doctorId ? {...d, ...doctorData} : d));
+        setDoctors(prev => prev.map(d => d.id === doctorId ? {...d, ...doctorData} as Doctor : d));
     };
 
     const deleteDoctor = async (doctorId: string) => {
@@ -349,7 +348,7 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
     }
     
      const updateSettings = async (newSettings: Partial<ClinicSettings>) => {
-        if (!clinicId) return;
+        if (!clinicId) throw new Error("Not authenticated");
         await updateDoc(doc(db, 'clinics', clinicId), newSettings);
         setSettings(prev => ({ ...prev, ...newSettings }));
     };

@@ -69,8 +69,8 @@ export function AddDoctorDialog({ open, onOpenChange }: AddDoctorDialogProps) {
         description: `${values.name} has been added to the clinic.`,
       });
       
-      onOpenChange(false);
       form.reset();
+      onOpenChange(false);
 
     } catch (error) {
       console.error(error);
