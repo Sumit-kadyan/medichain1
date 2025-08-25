@@ -60,6 +60,7 @@ export interface Prescription extends FirestoreDocument {
   items: string[];
   status: PrescriptionStatus;
   advice?: string;
+  visitDate: string; // YYYY-MM-DD
 }
 
 export interface ClinicSettings {
@@ -161,9 +162,9 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
                     const waitingListData = snapshot.docs.map(wl => ({ id: wl.id, ...wl.data() } as WaitingPatient));
                     setWaitingList(waitingListData);
                 }),
-                onSnapshot(query(collection(db, 'clinics', clinicId, 'pharmacyQueue'), where('status', '==', 'pending')), (snapshot) => {
+                onSnapshot(query(collection(db, 'clinics', clinicId, 'pharmacyQueue'), where('visitDate', '==', todayStr)), (snapshot) => {
                     const pharmacyData = snapshot.docs.map(pq => ({ id: pq.id, ...pq.data() } as Prescription));
-                    setPharmacyQueue(pharmacyData);
+                    setPharmacyQueue(pharmacyData.filter(p => p.status === 'pending'));
                 }),
             ];
             activeListeners = unsubscribers;
@@ -308,6 +309,7 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
                 items,
                 advice,
                 status: 'pending',
+                visitDate: new Date().toISOString().split('T')[0],
             };
             await addDoc(collection(db, 'clinics', clinicId, 'pharmacyQueue'), newPrescriptionData);
             toast({ title: 'Sent to Pharmacy', description: `${patientToUpdate.patientName}'s prescription has been sent.` });
@@ -318,7 +320,8 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
     
     const updatePrescriptionStatus = async (prescriptionId: string, status: PrescriptionStatus) => {
         if (!clinicId) throw new Error("Not authenticated");
-        const prescription = pharmacyQueue.find(p => p.id === prescriptionId);
+        const allPrescriptions = [...pharmacyQueue]; // A bit of a hack, might need to query DB if not in queue
+        const prescription = allPrescriptions.find(p => p.id === prescriptionId);
         if (!prescription) return;
         
         await updateDoc(doc(db, 'clinics', clinicId, 'pharmacyQueue', prescriptionId), { status });

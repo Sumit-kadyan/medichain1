@@ -55,9 +55,10 @@ export function EditDoctorDialog({ open, onOpenChange, doctor }: EditDoctorDialo
   }, [open, doctor, form])
 
   const handleOpenChange = (isOpen: boolean) => {
-    if (!isSubmitting) {
-      onOpenChange(isOpen);
+    if (isSubmitting && !isOpen) {
+        // Allow closing even when submitting
     }
+    onOpenChange(isOpen);
   }
   
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
@@ -102,7 +103,7 @@ export function EditDoctorDialog({ open, onOpenChange, doctor }: EditDoctorDialo
                     <FormItem>
                         <Label>Name</Label>
                         <FormControl>
-                        <Input placeholder="e.g., Dr. Jane Smith" {...field} />
+                        <Input placeholder="e.g., Dr. Jane Smith" {...field} disabled={isSubmitting} />
                         </FormControl>
                         <FormMessage />
                     </FormItem>
@@ -115,14 +116,14 @@ export function EditDoctorDialog({ open, onOpenChange, doctor }: EditDoctorDialo
                     <FormItem>
                         <Label>Specialization</Label>
                         <FormControl>
-                        <Input placeholder="e.g., Cardiologist" {...field} />
+                        <Input placeholder="e.g., Cardiologist" {...field} disabled={isSubmitting} />
                         </FormControl>
                         <FormMessage />
                     </FormItem>
                     )}
                 />
                 <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} disabled={isSubmitting}>
+                <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
                     Cancel
                     </Button>
                 <Button type="submit" disabled={isSubmitting}>
