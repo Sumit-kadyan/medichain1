@@ -113,11 +113,11 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
     const [loading, setLoading] = useState(true);
 
      useEffect(() => {
-        const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+        const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
             setLoading(true);
-            if (user) {
-                setUser(user);
-                setClinicId(user.uid);
+            if (currentUser) {
+                setUser(currentUser);
+                setClinicId(currentUser.uid);
             } else {
                 setUser(null);
                 setClinicId(null);
@@ -137,37 +137,52 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         if (!clinicId) {
             setLoading(false);
             return;
-        };
+        }
 
         setLoading(true);
         const todayStr = new Date().toISOString().split('T')[0];
-        let activeListeners: Unsubscribe[] = [];
+        
+        const listeners: Unsubscribe[] = [];
 
         try {
-            const unsubscribers = [
-                onSnapshot(doc(db, 'clinics', clinicId), (doc) => {
-                    if (doc.exists()) {
-                        setSettings(doc.data() as ClinicSettings);
-                    }
-                }),
-                onSnapshot(collection(db, 'clinics', clinicId, 'doctors'), (snapshot) => {
-                    const doctorsData = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Doctor));
-                    setDoctors(doctorsData);
-                }),
-                onSnapshot(collection(db, 'clinics', clinicId, 'patients'), (snapshot) => {
-                    const patientsData = snapshot.docs.map(p => ({ id: p.id, ...p.data() } as Patient));
-                    setPatients(patientsData);
-                }),
-                 onSnapshot(query(collection(db, 'clinics', clinicId, 'waitingList'), where('visitDate', '==', todayStr)), (snapshot) => {
-                    const waitingListData = snapshot.docs.map(wl => ({ id: wl.id, ...wl.data() } as WaitingPatient));
-                    setWaitingList(waitingListData);
-                }),
-                onSnapshot(query(collection(db, 'clinics', clinicId, 'pharmacyQueue'), where('visitDate', '==', todayStr)), (snapshot) => {
-                    const pharmacyData = snapshot.docs.map(pq => ({ id: pq.id, ...pq.data() } as Prescription));
-                    setPharmacyQueue(pharmacyData.filter(p => p.status === 'pending'));
-                }),
-            ];
-            activeListeners = unsubscribers;
+            // Settings listener
+            const settingsUnsub = onSnapshot(doc(db, 'clinics', clinicId), (doc) => {
+                if (doc.exists()) {
+                    setSettings(doc.data() as ClinicSettings);
+                }
+            });
+            listeners.push(settingsUnsub);
+
+            // Doctors listener
+            const doctorsUnsub = onSnapshot(collection(db, 'clinics', clinicId, 'doctors'), (snapshot) => {
+                const doctorsData = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Doctor));
+                setDoctors(doctorsData);
+            });
+            listeners.push(doctorsUnsub);
+
+            // Patients listener
+            const patientsUnsub = onSnapshot(collection(db, 'clinics', clinicId, 'patients'), (snapshot) => {
+                const patientsData = snapshot.docs.map(p => ({ id: p.id, ...p.data() } as Patient));
+                setPatients(patientsData);
+            });
+            listeners.push(patientsUnsub);
+
+            // Waiting List listener for today
+            const waitingListQuery = query(collection(db, 'clinics', clinicId, 'waitingList'), where('visitDate', '==', todayStr));
+            const waitingListUnsub = onSnapshot(waitingListQuery, (snapshot) => {
+                const waitingListData = snapshot.docs.map(wl => ({ id: wl.id, ...wl.data() } as WaitingPatient));
+                setWaitingList(waitingListData);
+            });
+            listeners.push(waitingListUnsub);
+
+            // Pharmacy Queue listener for today
+            const pharmacyQuery = query(collection(db, 'clinics', clinicId, 'pharmacyQueue'), where('visitDate', '==', todayStr));
+            const pharmacyUnsub = onSnapshot(pharmacyQuery, (snapshot) => {
+                const pharmacyData = snapshot.docs.map(pq => ({ id: pq.id, ...pq.data() } as Prescription));
+                setPharmacyQueue(pharmacyData.filter(p => p.status === 'pending'));
+            });
+            listeners.push(pharmacyUnsub);
+
         } catch (error) {
             console.error("Failed to subscribe to clinic data:", error);
             toast({ title: 'Error', description: 'Could not load your clinic data.', variant: 'destructive'});
@@ -177,7 +192,7 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
 
         // Cleanup listeners on clinicId change or unmount
         return () => {
-            activeListeners.forEach(unsub => unsub());
+            listeners.forEach(unsub => unsub());
         };
     }, [clinicId, toast]);
     
@@ -194,7 +209,7 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
     };
 
     const login = async (username: string, password: string) => {
-        const email = `${username}@medichain.app`;
+        const email = `${username.trim()}@medichain.app`;
         await signInWithEmailAndPassword(auth, email, password);
     };
 
@@ -213,7 +228,7 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         await addDoc(collection(db, 'clinics', clinicId, 'doctors'), newDoctorData);
     };
     
-    const updateDoctor = async (doctorId: string, doctorData: Partial<Omit<Doctor, 'id'>>) => {
+    const updateDoctor = async (doctorId: string, doctorData: Partial<Omit<Doctor, 'id' | 'avatarUrl' | 'initials'>>) => {
         if (!clinicId) throw new Error("Not authenticated");
         const docRef = doc(db, 'clinics', clinicId, 'doctors', doctorId);
         
@@ -229,7 +244,7 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
     };
 
     const deleteDoctor = async (doctorId: string) => {
-        if (!clinicId) return;
+        if (!clinicId) throw new Error("Not authenticated");
         await deleteDoc(doc(db, 'clinics', clinicId, 'doctors', doctorId));
     };
     
@@ -320,14 +335,21 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
     
     const updatePrescriptionStatus = async (prescriptionId: string, status: PrescriptionStatus) => {
         if (!clinicId) throw new Error("Not authenticated");
-        const allPrescriptions = [...pharmacyQueue]; // A bit of a hack, might need to query DB if not in queue
-        const prescription = allPrescriptions.find(p => p.id === prescriptionId);
-        if (!prescription) return;
         
-        await updateDoc(doc(db, 'clinics', clinicId, 'pharmacyQueue', prescriptionId), { status });
+        const prescriptionRef = doc(db, 'clinics', clinicId, 'pharmacyQueue', prescriptionId);
+        const prescriptionDoc = await getDoc(prescriptionRef);
+
+        if (!prescriptionDoc.exists()) {
+             console.error("Prescription not found");
+             return;
+        }
+        const prescription = prescriptionDoc.data() as Prescription;
+
+        await updateDoc(prescriptionRef, { status });
         
         if (status === 'dispensed') {
-            await updateDoc(doc(db, 'clinics', clinicId, 'waitingList', prescription.waitingPatientId), { status: 'dispensed' });
+            const waitingPatientRef = doc(db, 'clinics', clinicId, 'waitingList', prescription.waitingPatientId);
+            await updateDoc(waitingPatientRef, { status: 'dispensed' });
             toast({ title: 'Patient Processed', description: `${prescription.patientName} has been marked as Done.` });
         }
     };
@@ -385,3 +407,5 @@ export const useClinicContext = () => {
     }
     return context;
 };
+
+    
