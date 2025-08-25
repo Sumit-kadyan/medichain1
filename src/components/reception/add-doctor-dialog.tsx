@@ -45,11 +45,14 @@ export function AddDoctorDialog({ open, onOpenChange }: AddDoctorDialogProps) {
   });
   
   const handleOpenChange = (isOpen: boolean) => {
-    if (!isSubmitting) {
-      onOpenChange(isOpen);
-      if (!isOpen) {
-        form.reset();
-      }
+    // Allow closing the dialog even when submitting
+    if (isSubmitting && !isOpen) {
+        // Optionally, you might want to confirm with the user
+        // if they want to cancel the submission in progress.
+    }
+    onOpenChange(isOpen);
+    if (!isOpen) {
+      form.reset();
     }
   }
 
@@ -93,7 +96,7 @@ export function AddDoctorDialog({ open, onOpenChange }: AddDoctorDialogProps) {
                   <FormItem>
                     <Label>Name</Label>
                     <FormControl>
-                      <Input placeholder="e.g., Dr. Jane Smith" {...field} />
+                      <Input placeholder="e.g., Dr. Jane Smith" {...field} disabled={isSubmitting} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -106,14 +109,14 @@ export function AddDoctorDialog({ open, onOpenChange }: AddDoctorDialogProps) {
                   <FormItem>
                     <Label>Specialization</Label>
                     <FormControl>
-                       <Input placeholder="e.g., Cardiologist" {...field} />
+                       <Input placeholder="e.g., Cardiologist" {...field} disabled={isSubmitting} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
             <DialogFooter>
-               <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} disabled={isSubmitting}>
+               <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
                   Cancel
                 </Button>
               <Button type="submit" disabled={isSubmitting}>

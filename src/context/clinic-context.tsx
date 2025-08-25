@@ -160,18 +160,10 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
                  onSnapshot(query(collection(db, 'clinics', clinicId, 'waitingList'), where('visitDate', '==', todayStr)), (snapshot) => {
                     const waitingListData = snapshot.docs.map(wl => ({ id: wl.id, ...wl.data() } as WaitingPatient));
                     setWaitingList(waitingListData);
-                
-                    const waitingListIds = waitingListData.map(p => p.id);
-                    if (waitingListIds.length > 0) {
-                        const pharmacyQuery = query(collection(db, 'clinics', clinicId, 'pharmacyQueue'), where('waitingPatientId', 'in', waitingListIds));
-                        const pharmacyUnsub = onSnapshot(pharmacyQuery, (pharmacySnapshot) => {
-                             const pharmacyData = pharmacySnapshot.docs.map(pq => ({ id: pq.id, ...pq.data() } as Prescription));
-                             setPharmacyQueue(pharmacyData);
-                        });
-                        activeListeners.push(pharmacyUnsub);
-                    } else {
-                        setPharmacyQueue([]);
-                    }
+                }),
+                onSnapshot(query(collection(db, 'clinics', clinicId, 'pharmacyQueue'), where('status', '==', 'pending')), (snapshot) => {
+                    const pharmacyData = snapshot.docs.map(pq => ({ id: pq.id, ...pq.data() } as Prescription));
+                    setPharmacyQueue(pharmacyData);
                 }),
             ];
             activeListeners = unsubscribers;
