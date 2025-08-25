@@ -45,10 +45,8 @@ export function AddDoctorDialog({ open, onOpenChange }: AddDoctorDialogProps) {
   });
   
   const handleOpenChange = (isOpen: boolean) => {
-    // Allow closing the dialog even when submitting
     if (isSubmitting && !isOpen) {
-        // Optionally, you might want to confirm with the user
-        // if they want to cancel the submission in progress.
+        return; // Prevent closing while submitting
     }
     onOpenChange(isOpen);
     if (!isOpen) {

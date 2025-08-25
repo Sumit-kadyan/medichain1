@@ -121,7 +121,6 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
             } else {
                 setUser(null);
                 setClinicId(null);
-                // Clear all data on logout
                 setPatients([]);
                 setDoctors([]);
                 setWaitingList([]);
@@ -145,7 +144,6 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         const listeners: Unsubscribe[] = [];
 
         try {
-            // Settings listener
             const settingsUnsub = onSnapshot(doc(db, 'clinics', clinicId), (doc) => {
                 if (doc.exists()) {
                     setSettings(doc.data() as ClinicSettings);
@@ -153,33 +151,35 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
             });
             listeners.push(settingsUnsub);
 
-            // Doctors listener
             const doctorsUnsub = onSnapshot(collection(db, 'clinics', clinicId, 'doctors'), (snapshot) => {
                 const doctorsData = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Doctor));
                 setDoctors(doctorsData);
             });
             listeners.push(doctorsUnsub);
 
-            // Patients listener
             const patientsUnsub = onSnapshot(collection(db, 'clinics', clinicId, 'patients'), (snapshot) => {
                 const patientsData = snapshot.docs.map(p => ({ id: p.id, ...p.data() } as Patient));
                 setPatients(patientsData);
             });
             listeners.push(patientsUnsub);
 
-            // Waiting List listener for today
             const waitingListQuery = query(collection(db, 'clinics', clinicId, 'waitingList'), where('visitDate', '==', todayStr));
             const waitingListUnsub = onSnapshot(waitingListQuery, (snapshot) => {
                 const waitingListData = snapshot.docs.map(wl => ({ id: wl.id, ...wl.data() } as WaitingPatient));
                 setWaitingList(waitingListData);
+            }, (error) => {
+                console.error("Waiting list listener error:", error);
+                toast({ title: 'Error', description: 'Could not load waiting list data.', variant: 'destructive'});
             });
             listeners.push(waitingListUnsub);
 
-            // Pharmacy Queue listener for today
             const pharmacyQuery = query(collection(db, 'clinics', clinicId, 'pharmacyQueue'), where('visitDate', '==', todayStr));
             const pharmacyUnsub = onSnapshot(pharmacyQuery, (snapshot) => {
                 const pharmacyData = snapshot.docs.map(pq => ({ id: pq.id, ...pq.data() } as Prescription));
-                setPharmacyQueue(pharmacyData.filter(p => p.status === 'pending'));
+                setPharmacyQueue(pharmacyData);
+            }, (error) => {
+                console.error("Pharmacy queue listener error:", error);
+                toast({ title: 'Error', description: 'Could not load pharmacy queue data.', variant: 'destructive'});
             });
             listeners.push(pharmacyUnsub);
 
@@ -190,7 +190,6 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
             setLoading(false);
         }
 
-        // Cleanup listeners on clinicId change or unmount
         return () => {
             listeners.forEach(unsub => unsub());
         };
@@ -374,7 +373,7 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         patients, 
         doctors, 
         waitingList, 
-        pharmacyQueue, 
+        pharmacyQueue: pharmacyQueue.filter(p => p.status === 'pending'), 
         notifications,
         settings,
         loading,
@@ -407,5 +406,3 @@ export const useClinicContext = () => {
     }
     return context;
 };
-
-    

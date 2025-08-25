@@ -27,12 +27,10 @@ export function SettingsTab() {
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    // Only update localSettings from context if it's not currently being saved
-    // and if the context settings are actually loaded.
-    if (!isSaving && settings && Object.keys(settings).length > 0) {
+    if (settings) {
         setLocalSettings(settings);
     }
-  }, [settings, isSaving]);
+  }, [settings]);
 
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -77,18 +75,18 @@ export function SettingsTab() {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="clinicName">Clinic Name</Label>
-            <Input id="clinicName" value={localSettings.clinicName} onChange={handleInputChange} disabled={isSaving} />
+            <Input id="clinicName" value={localSettings.clinicName || ''} onChange={handleInputChange} disabled={isSaving} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="clinicAddress">Address</Label>
-            <Input id="clinicAddress" value={localSettings.clinicAddress} onChange={handleInputChange} disabled={isSaving} />
+            <Input id="clinicAddress" value={localSettings.clinicAddress || ''} onChange={handleInputChange} disabled={isSaving} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="receiptValidityDays">Receipt Validity (Days)</Label>
             <Input 
               id="receiptValidityDays" 
               type="number"
-              value={localSettings.receiptValidityDays} 
+              value={localSettings.receiptValidityDays || 0} 
               onChange={handleInputChange} 
               min="0"
               disabled={isSaving}

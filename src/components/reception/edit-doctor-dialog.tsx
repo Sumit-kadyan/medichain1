@@ -56,7 +56,7 @@ export function EditDoctorDialog({ open, onOpenChange, doctor }: EditDoctorDialo
 
   const handleOpenChange = (isOpen: boolean) => {
     if (isSubmitting && !isOpen) {
-        // Allow closing even when submitting
+        return; // Prevent closing while submitting
     }
     onOpenChange(isOpen);
   }
