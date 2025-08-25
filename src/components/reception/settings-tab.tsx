@@ -59,7 +59,7 @@ export function SettingsTab() {
     }
   }
 
-  if (contextLoading) {
+  if (contextLoading && !settings) {
       return (
         <div className="flex justify-center items-center h-40">
             <Loader2 className="h-8 w-8 animate-spin" />
@@ -77,11 +77,11 @@ export function SettingsTab() {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="clinicName">Clinic Name</Label>
-            <Input id="clinicName" value={localSettings.clinicName} onChange={handleInputChange} />
+            <Input id="clinicName" value={localSettings.clinicName} onChange={handleInputChange} disabled={isSaving} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="clinicAddress">Address</Label>
-            <Input id="clinicAddress" value={localSettings.clinicAddress} onChange={handleInputChange} />
+            <Input id="clinicAddress" value={localSettings.clinicAddress} onChange={handleInputChange} disabled={isSaving} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="receiptValidityDays">Receipt Validity (Days)</Label>
@@ -91,6 +91,7 @@ export function SettingsTab() {
               value={localSettings.receiptValidityDays} 
               onChange={handleInputChange} 
               min="0"
+              disabled={isSaving}
             />
             <p className="text-sm text-muted-foreground">
               Set how many days a receipt is valid for from the date of issue.
@@ -100,7 +101,7 @@ export function SettingsTab() {
       </Card>
       
       <div className="flex justify-end">
-        <Button onClick={handleSave} disabled={isSaving}>
+        <Button onClick={handleSave} disabled={isSaving || contextLoading}>
             {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
             Save All Settings
         </Button>
