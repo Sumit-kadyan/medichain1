@@ -94,7 +94,7 @@ interface ClinicContextType {
     updateDoctor: (doctorId: string, doctorData: Partial<Omit<Doctor, 'id'>>) => Promise<void>;
     deleteDoctor: (doctorId: string) => Promise<void>;
     dismissNotification: (id: number) => void;
-    updateSettings: (newSettings: Partial<ClinicSettings>) => void;
+    updateSettings: (newSettings: Partial<ClinicSettings>) => Promise<void>;
 }
 
 const ClinicContext = createContext<ClinicContextType | undefined>(undefined);
@@ -350,9 +350,8 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
     
      const updateSettings = async (newSettings: Partial<ClinicSettings>) => {
         if (!clinicId) return;
-        const updatedSettings = { ...settings, ...newSettings };
-        await updateDoc(doc(db, 'clinics', clinicId), updatedSettings);
-        setSettings(updatedSettings);
+        await updateDoc(doc(db, 'clinics', clinicId), newSettings);
+        setSettings(prev => ({ ...prev, ...newSettings }));
     };
 
     return (
@@ -391,3 +390,5 @@ export const useClinicContext = () => {
     }
     return context;
 };
+
+    
