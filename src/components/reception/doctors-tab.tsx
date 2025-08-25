@@ -38,7 +38,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useClinicContext, Doctor } from '@/context/clinic-context';
 import { AddDoctorDialog } from './add-doctor-dialog';
 import { EditDoctorDialog } from './edit-doctor-dialog';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../ui/alert-dialog';
 
 export function DoctorsTab() {
   const { toast } = useToast();
