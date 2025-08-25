@@ -27,10 +27,13 @@ export function SettingsTab() {
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    if (settings) {
+    // Only update localSettings from context if it's not currently being saved
+    // and if the context settings are actually loaded.
+    if (!isSaving && settings && Object.keys(settings).length > 0) {
         setLocalSettings(settings);
     }
-  }, [settings]);
+  }, [settings, isSaving]);
+
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const { id, value } = e.target;

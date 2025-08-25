@@ -1,6 +1,6 @@
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, initializeFirestore, persistentLocalCache, memoryLocalCache } from 'firebase/firestore';
+import { getFirestore, initializeFirestore, persistentLocalCache } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 
 const firebaseConfig = {
@@ -18,10 +18,16 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
 // Use initializeFirestore to enable offline persistence
 // This helps with client-offline errors and improves performance.
-const db = initializeFirestore(app, {
-  localCache: persistentLocalCache(/*{ tabManager: 'Primary' }*/),
-});
+try {
+    initializeFirestore(app, {
+        localCache: persistentLocalCache(),
+    });
+} catch(error) {
+    console.warn(error);
+}
 
+
+const db = getFirestore(app);
 const auth = getAuth(app);
 
 export { app, db, auth };

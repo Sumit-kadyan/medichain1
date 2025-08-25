@@ -56,24 +56,15 @@ export function AddDoctorDialog({ open, onOpenChange }: AddDoctorDialogProps) {
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsSubmitting(true);
     try {
-      const doctorData = {
-          ...values,
-          avatarUrl: `https://placehold.co/100x100.png?text=${values.name.charAt(0)}`,
-          initials: values.name.split(' ').map(n => n[0]).join('').toUpperCase(),
-      };
-      
-      await addDoctor(doctorData);
-      
+      await addDoctor(values);
       toast({
         title: 'Doctor Added',
         description: `${values.name} has been added to the clinic.`,
       });
-      
       form.reset();
       onOpenChange(false);
-
     } catch (error) {
-      console.error(error);
+      console.error("Failed to add doctor:", error);
       toast({
         title: 'Error',
         description: 'Failed to add new doctor. Please try again.',

@@ -65,15 +65,7 @@ export function EditDoctorDialog({ open, onOpenChange, doctor }: EditDoctorDialo
 
     setIsSubmitting(true);
     try {
-      const updatedData: Partial<Omit<Doctor, 'id'>> = { ...values };
-      
-      if (values.name !== doctor.name) {
-          updatedData.initials = values.name.split(' ').map(n => n[0]).join('').toUpperCase();
-          updatedData.avatarUrl = `https://placehold.co/100x100.png?text=${values.name.charAt(0)}`;
-      }
-
-      await updateDoctor(doctor.id, updatedData);
-      
+      await updateDoctor(doctor.id, values);
       toast({
           title: 'Doctor Updated',
           description: `Details for ${values.name} have been updated.`
