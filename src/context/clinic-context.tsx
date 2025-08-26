@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
@@ -88,7 +89,7 @@ interface ClinicContextType {
     login: (email: string, password: string) => Promise<void>;
     logout: () => Promise<void>;
     addPatient: (patient: Omit<Patient, 'id' | 'avatarUrl' | 'history'>) => Promise<Patient | undefined>;
-    addPatientToWaitingList: (patientId: string, doctorId: string) => Promise<void>;
+    addPatientToWaitingList: (patient: Patient, doctorId: string) => Promise<void>;
     updatePatientStatus: (waitingPatientId: string, status: PatientStatus, items?: string[], advice?: string) => Promise<void>;
     updatePrescriptionStatus: (prescriptionId: string, status: PrescriptionStatus) => Promise<void>;
     addDoctor: (doctor: Omit<Doctor, 'id' | 'initials' | 'avatarUrl'>) => Promise<void>;
@@ -112,12 +113,32 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
     const [settings, setSettings] = useState<ClinicSettings | null>(null);
     const [loading, setLoading] = useState(true);
 
-     useEffect(() => {
-        const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
+    useEffect(() => {
+        const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
             setLoading(true);
             if (currentUser) {
                 setUser(currentUser);
-                setClinicId(currentUser.uid);
+    
+                try {
+                    const userRef = doc(db, "users", currentUser.uid);
+                    const userSnap = await getDoc(userRef);
+    
+                    if (userSnap.exists()) {
+                        const userData = userSnap.data() as { clinicId?: string };
+                        if (userData?.clinicId) {
+                            setClinicId(userData.clinicId);
+                        } else {
+                            // fallback: if no mapping, treat this user as clinic owner
+                            setClinicId(currentUser.uid);
+                        }
+                    } else {
+                        setClinicId(currentUser.uid);
+                    }
+                } catch (e) {
+                    console.error("Failed to resolve clinicId:", e);
+                    setClinicId(currentUser.uid);
+                }
+    
             } else {
                 setUser(null);
                 setClinicId(null);
@@ -131,6 +152,7 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         });
         return () => unsubscribeAuth();
     }, []);
+    
 
     useEffect(() => {
         if (!clinicId) {
@@ -139,7 +161,6 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         }
 
         setLoading(true);
-        const todayStr = new Date().toISOString().split('T')[0];
         
         const listeners: Unsubscribe[] = [];
 
@@ -163,6 +184,7 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
             });
             listeners.push(patientsUnsub);
 
+            const todayStr = new Date().toISOString().split('T')[0];
             const waitingListQuery = query(collection(db, 'clinics', clinicId, 'waitingList'), where('visitDate', '==', todayStr));
             const waitingListUnsub = onSnapshot(waitingListQuery, (snapshot) => {
                 const waitingListData = snapshot.docs.map(wl => ({ id: wl.id, ...wl.data() } as WaitingPatient));
@@ -205,6 +227,7 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
             receiptValidityDays: 30,
         };
         await setDoc(doc(db, 'clinics', user.uid), { ...newSettings, username });
+        await setDoc(doc(db, 'users', user.uid), { clinicId: user.uid });
     };
 
     const login = async (username: string, password: string) => {
@@ -259,22 +282,20 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         return { id: docRef.id, ...newPatientData };
     };
     
-    const addPatientToWaitingList = async (patientId: string, doctorId: string) => {
+    const addPatientToWaitingList = async (patient: Patient, doctorId: string) => {
         if (!clinicId) throw new Error("Not authenticated");
-        const patient = patients.find(p => p.id === patientId);
-        if (!patient) throw new Error("Patient not found");
 
         const doctor = doctors.find(d => d.id === doctorId);
         if (!doctor) throw new Error("Doctor not found");
 
-        const isPatientActive = waitingList.some(p => p.patientId === patientId && p.status !== 'dispensed');
+        const isPatientActive = waitingList.some(p => p.patientId === patient.id && p.status !== 'dispensed');
         if (isPatientActive) {
             toast({ title: 'Already Waiting', description: `${patient.name} is still in the active clinic queue.`, variant: 'destructive' });
             return;
         }
 
         const newWaitingPatientData: Omit<WaitingPatient, 'id'> = {
-            patientId,
+            patientId: patient.id,
             patientName: patient.name,
             gender: patient.gender,
             age: patient.age,
@@ -293,7 +314,7 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
             notes: 'Added to waiting list for consultation.'
         };
         const updatedHistory = [...patient.history, newHistoryEntry];
-        await updateDoc(doc(db, 'clinics', clinicId, 'patients', patientId), { history: updatedHistory });
+        await updateDoc(doc(db, 'clinics', clinicId, 'patients', patient.id), { history: updatedHistory });
 
         toast({ title: 'Added to Waitlist', description: `${patient.name} is now waiting for Dr. ${doctor.name}.` });
     };

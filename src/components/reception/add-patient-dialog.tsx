@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState } from 'react';
@@ -26,6 +27,7 @@ import {
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useClinicContext, Patient } from '@/context/clinic-context';
 import { useToast } from '@/hooks/use-toast';
+import { Loader2 } from 'lucide-react';
 
 const formSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters.'),
@@ -66,7 +68,7 @@ export function AddPatientDialog({ open, onOpenChange }: AddPatientDialogProps) 
     try {
       const newPatient = await addPatient(values);
       if (newPatient) {
-        addPatientToWaitingList(newPatient.id, values.doctorId);
+        await addPatientToWaitingList(newPatient, values.doctorId);
       }
       
       reset();
@@ -214,6 +216,7 @@ export function AddPatientDialog({ open, onOpenChange }: AddPatientDialogProps) 
           </div>
           <DialogFooter>
             <Button type="submit" disabled={loading}>
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {loading ? 'Saving...' : 'Save and Add to Waitlist'}
             </Button>
           </DialogFooter>
