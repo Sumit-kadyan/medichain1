@@ -67,8 +67,10 @@ export function AddPatientDialog({ open, onOpenChange }: AddPatientDialogProps) 
     setLoading(true);
     try {
       const newPatient = await addPatient(values);
-      if (newPatient) {
+      if (newPatient && newPatient.id) {
         await addPatientToWaitingList(newPatient, values.doctorId);
+      } else {
+        throw new Error("Failed to create patient or retrieve patient ID.");
       }
       
       reset();

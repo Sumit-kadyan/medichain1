@@ -284,6 +284,8 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
     
     const addPatientToWaitingList = async (patient: Patient, doctorId: string) => {
         if (!clinicId) throw new Error("Not authenticated");
+        if (!patient || !patient.id) throw new Error("Patient not found");
+
 
         const doctor = doctors.find(d => d.id === doctorId);
         if (!doctor) throw new Error("Doctor not found");
