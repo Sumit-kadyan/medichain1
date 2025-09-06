@@ -54,7 +54,12 @@ export function PatientsTab() {
         toast({ title: 'Error', description: 'Please select a doctor for this patient.', variant: 'destructive' });
         return;
     }
-    addPatientToWaitingList(patientId, doctorId);
+    const patient = patients.find(p => p.id === patientId);
+    if (!patient) {
+        toast({ title: 'Error', description: 'Could not find patient details.', variant: 'destructive' });
+        return;
+    }
+    addPatientToWaitingList(patient, doctorId);
   };
   
   const handleAction = (action: string, patientName?: string) => {

@@ -163,6 +163,7 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         setLoading(true);
         
         const listeners: Unsubscribe[] = [];
+        const todayStr = new Date().toISOString().split('T')[0];
 
         try {
             const settingsUnsub = onSnapshot(doc(db, 'clinics', clinicId), (doc) => {
@@ -184,7 +185,6 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
             });
             listeners.push(patientsUnsub);
 
-            const todayStr = new Date().toISOString().split('T')[0];
             const waitingListQuery = query(collection(db, 'clinics', clinicId, 'waitingList'), where('visitDate', '==', todayStr));
             const waitingListUnsub = onSnapshot(waitingListQuery, (snapshot) => {
                 const waitingListData = snapshot.docs.map(wl => ({ id: wl.id, ...wl.data() } as WaitingPatient));
@@ -272,14 +272,19 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
     
     const addPatient = async (patientData: Omit<Patient, 'id' | 'avatarUrl' | 'history'>): Promise<Patient | undefined> => {
         if (!clinicId) throw new Error("Not authenticated");
-        const newPatientData = {
-            ...patientData,
-            avatarUrl: `https://placehold.co/100x100?text=${patientData.name.charAt(0)}`,
-            history: [],
+        try {
+            const newPatientData = {
+                ...patientData,
+                avatarUrl: `https://placehold.co/100x100?text=${patientData.name.charAt(0)}`,
+                history: [],
+            }
+            const docRef = await addDoc(collection(db, 'clinics', clinicId, 'patients'), newPatientData);
+            toast({ title: 'Patient Added', description: `${newPatientData.name} has been registered.` });
+            return { id: docRef.id, ...newPatientData };
+        } catch (error) {
+             toast({ title: 'Error Adding Patient', description: 'Could not save new patient to the database.', variant: 'destructive' });
+             return undefined;
         }
-        const docRef = await addDoc(collection(db, 'clinics', clinicId, 'patients'), newPatientData);
-        toast({ title: 'Patient Added', description: `${newPatientData.name} has been registered.` });
-        return { id: docRef.id, ...newPatientData };
     };
     
     const addPatientToWaitingList = async (patient: Patient, doctorId: string) => {
