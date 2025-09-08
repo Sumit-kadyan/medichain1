@@ -37,7 +37,7 @@ export function GenerateBillDialog({
   const [dueDate, setDueDate] = useState<Date | undefined>();
 
   useEffect(() => {
-    if (prescription && settings.receiptValidityDays) {
+    if (prescription && settings && settings.receiptValidityDays) {
         const today = new Date();
         const newDueDate = new Date(today);
         newDueDate.setDate(today.getDate() + settings.receiptValidityDays);
