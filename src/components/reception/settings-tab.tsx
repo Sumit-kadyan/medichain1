@@ -75,11 +75,11 @@ export function SettingsTab() {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="clinicName">Clinic Name</Label>
-            <Input id="clinicName" value={localSettings.clinicName || ''} onChange={handleInputChange} disabled={isSaving} />
+            <Input id="clinicName" value={localSettings.clinicName || ''} onChange={handleInputChange} disabled={isSaving || contextLoading} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="clinicAddress">Address</Label>
-            <Input id="clinicAddress" value={localSettings.clinicAddress || ''} onChange={handleInputChange} disabled={isSaving} />
+            <Input id="clinicAddress" value={localSettings.clinicAddress || ''} onChange={handleInputChange} disabled={isSaving || contextLoading} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="receiptValidityDays">Receipt Validity (Days)</Label>
@@ -89,7 +89,7 @@ export function SettingsTab() {
               value={localSettings.receiptValidityDays || 0} 
               onChange={handleInputChange} 
               min="0"
-              disabled={isSaving}
+              disabled={isSaving || contextLoading}
             />
             <p className="text-sm text-muted-foreground">
               Set how many days a receipt is valid for from the date of issue.
