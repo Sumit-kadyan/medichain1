@@ -15,6 +15,19 @@ import { Label } from '@/components/ui/label';
 import { Loader2, Save } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useClinicContext, ClinicSettings } from '@/context/clinic-context';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+
+const currencies = [
+    { value: '$', label: 'USD ($) - Dollar' },
+    { value: '€', label: 'EUR (€) - Euro' },
+    { value: '¥', label: 'JPY (¥) - Yen' },
+    { value: '£', label: 'GBP (£) - Pound' },
+    { value: '₹', label: 'INR (₹) - Rupee' },
+    { value: 'C$', label: 'CAD (C$) - Canadian Dollar' },
+    { value: 'A$', label: 'AUD (A$) - Australian Dollar' },
+    { value: 'CHF', label: 'CHF - Swiss Franc' },
+    { value: '元', label: 'CNY (元) - Yuan' },
+];
 
 export function SettingsTab() {
   const { toast } = useToast();
@@ -23,6 +36,7 @@ export function SettingsTab() {
       clinicName: '',
       clinicAddress: '',
       receiptValidityDays: 0,
+      currency: '$'
   });
   const [isSaving, setIsSaving] = useState(false);
 
@@ -36,6 +50,10 @@ export function SettingsTab() {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const { id, value } = e.target;
       setLocalSettings(prev => ({...prev, [id]: id === 'receiptValidityDays' ? Number(value) : value }))
+  }
+
+  const handleCurrencyChange = (value: string) => {
+      setLocalSettings(prev => ({...prev, currency: value}));
   }
 
   const handleSave = async () => {
@@ -81,25 +99,43 @@ export function SettingsTab() {
             <Label htmlFor="clinicAddress">Address</Label>
             <Input id="clinicAddress" value={localSettings.clinicAddress || ''} onChange={handleInputChange} disabled={isSaving || contextLoading} />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="receiptValidityDays">Receipt Validity (Days)</Label>
-            <Input 
-              id="receiptValidityDays" 
-              type="number"
-              value={localSettings.receiptValidityDays || 0} 
-              onChange={handleInputChange} 
-              min="0"
-              disabled={isSaving || contextLoading}
-            />
-            <p className="text-sm text-muted-foreground">
-              Set how many days a receipt is valid for from the date of issue.
-            </p>
-          </div>
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                    <Label htmlFor="receiptValidityDays">Receipt Validity (Days)</Label>
+                    <Input 
+                    id="receiptValidityDays" 
+                    type="number"
+                    value={localSettings.receiptValidityDays || 0} 
+                    onChange={handleInputChange} 
+                    min="0"
+                    disabled={isSaving || contextLoading}
+                    />
+                    <p className="text-sm text-muted-foreground">
+                    Set how many days a receipt is valid for.
+                    </p>
+                </div>
+                <div className="space-y-2">
+                     <Label htmlFor="currency">Currency</Label>
+                     <Select value={localSettings.currency} onValueChange={handleCurrencyChange} disabled={isSaving || contextLoading}>
+                         <SelectTrigger>
+                             <SelectValue placeholder="Select a currency" />
+                         </SelectTrigger>
+                         <SelectContent>
+                             {currencies.map(c => (
+                                 <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                             ))}
+                         </SelectContent>
+                     </Select>
+                     <p className="text-sm text-muted-foreground">
+                        Select the currency for your clinic's billing.
+                    </p>
+                </div>
+           </div>
         </CardContent>
       </Card>
       
       <div className="flex justify-end">
-        <Button onClick={handleSave} disabled={isSaving || contextLoading}>
+        <Button onClick={handleSave} disabled={isSaving || contextLoading || !settings}>
             {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
             Save All Settings
         </Button>

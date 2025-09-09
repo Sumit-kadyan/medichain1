@@ -68,6 +68,7 @@ export interface ClinicSettings {
     clinicName: string;
     clinicAddress: string;
     receiptValidityDays: number;
+    currency: string;
 }
 
 type Notification = {
@@ -225,6 +226,7 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
             clinicName,
             clinicAddress: 'Not set',
             receiptValidityDays: 30,
+            currency: '$',
         };
         await setDoc(doc(db, 'clinics', user.uid), { ...newSettings, username });
         await setDoc(doc(db, 'users', user.uid), { clinicId: user.uid });

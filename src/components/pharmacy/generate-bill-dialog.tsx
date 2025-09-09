@@ -37,7 +37,7 @@ export function GenerateBillDialog({
   const [dueDate, setDueDate] = useState<Date | undefined>();
 
   useEffect(() => {
-    if (prescription && settings && settings.receiptValidityDays) {
+    if (prescription && settings) {
         const today = new Date();
         const newDueDate = new Date(today);
         newDueDate.setDate(today.getDate() + settings.receiptValidityDays);
@@ -59,7 +59,7 @@ export function GenerateBillDialog({
     }
   }, [prescription, settings]);
 
-  if (!prescription) return null;
+  if (!prescription || !settings) return null;
 
   const handlePriceChange = (item: string, value: string) => {
     const newPrices = { ...prices };
@@ -88,19 +88,22 @@ export function GenerateBillDialog({
           {prescription.items.map((item, index) => (
             <div key={index} className="grid grid-cols-3 items-center gap-4">
               <Label htmlFor={`price-${index}`} className="col-span-2 truncate">{item}</Label>
-              <Input
-                id={`price-${index}`}
-                type="number"
-                value={prices[item] || ''}
-                onChange={(e) => handlePriceChange(item, e.target.value)}
-                className="text-right"
-                placeholder="0.00"
-              />
+              <div className="relative">
+                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">{settings.currency}</span>
+                 <Input
+                    id={`price-${index}`}
+                    type="number"
+                    value={prices[item] || ''}
+                    onChange={(e) => handlePriceChange(item, e.target.value)}
+                    className="text-right pr-3 pl-6"
+                    placeholder="0.00"
+                />
+              </div>
             </div>
           ))}
           <div className="grid grid-cols-3 items-center gap-4 border-t pt-4">
               <Label className="col-span-2 text-lg font-bold">Total</Label>
-              <p className="text-right text-lg font-bold">${total.toFixed(2)}</p>
+              <p className="text-right text-lg font-bold">{settings.currency}{total.toFixed(2)}</p>
           </div>
            <div className="grid grid-cols-3 items-center gap-4 border-t pt-4">
                 <Label htmlFor="due-date" className="col-span-1">Due Date</Label>

@@ -38,7 +38,7 @@ export function BillPreviewDialog({
   const billRef = useRef<HTMLDivElement>(null);
   const qrCodeRef = useRef<HTMLDivElement>(null);
 
-  if (!billData) return null;
+  if (!billData || !settings) return null;
 
   const { prescription, prices, dueDate } = billData;
   const total = Object.values(prices).reduce((sum, price) => sum + price, 0);
@@ -121,7 +121,7 @@ export function BillPreviewDialog({
                         {prescription.items.map((item, index) => (
                             <tr key={index} className="border-b">
                                 <td className="p-2">{item}</td>
-                                <td className="p-2 text-right">${prices[item]?.toFixed(2) || '0.00'}</td>
+                                <td className="p-2 text-right">{settings.currency}{prices[item]?.toFixed(2) || '0.00'}</td>
                             </tr>
                         ))}
                     </tbody>
@@ -131,11 +131,11 @@ export function BillPreviewDialog({
                     <div className="w-1/2">
                          <div className="flex justify-between p-2">
                             <span className="font-semibold">Subtotal:</span>
-                            <span>${total.toFixed(2)}</span>
+                            <span>{settings.currency}{total.toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between p-2 bg-gray-200 font-bold">
                             <span>Total:</span>
-                            <span>${total.toFixed(2)}</span>
+                            <span>{settings.currency}{total.toFixed(2)}</span>
                         </div>
                     </div>
                 </div>
@@ -150,7 +150,7 @@ export function BillPreviewDialog({
                 )}
 
                 <footer className="mt-8 pt-4 border-t text-center text-xs text-gray-500">
-                    <p>Thank you for choosing {settings.clinicName}. Please pay by the due date.</p>
+                    <p>Thank you for choosing {settings.clinicName}. This receipt is valid till the due date.</p>
                 </footer>
             </div>
             <div className="flex flex-col items-center justify-center gap-6 p-4 border rounded-lg">
