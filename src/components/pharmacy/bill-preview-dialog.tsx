@@ -34,14 +34,19 @@ export function BillPreviewDialog({
   onOpenChange,
   billData,
 }: BillPreviewDialogProps) {
-  const { settings } = useClinicContext();
+  const { settings, clinicId } = useClinicContext();
   const billRef = useRef<HTMLDivElement>(null);
-  const qrCodeRef = useRef<HTMLDivElement>(null);
 
   if (!billData || !settings) return null;
 
   const { prescription, prices, dueDate } = billData;
   const total = Object.values(prices).reduce((sum, price) => sum + price, 0);
+  
+  // Construct the public URL for the bill
+  const downloadUrl = typeof window !== 'undefined' 
+    ? `${window.location.origin}/bill/${clinicId}_${prescription.id}` 
+    : '';
+
 
   const handleDownload = async () => {
     if (!billRef.current) return;
@@ -52,31 +57,17 @@ export function BillPreviewDialog({
 
         const pdf = new jsPDF('p', 'px', 'a4');
         const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = pdf.internal.pageSize.getHeight();
         
         const imgProps= pdf.getImageProperties(dataUrl);
         const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
         
-        let heightLeft = imgHeight;
-        let position = 0;
-        
-        pdf.addImage(dataUrl, 'PNG', 0, position, pdfWidth, imgHeight);
-        heightLeft -= pdfHeight;
-
-        while (heightLeft >= 0) {
-            position = heightLeft - imgHeight;
-            pdf.addPage();
-            pdf.addImage(dataUrl, 'PNG', 0, position, pdfWidth, imgHeight);
-            heightLeft -= pdfHeight;
-        }
-
+        pdf.addImage(dataUrl, 'PNG', 0, 0, pdfWidth, imgHeight);
         pdf.save(`bill-${prescription.patientName.replace(/\s/g, '_')}-${prescription.id}.pdf`);
     } catch (error) {
         console.error('oops, something went wrong!', error);
     }
   };
   
-  const downloadUrl = typeof window !== 'undefined' ? `${window.location.origin}/bill/${prescription.id}` : '';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -154,7 +145,7 @@ export function BillPreviewDialog({
                 </footer>
             </div>
             <div className="flex flex-col items-center justify-center gap-6 p-4 border rounded-lg">
-                <div ref={qrCodeRef} className="bg-white p-4 rounded-lg shadow-md">
+                <div className="bg-white p-4 rounded-lg shadow-md">
                      <QRCode
                         value={downloadUrl}
                         size={180}
@@ -163,7 +154,7 @@ export function BillPreviewDialog({
                         level="L"
                      />
                 </div>
-                <p className="text-sm text-center text-muted-foreground">Scan this code to download a copy of your receipt.</p>
+                <p className="text-sm text-center text-muted-foreground">Scan this code to view and download a copy of your bill.</p>
                 <Button onClick={handleDownload} className="w-full">
                     <Download className="mr-2" /> Download PDF
                 </Button>
