@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -14,10 +14,12 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Prescription } from '@/context/clinic-context';
 import { useClinicContext } from '@/context/clinic-context';
-import { Download, QrCode } from 'lucide-react';
+import { Download, QrCode, Copy, Check } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import QRCode from 'react-qr-code';
+import { Input } from '../ui/input';
+import { useToast } from '@/hooks/use-toast';
 
 interface BillPreviewDialogProps {
   open: boolean;
@@ -36,6 +38,8 @@ export function BillPreviewDialog({
 }: BillPreviewDialogProps) {
   const { settings, clinicId } = useClinicContext();
   const billRef = useRef<HTMLDivElement>(null);
+  const [isCopied, setIsCopied] = useState(false);
+  const { toast } = useToast();
 
   if (!billData || !settings) return null;
 
@@ -47,6 +51,13 @@ export function BillPreviewDialog({
     ? `${window.location.origin}/bill/${clinicId}_${prescription.id}` 
     : '';
 
+  const handleCopy = () => {
+    navigator.clipboard.writeText(downloadUrl).then(() => {
+        setIsCopied(true);
+        toast({ title: 'Copied!', description: 'Bill link copied to clipboard.'});
+        setTimeout(() => setIsCopied(false), 2000); // Reset after 2 seconds
+    });
+  }
 
   const handleDownload = async () => {
     if (!billRef.current) return;
@@ -71,11 +82,11 @@ export function BillPreviewDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-3xl">
+      <DialogContent className="sm:max-w-4xl">
         <DialogHeader>
-          <DialogTitle className="font-headline">Bill Preview</DialogTitle>
+          <DialogTitle className="font-headline">Bill Preview & Share</DialogTitle>
           <DialogDescription>
-            Review the final bill. You can download it as a PDF or scan the QR code.
+            Review the final bill. You can download it, copy a public link, or scan the QR code.
           </DialogDescription>
         </DialogHeader>
 
@@ -119,7 +130,7 @@ export function BillPreviewDialog({
                 </table>
                 
                 <div className="flex justify-end mt-4">
-                    <div className="w-1/2">
+                    <div className="w-full sm:w-1/2">
                          <div className="flex justify-between p-2">
                             <span className="font-semibold">Subtotal:</span>
                             <span>{settings.currency}{total.toFixed(2)}</span>
@@ -155,8 +166,17 @@ export function BillPreviewDialog({
                      />
                 </div>
                 <p className="text-sm text-center text-muted-foreground">Scan this code to view and download a copy of your bill.</p>
+                 <div className="w-full space-y-2">
+                    <label className="text-sm font-medium">Public Link</label>
+                    <div className="flex items-center gap-2">
+                        <Input readOnly value={downloadUrl} className="text-xs h-9"/>
+                        <Button size="icon" className="h-9 w-9 shrink-0" onClick={handleCopy}>
+                            {isCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                        </Button>
+                    </div>
+                </div>
                 <Button onClick={handleDownload} className="w-full">
-                    <Download className="mr-2" /> Download PDF
+                    <Download className="mr-2" /> Download as PDF
                 </Button>
             </div>
         </div>

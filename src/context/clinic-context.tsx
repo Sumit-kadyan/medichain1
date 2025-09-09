@@ -6,7 +6,7 @@ import React, { createContext, useContext, useState, ReactNode, useEffect, useCa
 import { useToast } from '@/hooks/use-toast';
 import { auth, db } from '@/lib/firebase';
 import { User, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
-import { doc, getDoc, setDoc, collection, addDoc, updateDoc, deleteDoc, query, where, onSnapshot, Unsubscribe, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, addDoc, updateDoc, deleteDoc, query, where, onSnapshot, Unsubscribe, serverTimestamp, Timestamp } from 'firebase/firestore';
 
 
 // Types
@@ -62,6 +62,8 @@ export interface Prescription extends FirestoreDocument {
   status: PrescriptionStatus;
   advice?: string;
   visitDate: string; // YYYY-MM-DD
+  billItems?: { item: string, price: number }[];
+  dueDate?: Timestamp;
 }
 
 export interface ClinicSettings {
@@ -92,7 +94,7 @@ interface ClinicContextType {
     addPatient: (patient: Omit<Patient, 'id' | 'avatarUrl' | 'history'>) => Promise<Patient | undefined>;
     addPatientToWaitingList: (patient: Patient, doctorId: string) => Promise<void>;
     updatePatientStatus: (waitingPatientId: string, status: PatientStatus, items?: string[], advice?: string) => Promise<void>;
-    updatePrescriptionStatus: (prescriptionId: string, status: PrescriptionStatus) => Promise<void>;
+    updatePrescriptionStatus: (prescriptionId: string, status: PrescriptionStatus, billItems?: {item: string, price: number}[], dueDate?: Date) => Promise<void>;
     addDoctor: (doctor: Omit<Doctor, 'id' | 'initials' | 'avatarUrl'>) => Promise<void>;
     updateDoctor: (doctorId: string, doctorData: Partial<Omit<Doctor, 'id' | 'initials' | 'avatarUrl'>>) => Promise<void>;
     deleteDoctor: (doctorId: string) => Promise<void>;
@@ -362,7 +364,7 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         }
     };
     
-    const updatePrescriptionStatus = async (prescriptionId: string, status: PrescriptionStatus) => {
+    const updatePrescriptionStatus = async (prescriptionId: string, status: PrescriptionStatus, billItems: {item: string, price: number}[] = [], dueDate?: Date) => {
         if (!clinicId) throw new Error("Not authenticated");
         
         const prescriptionRef = doc(db, 'clinics', clinicId, 'pharmacyQueue', prescriptionId);
@@ -373,8 +375,16 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
              return;
         }
         const prescription = prescriptionDoc.data() as Prescription;
+        
+        const updateData: Partial<Prescription> = { status };
+        if (billItems.length > 0) {
+            updateData.billItems = billItems;
+        }
+        if (dueDate) {
+            updateData.dueDate = Timestamp.fromDate(dueDate);
+        }
 
-        await updateDoc(prescriptionRef, { status });
+        await updateDoc(prescriptionRef, updateData);
         
         if (status === 'dispensed') {
             const waitingPatientRef = doc(db, 'clinics', clinicId, 'waitingList', prescription.waitingPatientId);

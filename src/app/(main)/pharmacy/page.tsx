@@ -37,6 +37,11 @@ export default function PharmacyPage() {
 
   const handleBillGenerated = (prices: Record<string, number>, dueDate: Date) => {
     if (!billGenerationPrescription) return;
+
+    // Also update the prescription in the database with the price and due date
+    const billItems = Object.entries(prices).map(([item, price]) => ({ item, price }));
+    updatePrescriptionStatus(billGenerationPrescription.id, 'pending', billItems, dueDate);
+
     setBillPreviewData({ prescription: billGenerationPrescription, prices, dueDate });
     setBillGenerationPrescription(null); // Close the generation dialog
   };

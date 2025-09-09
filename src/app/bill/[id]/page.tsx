@@ -27,11 +27,26 @@ async function getBillData(compositeId: string) {
         }
 
         const settings = clinicDocSnap.data() as ClinicSettings;
-        const prescription = { id: prescriptionDocSnap.id, ...prescriptionDocSnap.data() } as Prescription;
-        
+        const prescriptionData = prescriptionDocSnap.data();
+
         // This part is tricky as prices are not stored with the prescription.
         // For now, we will render the bill without prices.
         // In a real app, you would store priced items with the bill.
+        const prices = prescriptionData.items.reduce((acc: Record<string, number>, item: string) => {
+            // Find price in billItems if it exists, otherwise default to 0
+            const billItem = prescriptionData.billItems?.find((bi: any) => bi.item === item);
+            acc[item] = billItem ? billItem.price : 0;
+            return acc;
+        }, {});
+
+
+        const prescription: Prescription & { prices?: Record<string, number>, dueDate?: string } = {
+             id: prescriptionDocSnap.id, 
+             ...prescriptionData,
+             prices,
+             dueDate: prescriptionData.dueDate?.toDate().toLocaleDateString()
+        } as any;
+        
 
         return { settings, prescription };
 
@@ -50,19 +65,13 @@ export default async function BillPage({ params }: { params: { id: string } }) {
     }
 
     const { settings, prescription } = data;
-
-    // Dummy prices as they are not stored.
-    const prices = prescription.items.reduce((acc, item) => {
-        acc[item] = 0; // Defaulting to 0
-        return acc;
-    }, {} as Record<string, number>);
-
+    const prices = prescription.prices || {};
     const total = Object.values(prices).reduce((sum, price) => sum + price, 0);
 
 
     return (
         <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4 font-sans">
-            <div className="w-full max-w-3xl bg-white shadow-2xl rounded-lg p-8">
+            <div className="w-full max-w-3xl bg-white shadow-2xl rounded-lg p-8" id="bill-content">
                 <header className="flex justify-between items-start pb-4 border-b">
                     <div className="flex items-center gap-3">
                          <BriefcaseMedical className="w-10 h-10 text-primary" />
@@ -82,6 +91,7 @@ export default async function BillPage({ params }: { params: { id: string } }) {
                     <div className="text-right">
                         <p><span className="font-semibold">Invoice #:</span> {`INV-${prescription.id}`}</p>
                         <p><span className="font-semibold">Date:</span> {new Date().toLocaleDateString()}</p>
+                        {prescription.dueDate && <p><span className="font-semibold">Due Date:</span> {prescription.dueDate}</p>}
                     </div>
                 </section>
 
@@ -97,7 +107,7 @@ export default async function BillPage({ params }: { params: { id: string } }) {
                             {prescription.items.map((item, index) => (
                                 <tr key={index} className="border-b">
                                     <td className="p-3">{item}</td>
-                                    <td className="p-3 text-right">{settings.currency}{prices[item]?.toFixed(2) || 'N/A'}</td>
+                                    <td className="p-3 text-right">{settings.currency}{prices[item]?.toFixed(2) || '0.00'}</td>
                                 </tr>
                             ))}
                         </tbody>
@@ -133,10 +143,9 @@ export default async function BillPage({ params }: { params: { id: string } }) {
              <div className="w-full max-w-3xl mt-6 flex justify-end gap-2 print:hidden">
                  <Button variant="outline" onClick={() => window.print()}>
                      <Printer className="mr-2" />
-                     Print
+                     Print / Save PDF
                  </Button>
             </div>
         </div>
     );
 }
-
