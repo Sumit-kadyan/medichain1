@@ -1,13 +1,21 @@
 
-import { doc, getDoc, collection, getDocs, query, where, limit } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+'use client';
+
+import { doc, getDoc } from 'firebase/firestore';
+import { db }from '@/lib/firebase';
 import { notFound } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { BriefcaseMedical, Download, Printer } from 'lucide-react';
 import { ClinicSettings, Prescription } from '@/context/clinic-context';
+import { useEffect, useState } from 'react';
+import { Loader2 } from 'lucide-react';
 
+interface BillData {
+    settings: ClinicSettings;
+    prescription: Prescription;
+}
 
-async function getBillData(compositeId: string) {
+async function getBillData(compositeId: string): Promise<BillData | null> {
     const [clinicId, prescriptionId] = compositeId.split('_');
 
     if (!clinicId || !prescriptionId) {
@@ -28,26 +36,21 @@ async function getBillData(compositeId: string) {
 
         const settings = clinicDocSnap.data() as ClinicSettings;
         const prescriptionData = prescriptionDocSnap.data();
-
-        // This part is tricky as prices are not stored with the prescription.
-        // For now, we will render the bill without prices.
-        // In a real app, you would store priced items with the bill.
+        
         const prices = prescriptionData.items.reduce((acc: Record<string, number>, item: string) => {
-            // Find price in billItems if it exists, otherwise default to 0
             const billItem = prescriptionData.billItems?.find((bi: any) => bi.item === item);
             acc[item] = billItem ? billItem.price : 0;
             return acc;
         }, {});
 
 
-        const prescription: Prescription & { prices?: Record<string, number>, dueDate?: string } = {
+        const prescription: Prescription = {
              id: prescriptionDocSnap.id, 
              ...prescriptionData,
              prices,
              dueDate: prescriptionData.dueDate?.toDate().toLocaleDateString()
         } as any;
         
-
         return { settings, prescription };
 
     } catch (error) {
@@ -56,12 +59,45 @@ async function getBillData(compositeId: string) {
     }
 }
 
+function PrintButton() {
+    return (
+        <Button variant="outline" onClick={() => window.print()}>
+            <Printer className="mr-2" />
+            Print / Save PDF
+        </Button>
+    )
+}
 
-export default async function BillPage({ params }: { params: { id: string } }) {
-    const data = await getBillData(params.id);
+
+export default function BillPage({ params }: { params: { id: string } }) {
+    const [data, setData] = useState<BillData | null>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchData = async () => {
+            setLoading(true);
+            const billData = await getBillData(params.id);
+            if (!billData) {
+                notFound();
+            } else {
+                setData(billData);
+            }
+            setLoading(false);
+        };
+        fetchData();
+    }, [params.id]);
+
+
+    if (loading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin" />
+            </div>
+        )
+    }
 
     if (!data) {
-        notFound();
+        return notFound();
     }
 
     const { settings, prescription } = data;
@@ -141,10 +177,7 @@ export default async function BillPage({ params }: { params: { id: string } }) {
                 </footer>
             </div>
              <div className="w-full max-w-3xl mt-6 flex justify-end gap-2 print:hidden">
-                 <Button variant="outline" onClick={() => window.print()}>
-                     <Printer className="mr-2" />
-                     Print / Save PDF
-                 </Button>
+                 <PrintButton />
             </div>
         </div>
     );
