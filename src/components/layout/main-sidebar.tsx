@@ -71,7 +71,7 @@ export default function MainSidebar() {
             <SidebarMenuItem key={item.href}>
               <SidebarMenuButton
                 asChild
-                isActive={pathname.startsWith(item.href)}
+                isActive={pathname.startsWith(item.href) && !pathname.includes('?tab=settings')}
                 className="w-full"
               >
                 <Link href={item.href}>
@@ -88,7 +88,7 @@ export default function MainSidebar() {
              <SidebarMenuItem>
               <SidebarMenuButton
                 asChild
-                isActive={pathname.startsWith('/settings')}
+                isActive={pathname.includes('?tab=settings')}
                 className="w-full"
               >
                 <Link href="/reception?tab=settings">

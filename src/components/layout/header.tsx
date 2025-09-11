@@ -55,11 +55,7 @@ export default function Header() {
   }
 
   const handleProfileClick = () => {
-      // In a real app this would go to a profile page
-      toast({
-          title: 'Profile Clicked',
-          description: 'This is a mock action.',
-      })
+      router.push('/reception?tab=settings');
   }
 
   return (
