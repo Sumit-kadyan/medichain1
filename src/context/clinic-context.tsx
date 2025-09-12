@@ -6,8 +6,9 @@ import React, { createContext, useContext, useState, ReactNode, useEffect, useCa
 import { useToast } from '@/hooks/use-toast';
 import { auth, db } from '@/lib/firebase';
 import { User, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
-import { doc, getDoc, setDoc, collection, addDoc, updateDoc, deleteDoc, query, where, onSnapshot, Unsubscribe, serverTimestamp, Timestamp, writeBatch } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, addDoc, updateDoc, deleteDoc, query, where, onSnapshot, Unsubscribe, serverTimestamp, Timestamp, writeBatch, getDocs } from 'firebase/firestore';
 import Papa from 'papaparse';
+import { resolveClinicId } from '@/lib/clinicIdentity';
 
 
 // Types
@@ -95,7 +96,7 @@ interface ClinicContextType {
     authLoading: boolean;
     clinicId: string | null;
     signup: (email: string, password: string, clinicName: string, username: string) => Promise<void>;
-    login: (email: string, password: string) => Promise<void>;
+    login: (username: string, password: string) => Promise<void>;
     logout: () => Promise<void>;
     addPatient: (patient: NewPatientData) => Promise<Patient | undefined>;
     getPatientById: (patientId: string) => Promise<Patient | null>;
@@ -131,26 +132,8 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
             setAuthLoading(true);
             if (currentUser) {
                 setUser(currentUser);
-    
-                try {
-                    const userRef = doc(db, "users", currentUser.uid);
-                    const userSnap = await getDoc(userRef);
-    
-                    if (userSnap.exists()) {
-                        const userData = userSnap.data() as { clinicId?: string };
-                        if (userData?.clinicId) {
-                            setClinicId(userData.clinicId);
-                        } else {
-                            setClinicId(currentUser.uid);
-                        }
-                    } else {
-                        setClinicId(currentUser.uid);
-                    }
-                } catch (e) {
-                    console.error("Failed to resolve clinicId:", e);
-                    setClinicId(currentUser.uid);
-                }
-    
+                const resolvedId = await resolveClinicId(auth, db);
+                setClinicId(resolvedId);
             } else {
                 setUser(null);
                 setClinicId(null);
@@ -250,12 +233,28 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         };
         const batch = writeBatch(db);
         batch.set(doc(db, 'clinics', user.uid), { ...newSettings, username });
-        batch.set(doc(db, 'users', user.uid), { clinicId: user.uid });
+        batch.set(doc(db, 'users', user.uid), { clinicId: user.uid, email, username });
         await batch.commit();
     };
 
     const login = async (username: string, password: string) => {
-        const email = `${username.trim()}@medichain.app`;
+        const trimmedUsername = username.trim();
+        const usersRef = collection(db, 'users');
+        const q = query(usersRef, where('username', '==', trimmedUsername));
+        const querySnapshot = await getDocs(q);
+
+        if (querySnapshot.empty) {
+            throw new Error('User not found.');
+        }
+
+        const userDoc = querySnapshot.docs[0];
+        const userData = userDoc.data();
+        const email = userData.email;
+
+        if (!email) {
+            throw new Error('No email associated with this username.');
+        }
+
         await signInWithEmailAndPassword(auth, email, password);
     };
 
@@ -487,34 +486,36 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         }
     };
 
-    const exportDataToCSV = async (collectionName: 'patients' | 'doctors', filename: string) => {
-        if (!clinicId) throw new Error("Not authenticated");
-        try {
-            const q = query(collection(db, 'clinics', clinicId, collectionName));
-            const querySnapshot = await getDoc(q.withConverter(null)); // Using getDoc on a query is not right. This will fail.
-            const data = querySnapshot.docs.map(doc => ({id: doc.id, ...doc.data()}));
-            
-            if (data.length === 0) {
-                toast({ title: 'No Data', description: `There is no data to export for ${collectionName}.`});
-                return;
-            }
-            
-            const csv = Papa.unparse(data);
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
-            const url = URL.createObjectURL(blob);
-            link.setAttribute('href', url);
-            link.setAttribute('download', filename);
-            link.style.visibility = 'hidden';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            
-        } catch(error) {
-            console.error(`Error exporting ${collectionName}:`, error);
-            toast({ title: 'Export Failed', description: `Could not export ${collectionName} data.`, variant: 'destructive' });
-        }
-    }
+    const exportDataToCSV = async (dataToExport: 'patients' | 'doctors', filename: string) => {
+      const data = dataToExport === 'patients' ? patients : doctors;
+
+      if (data.length === 0) {
+        toast({
+          title: 'No Data',
+          description: `There is no data to export for ${dataToExport}.`,
+        });
+        return;
+      }
+
+      // We don't want to export the full history object in the CSV
+      const processedData = data.map(item => {
+        const { history, ...rest } = item as Patient; // Use type assertion
+        return rest;
+      });
+
+
+      const csv = Papa.unparse(processedData);
+      const blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', filename);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    };
+
     
     const exportPatientsToCSV = () => exportDataToCSV('patients', 'patients.csv');
     const exportDoctorsToCSV = () => exportDataToCSV('doctors', 'doctors.csv');
