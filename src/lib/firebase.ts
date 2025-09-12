@@ -1,7 +1,7 @@
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore, initializeFirestore, persistentLocalCache } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
+import { getAuth, browserLocalPersistence, setPersistence } from 'firebase/auth';
 
 const firebaseConfig = {
   "projectId": "medichain-of3ue",
@@ -15,6 +15,11 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+const auth = getAuth(app);
+
+// Set persistence to local storage
+setPersistence(auth, browserLocalPersistence);
+
 
 // Use initializeFirestore to enable offline persistence
 // This helps with client-offline errors and improves performance.
@@ -28,6 +33,5 @@ try {
 
 
 const db = getFirestore(app);
-const auth = getAuth(app);
 
 export { app, db, auth };
