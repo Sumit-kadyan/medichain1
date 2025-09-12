@@ -192,9 +192,6 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
             const waitingListUnsub = onSnapshot(waitingListQuery, (snapshot) => {
                 const waitingListData = snapshot.docs.map(wl => ({ id: wl.id, ...wl.data() } as WaitingPatient));
                 setWaitingList(waitingListData);
-            }, (error) => {
-                console.error("Waiting list listener error:", error);
-                toast({ title: 'Error', description: 'Could not load waiting list data.', variant: 'destructive'});
             });
             listeners.push(waitingListUnsub);
 
@@ -202,9 +199,6 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
             const pharmacyUnsub = onSnapshot(pharmacyQuery, (snapshot) => {
                 const pharmacyData = snapshot.docs.map(pq => ({ id: pq.id, ...pq.data() } as Prescription));
                 setPharmacyQueue(pharmacyData);
-            }, (error) => {
-                console.error("Pharmacy queue listener error:", error);
-                toast({ title: 'Error', description: 'Could not load pharmacy queue data.', variant: 'destructive'});
             });
             listeners.push(pharmacyUnsub);
 
