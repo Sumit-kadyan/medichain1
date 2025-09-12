@@ -46,16 +46,15 @@ export function BillPreviewDialog({
   const { prescription, prices, dueDate } = billData;
   const total = Object.values(prices).reduce((sum, price) => sum + price, 0);
   
-  // Construct the public URL for the bill
-  const downloadUrl = typeof window !== 'undefined' 
+  const publicUrl = typeof window !== 'undefined' 
     ? `${window.location.origin}/bill/${clinicId}_${prescription.id}` 
     : '';
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(downloadUrl).then(() => {
+    navigator.clipboard.writeText(publicUrl).then(() => {
         setIsCopied(true);
         toast({ title: 'Copied!', description: 'Bill link copied to clipboard.'});
-        setTimeout(() => setIsCopied(false), 2000); // Reset after 2 seconds
+        setTimeout(() => setIsCopied(false), 2000);
     });
   }
 
@@ -158,7 +157,7 @@ export function BillPreviewDialog({
             <div className="flex flex-col items-center justify-center gap-6 p-4 border rounded-lg">
                 <div className="bg-white p-4 rounded-lg shadow-md">
                      <QRCode
-                        value={downloadUrl}
+                        value={publicUrl}
                         size={180}
                         bgColor="#ffffff"
                         fgColor="#000000"
@@ -169,7 +168,7 @@ export function BillPreviewDialog({
                  <div className="w-full space-y-2">
                     <label className="text-sm font-medium">Public Link</label>
                     <div className="flex items-center gap-2">
-                        <Input readOnly value={downloadUrl} className="text-xs h-9"/>
+                        <Input readOnly value={publicUrl} className="text-xs h-9"/>
                         <Button size="icon" className="h-9 w-9 shrink-0" onClick={handleCopy}>
                             {isCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                         </Button>
