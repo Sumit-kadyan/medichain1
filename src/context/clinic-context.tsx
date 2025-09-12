@@ -96,7 +96,7 @@ interface ClinicContextType {
     authLoading: boolean;
     clinicId: string | null;
     signup: (email: string, password: string, clinicName: string, username: string) => Promise<void>;
-    login: (username: string, password: string) => Promise<void>;
+    login: (email: string, password: string) => Promise<void>;
     logout: () => Promise<void>;
     addPatient: (patient: NewPatientData) => Promise<Patient | undefined>;
     getPatientById: (patientId: string) => Promise<Patient | null>;
@@ -232,29 +232,14 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
             currency: '$',
         };
         const batch = writeBatch(db);
-        batch.set(doc(db, 'clinics', user.uid), { ...newSettings, username });
+        // The username is stored in the clinic document for display/reference if needed,
+        // and also in the users document for the login lookup.
+        batch.set(doc(db, 'clinics', user.uid), { ...newSettings, ownerUsername: username });
         batch.set(doc(db, 'users', user.uid), { clinicId: user.uid, email, username });
         await batch.commit();
     };
 
-    const login = async (username: string, password: string) => {
-        const trimmedUsername = username.trim();
-        const usersRef = collection(db, 'users');
-        const q = query(usersRef, where('username', '==', trimmedUsername));
-        const querySnapshot = await getDocs(q);
-
-        if (querySnapshot.empty) {
-            throw new Error('User not found.');
-        }
-
-        const userDoc = querySnapshot.docs[0];
-        const userData = userDoc.data();
-        const email = userData.email;
-
-        if (!email) {
-            throw new Error('No email associated with this username.');
-        }
-
+    const login = async (email: string, password: string) => {
         await signInWithEmailAndPassword(auth, email, password);
     };
 

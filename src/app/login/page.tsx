@@ -35,11 +35,24 @@ export default function LoginPage() {
     }
     setLoading(true);
     try {
-        await login(username, password);
+        // Construct the email from the username, same as in signup
+        const email = `${username.trim()}@medichain.app`;
+        await login(email, password); // Use the login function with email
         toast({ title: 'Login Successful', description: 'Redirecting to your dashboard...' });
         router.push('/reception');
     } catch (error: any) {
-        toast({ title: 'Login Failed', description: error.message, variant: 'destructive' });
+        let message = 'An unexpected error occurred.';
+        // Firebase provides more specific error codes you can check
+        if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+            message = 'Invalid username or password.';
+        } else if (error.message.includes('User not found')) {
+            // Handle custom error from context
+            message = 'Invalid username or password.';
+        }
+        else if (error.message) {
+            message = error.message;
+        }
+        toast({ title: 'Login Failed', description: message, variant: 'destructive' });
     } finally {
         setLoading(false);
     }
@@ -59,11 +72,11 @@ export default function LoginPage() {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="username">Username</Label>
-            <Input id="username" type="text" placeholder="yourclinic_username" required value={username} onChange={(e) => setUsername(e.target.value)} />
+            <Input id="username" type="text" placeholder="yourclinic_username" required value={username} onChange={(e) => setUsername(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleLogin()} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
-            <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+            <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleLogin()} />
           </div>
         </CardContent>
         <CardFooter className='flex flex-col gap-4'>
