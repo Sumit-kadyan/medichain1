@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -36,7 +37,8 @@ export function SettingsTab() {
       clinicName: '',
       clinicAddress: '',
       receiptValidityDays: 0,
-      currency: '$'
+      currency: '$',
+      logoUrl: '',
   });
   const [isSaving, setIsSaving] = useState(false);
 
@@ -98,6 +100,13 @@ export function SettingsTab() {
           <div className="space-y-2">
             <Label htmlFor="clinicAddress">Address</Label>
             <Input id="clinicAddress" value={localSettings.clinicAddress || ''} onChange={handleInputChange} disabled={isSaving || contextLoading} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="logoUrl">Logo URL (SVG)</Label>
+            <Input id="logoUrl" value={localSettings.logoUrl || ''} onChange={handleInputChange} disabled={isSaving || contextLoading} placeholder="https://example.com/logo.svg" />
+             <p className="text-sm text-muted-foreground">
+                Paste the URL to your clinic's SVG logo.
+            </p>
           </div>
            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">

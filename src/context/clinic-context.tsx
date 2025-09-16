@@ -77,6 +77,7 @@ export interface ClinicSettings {
     clinicAddress: string;
     receiptValidityDays: number;
     currency: string;
+    logoUrl?: string;
 }
 
 type Notification = {
@@ -230,6 +231,7 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
             clinicAddress: 'Not set',
             receiptValidityDays: 30,
             currency: '$',
+            logoUrl: '',
         };
         const batch = writeBatch(db);
         // The username is stored in the clinic document for display/reference if needed,

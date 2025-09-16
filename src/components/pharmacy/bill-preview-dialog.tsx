@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useRef, useState } from 'react';
@@ -47,7 +48,7 @@ export function BillPreviewDialog({
   const total = Object.values(prices).reduce((sum, price) => sum + price, 0);
   
   const publicUrl = typeof window !== 'undefined' 
-    ? `${window.location.origin}/bill/${clinicId}_${prescription.id}` 
+    ? `${window.location.origin}/bill/${prescription.id}` 
     : '';
 
   const handleCopy = () => {
@@ -62,7 +63,7 @@ export function BillPreviewDialog({
     if (!billRef.current) return;
 
     try {
-        const canvas = await html2canvas(billRef.current, { scale: 2 });
+        const canvas = await html2canvas(billRef.current, { scale: 2, useCORS: true });
         const dataUrl = canvas.toDataURL('image/png');
 
         const pdf = new jsPDF('p', 'px', 'a4');
@@ -92,11 +93,17 @@ export function BillPreviewDialog({
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 py-4">
             <div ref={billRef} className="md:col-span-2 p-6 border rounded-lg bg-white text-black font-sans">
                 <header className="flex justify-between items-start pb-4 border-b">
-                    <div>
-                        <h1 className="text-2xl font-bold text-gray-800">{settings.clinicName}</h1>
-                        <p className="text-xs text-gray-500">{settings.clinicAddress}</p>
+                    <div className="flex items-center gap-4">
+                        {settings.logoUrl && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={settings.logoUrl} alt="Clinic Logo" className="h-16 w-16 object-contain"/>
+                        )}
+                        <div>
+                            <h1 className="text-2xl font-bold text-gray-800">{settings.clinicName}</h1>
+                            <p className="text-xs text-gray-500">{settings.clinicAddress}</p>
+                        </div>
                     </div>
-                    <h2 className="text-xl font-semibold text-gray-600">INVOICE</h2>
+                    <h2 className="text-xl font-semibold text-gray-600 shrink-0">INVOICE</h2>
                 </header>
 
                 <section className="grid grid-cols-2 gap-4 my-4">
