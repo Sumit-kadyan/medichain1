@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { Prescription } from '@/context/clinic-context';
+import { Prescription, BillDetails } from '@/context/clinic-context';
 import { useClinicContext } from '@/context/clinic-context';
 import { Download, QrCode, Copy, Check } from 'lucide-react';
 import html2canvas from 'html2canvas';
@@ -28,7 +28,7 @@ interface BillPreviewDialogProps {
   onOpenChange: (open: boolean) => void;
   billData: {
     prescription: Prescription;
-    prices: Record<string, number>;
+    billDetails: BillDetails;
     dueDate: Date;
   } | null;
 }
@@ -60,8 +60,8 @@ export function BillPreviewDialog({
 
   if (!billData || !settings) return null;
 
-  const { prescription, prices, dueDate } = billData;
-  const total = Object.values(prices).reduce((sum, price) => sum + price, 0);
+  const { prescription, billDetails, dueDate } = billData;
+  const { items, taxInfo, appointmentFee, roundOff, total } = billDetails;
   
   const publicUrl = typeof window !== 'undefined' 
     ? `${window.location.origin}/bill/${clinicId}_${prescription.id}` 
@@ -99,6 +99,7 @@ export function BillPreviewDialog({
   const visitDateStr = formatDate(visitDate);
   const dueDateStr = formatDate(dueDate);
 
+  const subtotal = items.reduce((sum, item) => sum + item.price, 0);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -143,22 +144,40 @@ export function BillPreviewDialog({
                         </tr>
                     </thead>
                     <tbody>
-                        {prescription.items.map((item, index) => (
+                        {items.map((item, index) => (
                             <tr key={index} className="border-b">
-                                <td className="p-2">{item}</td>
-                                <td className="p-2 text-right">{settings.currency}{prices[item]?.toFixed(2) || '0.00'}</td>
+                                <td className="p-2">{item.item}</td>
+                                <td className="p-2 text-right">{settings.currency}{item.price.toFixed(2)}</td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
                 
                 <div className="flex justify-end mt-4">
-                    <div className="w-full sm:w-1/2">
+                    <div className="w-full sm:w-2/3 md:w-1/2 space-y-1">
                          <div className="flex justify-between p-2">
                             <span className="font-semibold">Subtotal:</span>
-                            <span>{settings.currency}{total.toFixed(2)}</span>
+                            <span>{settings.currency}{subtotal.toFixed(2)}</span>
                         </div>
-                        <div className="flex justify-between p-2 bg-gray-200 font-bold">
+                        {taxInfo.amount > 0 && (
+                            <div className="flex justify-between p-2">
+                                <span className="font-semibold">{taxInfo.type} ({taxInfo.percentage}%):</span>
+                                <span>{settings.currency}{taxInfo.amount.toFixed(2)}</span>
+                            </div>
+                        )}
+                        {appointmentFee > 0 && (
+                             <div className="flex justify-between p-2">
+                                <span className="font-semibold">Appointment Fee:</span>
+                                <span>{settings.currency}{appointmentFee.toFixed(2)}</span>
+                            </div>
+                        )}
+                         {roundOff !== 0 && (
+                             <div className="flex justify-between p-2">
+                                <span className="font-semibold">Round Off:</span>
+                                <span>{settings.currency}{roundOff.toFixed(2)}</span>
+                            </div>
+                        )}
+                        <div className="flex justify-between p-2 bg-gray-200 font-bold text-base">
                             <span>Total:</span>
                             <span>{settings.currency}{total.toFixed(2)}</span>
                         </div>

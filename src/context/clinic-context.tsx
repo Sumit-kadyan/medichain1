@@ -59,6 +59,19 @@ export interface WaitingPatient extends FirestoreDocument {
     advice?: string;
 }
 
+export interface BillDetails {
+  items: { item: string, price: number }[];
+  taxInfo: {
+    type: string;
+    percentage: number;
+    amount: number;
+  };
+  appointmentFee: number;
+  roundOff: number;
+  total: number;
+}
+
+
 export interface Prescription extends FirestoreDocument {
   waitingPatientId: string;
   patientName: string;
@@ -68,7 +81,7 @@ export interface Prescription extends FirestoreDocument {
   status: PrescriptionStatus;
   advice?: string;
   visitDate: string; // YYYY-MM-DD
-  billItems?: { item: string, price: number }[];
+  billDetails?: BillDetails;
   dueDate?: Timestamp;
 }
 
@@ -79,6 +92,9 @@ export interface ClinicSettings {
     currency: string;
     logoUrl?: string;
     logoSvg?: string;
+    taxType: string;
+    taxPercentage: number;
+    appointmentFee: number;
 }
 
 type Notification = {
@@ -104,7 +120,7 @@ interface ClinicContextType {
     getPatientById: (patientId: string) => Promise<Patient | null>;
     addPatientToWaitingList: (patient: Patient, doctorId: string) => Promise<void>;
     updatePatientStatus: (waitingPatientId: string, status: PatientStatus, items?: string[], advice?: string) => Promise<void>;
-    updatePrescriptionStatus: (prescriptionId: string, status: PrescriptionStatus, billItems?: {item: string, price: number}[], dueDate?: Date) => Promise<void>;
+    updatePrescriptionStatus: (prescriptionId: string, status: PrescriptionStatus, billDetails?: BillDetails, dueDate?: Date) => Promise<void>;
     addDoctor: (doctor: Omit<Doctor, 'id' | 'initials' | 'avatarUrl'>) => Promise<void>;
     updateDoctor: (doctorId: string, doctorData: Partial<Omit<Doctor, 'id' | 'initials' | 'avatarUrl'>>) => Promise<void>;
     deleteDoctor: (doctorId: string) => Promise<void>;
@@ -233,6 +249,9 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
             receiptValidityDays: 30,
             currency: '$',
             logoUrl: '',
+            taxType: 'VAT',
+            taxPercentage: 0,
+            appointmentFee: 0,
         };
         const batch = writeBatch(db);
         // The username is stored in the clinic document for display/reference if needed,
@@ -421,7 +440,7 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         }
     };
     
-    const updatePrescriptionStatus = async (prescriptionId: string, status: PrescriptionStatus, billItems: {item: string, price: number}[] = [], dueDate?: Date) => {
+    const updatePrescriptionStatus = async (prescriptionId: string, status: PrescriptionStatus, billDetails?: BillDetails, dueDate?: Date) => {
         if (!clinicId) throw new Error("Not authenticated");
         
         try {
@@ -434,8 +453,8 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
             const prescription = prescriptionDoc.data() as Prescription;
             
             const updateData: Partial<Prescription> = { status };
-            if (billItems.length > 0) {
-                updateData.billItems = billItems;
+            if (billDetails) {
+                updateData.billDetails = billDetails;
             }
             if (dueDate) {
                 updateData.dueDate = Timestamp.fromDate(dueDate);

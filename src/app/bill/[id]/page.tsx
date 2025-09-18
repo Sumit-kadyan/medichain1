@@ -1,13 +1,9 @@
 
+
 import { adminDb } from "@/lib/firebaseAdmin";
 import { Timestamp } from "firebase-admin/firestore";
 import ClinicLogo from "@/components/ClinicLogo";
-import type { ClinicSettings } from "@/context/clinic-context";
-
-interface BillItem {
-  item: string;
-  price: number;
-}
+import type { ClinicSettings, BillDetails } from "@/context/clinic-context";
 
 interface Prescription {
   id: string;
@@ -19,7 +15,7 @@ interface Prescription {
   status: string;
   visitDate: string;
   advice?: string;
-  billItems?: BillItem[];
+  billDetails?: BillDetails;
   dueDate?: Timestamp;
 }
 
@@ -71,29 +67,30 @@ function formatDate(date: Date | undefined): string | null {
 export default async function BillPage({ params }: { params: { id: string } }) {
   const billData = await getBillData(params.id);
 
-  if (!billData) {
+  if (!billData || !billData.prescription.billDetails) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-100">
           <div className="p-10 text-center bg-white rounded-lg shadow-md">
             <h1 className="text-2xl font-bold text-red-600 mb-4">Bill Not Found</h1>
-            <p>The link may be invalid or the bill has been removed.</p>
+            <p>The link may be invalid or the bill has not been generated yet.</p>
           </div>
       </div>
     );
   }
 
   const { prescription, settings } = billData;
+  const { billDetails } = prescription;
 
-  const total =
-    prescription.billItems?.reduce((sum, b) => sum + (b.price || 0), 0) || 0;
-    
-  // The visitDate from Firestore is a string like 'YYYY-MM-DD'.
-  // We add 'T00:00:00' to ensure it's parsed in the local timezone, not UTC.
+  if (!billDetails) {
+    // This case should be covered by the initial check, but good for safety
+    return <p>Bill details not found.</p>;
+  }
+
+  const subtotal = billDetails.items.reduce((sum, item) => sum + item.price, 0);
+
   const visitDate = new Date(`${prescription.visitDate}T00:00:00`);
-
   const visitDateStr = formatDate(visitDate);
   const dueDateStr = formatDate(prescription.dueDate?.toDate());
-
 
   return (
     <div className="max-w-4xl mx-auto my-10 bg-white shadow-2xl p-8 rounded-lg font-sans text-gray-800">
@@ -130,24 +127,42 @@ export default async function BillPage({ params }: { params: { id: string } }) {
           </tr>
         </thead>
         <tbody>
-          {prescription.items.map((it, i) => (
+          {billDetails.items.map((it, i) => (
             <tr key={i} className="border-b border-gray-100">
-              <td className="p-3">{it}</td>
-              <td className="p-3 text-right">{settings.currency}{prescription.billItems?.[i]?.price.toFixed(2) || '0.00'}</td>
+              <td className="p-3">{it.item}</td>
+              <td className="p-3 text-right">{settings.currency}{it.price.toFixed(2)}</td>
             </tr>
           ))}
         </tbody>
       </table>
       
       <div className="flex justify-end mt-8">
-          <div className="w-full sm:w-1/2 md:w-1/3">
+          <div className="w-full sm:w-1/2 md:w-2/5 space-y-1">
               <div className="flex justify-between p-3">
                 <span className="font-semibold text-gray-600">Subtotal:</span>
-                <span>{settings.currency}{total.toFixed(2)}</span>
+                <span>{settings.currency}{subtotal.toFixed(2)}</span>
               </div>
+               {billDetails.taxInfo.amount > 0 && (
+                <div className="flex justify-between p-3">
+                    <span className="font-semibold text-gray-600">{billDetails.taxInfo.type} ({billDetails.taxInfo.percentage}%):</span>
+                    <span>{settings.currency}{billDetails.taxInfo.amount.toFixed(2)}</span>
+                </div>
+               )}
+                {billDetails.appointmentFee > 0 && (
+                    <div className="flex justify-between p-3">
+                    <span className="font-semibold text-gray-600">Appointment Fee:</span>
+                    <span>{settings.currency}{billDetails.appointmentFee.toFixed(2)}</span>
+                    </div>
+                )}
+                {billDetails.roundOff !== 0 && (
+                     <div className="flex justify-between p-3">
+                        <span className="font-semibold text-gray-600">Round Off:</span>
+                        <span>{settings.currency}{billDetails.roundOff.toFixed(2)}</span>
+                    </div>
+                )}
               <div className="flex justify-between p-3 bg-gray-200 rounded-md font-bold text-xl">
                 <span>Total:</span>
-                <span>{settings.currency}{total.toFixed(2)}</span>
+                <span>{settings.currency}{billDetails.total.toFixed(2)}</span>
               </div>
           </div>
       </div>

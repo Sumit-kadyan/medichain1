@@ -31,6 +31,8 @@ const currencies = [
     { value: '元', label: 'CNY (元) - Yuan' },
 ];
 
+const taxTypes = ['VAT', 'GST', 'Sales Tax', 'No Tax'];
+
 export function SettingsTab() {
   const { toast } = useToast();
   const { settings, updateSettings, loading: contextLoading } = useClinicContext();
@@ -40,7 +42,10 @@ export function SettingsTab() {
       receiptValidityDays: 0,
       currency: '$',
       logoUrl: '',
-      logoSvg: ''
+      logoSvg: '',
+      taxType: 'No Tax',
+      taxPercentage: 0,
+      appointmentFee: 0,
   });
   const [isSaving, setIsSaving] = useState(false);
 
@@ -53,11 +58,12 @@ export function SettingsTab() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
       const { id, value } = e.target;
-      setLocalSettings(prev => ({...prev, [id]: id === 'receiptValidityDays' ? Number(value) : value }))
+      const numValue = id === 'receiptValidityDays' || id === 'taxPercentage' || id === 'appointmentFee' ? Number(value) : value;
+      setLocalSettings(prev => ({...prev, [id]: numValue }))
   }
 
-  const handleCurrencyChange = (value: string) => {
-      setLocalSettings(prev => ({...prev, currency: value}));
+  const handleSelectChange = (id: 'currency' | 'taxType', value: string) => {
+      setLocalSettings(prev => ({...prev, [id]: value}));
   }
 
   const handleSave = async () => {
@@ -117,24 +123,19 @@ export function SettingsTab() {
                 Paste the raw SVG code for your clinic's logo.
             </p>
           </div>
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                    <Label htmlFor="receiptValidityDays">Receipt Validity (Days)</Label>
-                    <Input 
-                    id="receiptValidityDays" 
-                    type="number"
-                    value={localSettings.receiptValidityDays || 0} 
-                    onChange={handleInputChange} 
-                    min="0"
-                    disabled={isSaving || contextLoading}
-                    />
-                    <p className="text-sm text-muted-foreground">
-                    Set how many days a receipt is valid for.
-                    </p>
-                </div>
+        </CardContent>
+      </Card>
+      
+      <Card>
+        <CardHeader>
+          <CardTitle className="font-headline">Billing &amp; Tax</CardTitle>
+          <CardDescription>Configure currency, taxes, and standard fees.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                      <Label htmlFor="currency">Currency</Label>
-                     <Select value={localSettings.currency} onValueChange={handleCurrencyChange} disabled={isSaving || contextLoading}>
+                     <Select value={localSettings.currency} onValueChange={(v) => handleSelectChange('currency', v)} disabled={isSaving || contextLoading}>
                          <SelectTrigger>
                              <SelectValue placeholder="Select a currency" />
                          </SelectTrigger>
@@ -144,11 +145,60 @@ export function SettingsTab() {
                              ))}
                          </SelectContent>
                      </Select>
-                     <p className="text-sm text-muted-foreground">
-                        Select the currency for your clinic's billing.
-                    </p>
+                </div>
+                 <div className="space-y-2">
+                    <Label htmlFor="appointmentFee">Appointment/Consultation Fee</Label>
+                    <Input 
+                        id="appointmentFee" 
+                        type="number"
+                        value={localSettings.appointmentFee || 0} 
+                        onChange={handleInputChange} 
+                        min="0"
+                        disabled={isSaving || contextLoading}
+                        />
                 </div>
            </div>
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                     <Label htmlFor="taxType">Tax Type</Label>
+                     <Select value={localSettings.taxType} onValueChange={(v) => handleSelectChange('taxType', v)} disabled={isSaving || contextLoading}>
+                         <SelectTrigger>
+                             <SelectValue placeholder="Select a tax type" />
+                         </SelectTrigger>
+                         <SelectContent>
+                             {taxTypes.map(t => (
+                                 <SelectItem key={t} value={t}>{t}</SelectItem>
+                             ))}
+                         </SelectContent>
+                     </Select>
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="taxPercentage">Tax Percentage (%)</Label>
+                    <Input 
+                    id="taxPercentage" 
+                    type="number"
+                    value={localSettings.taxPercentage || 0} 
+                    onChange={handleInputChange} 
+                    min="0"
+                    max="100"
+                    disabled={isSaving || contextLoading || localSettings.taxType === 'No Tax'}
+                    />
+                </div>
+           </div>
+            <div className="space-y-2">
+                <Label htmlFor="receiptValidityDays">Receipt Validity (Days)</Label>
+                <Input 
+                id="receiptValidityDays" 
+                type="number"
+                value={localSettings.receiptValidityDays || 0} 
+                onChange={handleInputChange} 
+                min="0"
+                disabled={isSaving || contextLoading}
+                />
+                 <p className="text-sm text-muted-foreground">
+                    Set how many days a receipt is valid for before it's considered overdue.
+                </p>
+            </div>
         </CardContent>
       </Card>
       

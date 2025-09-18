@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -15,15 +16,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Prescription, useClinicContext } from '@/context/clinic-context';
+import { Prescription, useClinicContext, BillDetails } from '@/context/clinic-context';
 import { CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
+import { Checkbox } from '../ui/checkbox';
+import { Separator } from '../ui/separator';
 
 interface GenerateBillDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   prescription: Prescription | null;
-  onBillGenerated: (prices: Record<string, number>, dueDate: Date) => void;
+  onBillGenerated: (billDetails: BillDetails, dueDate: Date) => void;
 }
 
 export function GenerateBillDialog({
@@ -35,6 +38,8 @@ export function GenerateBillDialog({
   const { settings } = useClinicContext();
   const [prices, setPrices] = useState<Record<string, number>>({});
   const [dueDate, setDueDate] = useState<Date | undefined>();
+  const [includeAppointmentFee, setIncludeAppointmentFee] = useState(true);
+  const [applyRoundOff, setApplyRoundOff] = useState(true);
 
   useEffect(() => {
     if (prescription && settings) {
@@ -43,15 +48,15 @@ export function GenerateBillDialog({
         newDueDate.setDate(today.getDate() + settings.receiptValidityDays);
         setDueDate(newDueDate);
         
-        // Initialize prices
         const initialPrices = prescription.items.reduce((acc, item) => {
             acc[item] = 0;
             return acc;
         }, {} as Record<string, number>);
         setPrices(initialPrices);
+        setIncludeAppointmentFee(true);
+        setApplyRoundOff(true);
 
     } else if (prescription) {
-        // Fallback due date if settings not loaded
         const today = new Date();
         const newDueDate = new Date(today);
         newDueDate.setDate(today.getDate() + 7); // Default 7 days
@@ -67,12 +72,29 @@ export function GenerateBillDialog({
     setPrices(newPrices);
   };
 
-  const total = Object.values(prices).reduce((sum, price) => sum + (price || 0), 0);
+  const subtotal = Object.values(prices).reduce((sum, price) => sum + (price || 0), 0);
+  const taxAmount = settings.taxType !== 'No Tax' ? subtotal * (settings.taxPercentage / 100) : 0;
+  const fee = includeAppointmentFee ? settings.appointmentFee : 0;
+  const totalBeforeRoundOff = subtotal + taxAmount + fee;
+  const roundOffAmount = applyRoundOff ? Math.round(totalBeforeRoundOff) - totalBeforeRoundOff : 0;
+  const finalTotal = totalBeforeRoundOff + roundOffAmount;
+
   
   const handleGenerateClick = () => {
-    if (dueDate) {
-        onBillGenerated(prices, dueDate);
-    }
+    if (!dueDate) return;
+    
+    const billDetails: BillDetails = {
+        items: prescription.items.map(item => ({ item, price: prices[item] || 0 })),
+        taxInfo: {
+            type: settings.taxType,
+            percentage: settings.taxPercentage,
+            amount: taxAmount,
+        },
+        appointmentFee: fee,
+        roundOff: roundOffAmount,
+        total: finalTotal,
+    };
+    onBillGenerated(billDetails, dueDate);
   };
 
   return (
@@ -81,10 +103,10 @@ export function GenerateBillDialog({
         <DialogHeader>
           <DialogTitle className="font-headline">Generate Bill for {prescription.patientName}</DialogTitle>
           <DialogDescription>
-            Enter the price for each prescribed item and set the due date.
+            Enter prices, select options, and set the due date.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4 py-4">
+        <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto pr-2">
           {prescription.items.map((item, index) => (
             <div key={index} className="grid grid-cols-3 items-center gap-4">
               <Label htmlFor={`price-${index}`} className="col-span-2 truncate">{item}</Label>
@@ -101,11 +123,40 @@ export function GenerateBillDialog({
               </div>
             </div>
           ))}
-          <div className="grid grid-cols-3 items-center gap-4 border-t pt-4">
-              <Label className="col-span-2 text-lg font-bold">Total</Label>
-              <p className="text-right text-lg font-bold">{settings.currency}{total.toFixed(2)}</p>
+          <Separator />
+          <div className="space-y-2">
+             <div className="flex justify-between items-center">
+                <Label>Subtotal</Label>
+                <p className="font-medium">{settings.currency}{subtotal.toFixed(2)}</p>
+            </div>
+            {settings.taxType !== 'No Tax' && (
+                <div className="flex justify-between items-center">
+                    <Label>{settings.taxType} ({settings.taxPercentage}%)</Label>
+                    <p className="font-medium">{settings.currency}{taxAmount.toFixed(2)}</p>
+                </div>
+            )}
+             <div className="flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                    <Checkbox id="appointment-fee" checked={includeAppointmentFee} onCheckedChange={(c) => setIncludeAppointmentFee(c as boolean)} />
+                    <Label htmlFor="appointment-fee">Appointment Fee</Label>
+                </div>
+                <p className="font-medium">{settings.currency}{fee.toFixed(2)}</p>
+            </div>
+             <div className="flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                    <Checkbox id="round-off" checked={applyRoundOff} onCheckedChange={(c) => setApplyRoundOff(c as boolean)} />
+                    <Label htmlFor="round-off">Round Off</Label>
+                </div>
+                <p className="font-medium">{settings.currency}{roundOffAmount.toFixed(2)}</p>
+            </div>
+            <Separator />
+            <div className="flex justify-between items-center text-lg font-bold">
+              <Label className="text-lg">Total</Label>
+              <p>{settings.currency}{finalTotal.toFixed(2)}</p>
           </div>
-           <div className="grid grid-cols-3 items-center gap-4 border-t pt-4">
+          </div>
+          
+           <div className="grid grid-cols-3 items-center gap-4 pt-4">
                 <Label htmlFor="due-date" className="col-span-1">Due Date</Label>
                 <Popover>
                     <PopoverTrigger asChild>
