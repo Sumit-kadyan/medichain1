@@ -78,6 +78,7 @@ export interface ClinicSettings {
     receiptValidityDays: number;
     currency: string;
     logoUrl?: string;
+    logoSvg?: string;
 }
 
 type Notification = {
@@ -549,5 +550,7 @@ export const useClinicContext = () => {
     }
     return context;
 };
+
+    
 
     

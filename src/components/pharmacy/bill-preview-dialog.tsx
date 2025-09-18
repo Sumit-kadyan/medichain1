@@ -21,6 +21,7 @@ import jsPDF from 'jspdf';
 import QRCode from 'react-qr-code';
 import { Input } from '../ui/input';
 import { useToast } from '@/hooks/use-toast';
+import ClinicLogo from '../ClinicLogo';
 
 interface BillPreviewDialogProps {
   open: boolean;
@@ -94,10 +95,7 @@ export function BillPreviewDialog({
             <div ref={billRef} className="md:col-span-2 p-6 border rounded-lg bg-white text-black font-sans">
                 <header className="flex justify-between items-start pb-4 border-b">
                     <div className="flex items-center gap-4">
-                        {settings.logoUrl && (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={settings.logoUrl} alt="Clinic Logo" className="h-16 w-16 object-contain"/>
-                        )}
+                        <ClinicLogo svg={settings.logoSvg} />
                         <div>
                             <h1 className="text-2xl font-bold text-gray-800">{settings.clinicName}</h1>
                             <p className="text-xs text-gray-500">{settings.clinicAddress}</p>
@@ -191,3 +189,5 @@ export function BillPreviewDialog({
     </Dialog>
   );
 }
+
+    

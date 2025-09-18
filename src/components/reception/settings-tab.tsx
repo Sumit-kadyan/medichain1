@@ -17,6 +17,7 @@ import { Loader2, Save } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useClinicContext, ClinicSettings } from '@/context/clinic-context';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { Textarea } from '../ui/textarea';
 
 const currencies = [
     { value: '$', label: 'USD ($) - Dollar' },
@@ -39,6 +40,7 @@ export function SettingsTab() {
       receiptValidityDays: 0,
       currency: '$',
       logoUrl: '',
+      logoSvg: ''
   });
   const [isSaving, setIsSaving] = useState(false);
 
@@ -49,7 +51,7 @@ export function SettingsTab() {
   }, [settings]);
 
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
       const { id, value } = e.target;
       setLocalSettings(prev => ({...prev, [id]: id === 'receiptValidityDays' ? Number(value) : value }))
   }
@@ -102,10 +104,17 @@ export function SettingsTab() {
             <Input id="clinicAddress" value={localSettings.clinicAddress || ''} onChange={handleInputChange} disabled={isSaving || contextLoading} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="logoUrl">Logo URL (SVG)</Label>
-            <Input id="logoUrl" value={localSettings.logoUrl || ''} onChange={handleInputChange} disabled={isSaving || contextLoading} placeholder="https://example.com/logo.svg" />
+            <Label htmlFor="logoSvg">Logo SVG Markup</Label>
+            <Textarea 
+              id="logoSvg" 
+              value={localSettings.logoSvg || ''} 
+              onChange={handleInputChange} 
+              disabled={isSaving || contextLoading} 
+              placeholder="<svg>...</svg>"
+              className="min-h-[120px] font-code"
+            />
              <p className="text-sm text-muted-foreground">
-                Paste the URL to your clinic's SVG logo.
+                Paste the raw SVG code for your clinic's logo.
             </p>
           </div>
            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -152,3 +161,5 @@ export function SettingsTab() {
     </div>
   );
 }
+
+    
