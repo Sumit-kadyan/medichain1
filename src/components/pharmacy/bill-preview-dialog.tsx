@@ -33,11 +33,11 @@ interface BillPreviewDialogProps {
   } | null;
 }
 
-function formatDate(date: Date): string | null {
+function formatDate(date: Date | undefined): string | null {
     if (!date) return null;
     const day = date.getDate();
     const year = date.getFullYear();
-    const month = date.toLocaleString('default', { month: 'long' });
+    const month = date.toLocaleString('default', { month: 'short' });
 
     let suffix = 'th';
     if (day === 1 || day === 21 || day === 31) suffix = 'st';
@@ -95,7 +95,8 @@ export function BillPreviewDialog({
     }
   };
   
-  const visitDateStr = new Date(prescription.visitDate).toLocaleDateString(undefined, { day: '2-digit', month: 'long', year: 'numeric' });
+  const visitDate = new Date(`${prescription.visitDate}T00:00:00`);
+  const visitDateStr = formatDate(visitDate);
   const dueDateStr = formatDate(dueDate);
 
 

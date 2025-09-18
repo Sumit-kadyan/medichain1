@@ -54,12 +54,11 @@ async function getBillData(id: string): Promise<{ prescription: Prescription, se
   }
 }
 
-function formatDate(timestamp: Timestamp | undefined): string | null {
-    if (!timestamp) return null;
-    const date = timestamp.toDate();
+function formatDate(date: Date | undefined): string | null {
+    if (!date) return null;
     const day = date.getDate();
     const year = date.getFullYear();
-    const month = date.toLocaleString('default', { month: 'long' });
+    const month = date.toLocaleString('default', { month: 'short' });
 
     let suffix = 'th';
     if (day === 1 || day === 21 || day === 31) suffix = 'st';
@@ -87,9 +86,13 @@ export default async function BillPage({ params }: { params: { id: string } }) {
 
   const total =
     prescription.billItems?.reduce((sum, b) => sum + (b.price || 0), 0) || 0;
+    
+  // The visitDate from Firestore is a string like 'YYYY-MM-DD'.
+  // We add 'T00:00:00' to ensure it's parsed in the local timezone, not UTC.
+  const visitDate = new Date(`${prescription.visitDate}T00:00:00`);
 
-  const visitDateStr = new Date(prescription.visitDate).toLocaleDateString(undefined, { day: '2-digit', month: 'long', year: 'numeric' });
-  const dueDateStr = formatDate(prescription.dueDate);
+  const visitDateStr = formatDate(visitDate);
+  const dueDateStr = formatDate(prescription.dueDate?.toDate());
 
 
   return (
