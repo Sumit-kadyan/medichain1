@@ -90,7 +90,15 @@ export default async function BillPage({ params }: { params: { id: string } }) {
 
   const visitDate = new Date(`${prescription.visitDate}T00:00:00`);
   const visitDateStr = formatDate(visitDate);
-  const dueDateStr = formatDate(prescription.dueDate?.toDate());
+  const dueDate = prescription.dueDate?.toDate();
+  const dueDateStr = formatDate(dueDate);
+
+  let validityDays = 0;
+  if (dueDate) {
+    const diffTime = Math.abs(dueDate.getTime() - visitDate.getTime());
+    validityDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  }
+
 
   return (
     <div className="max-w-4xl mx-auto my-10 bg-white shadow-2xl p-8 rounded-lg font-sans text-gray-800">
@@ -179,7 +187,7 @@ export default async function BillPage({ params }: { params: { id: string } }) {
 
       <footer className="mt-12 pt-6 border-t border-gray-200 text-center text-sm text-gray-500">
         <p>Thank you for choosing {settings.clinicName}.</p>
-        {settings.receiptValidityDays > 0 && <p>This receipt is valid for {settings.receiptValidityDays} days from the date of issue.</p>}
+        {validityDays > 0 && <p>This receipt is valid for {validityDays} days from the date of issue.</p>}
       </footer>
     </div>
   );

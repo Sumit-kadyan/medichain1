@@ -114,6 +114,12 @@ export function BillPreviewDialog({
   const visitDateStr = formatDate(visitDate);
   const dueDateStr = formatDate(dueDate);
 
+  let validityDays = 0;
+  if (dueDate) {
+    const diffTime = Math.abs(dueDate.getTime() - visitDate.getTime());
+    validityDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  }
+
   const subtotal = items.reduce((sum, item) => sum + item.price, 0);
 
   return (
@@ -212,7 +218,7 @@ export function BillPreviewDialog({
 
                   <footer className="mt-8 pt-4 border-t text-center text-xs text-gray-500">
                       <p>Thank you for choosing {settings.clinicName}.</p>
-                      {settings.receiptValidityDays > 0 && <p>This receipt is valid for {settings.receiptValidityDays} days from the date of issue.</p>}
+                      {validityDays > 0 && <p>This receipt is valid for {validityDays} days from the date of issue.</p>}
                   </footer>
               </div>
             </ScrollArea>
