@@ -54,6 +54,21 @@ async function getBillData(id: string): Promise<{ prescription: Prescription, se
   }
 }
 
+function formatDate(timestamp: Timestamp | undefined): string | null {
+    if (!timestamp) return null;
+    const date = timestamp.toDate();
+    const day = date.getDate();
+    const year = date.getFullYear();
+    const month = date.toLocaleString('default', { month: 'long' });
+
+    let suffix = 'th';
+    if (day === 1 || day === 21 || day === 31) suffix = 'st';
+    else if (day === 2 || day === 22) suffix = 'nd';
+    else if (day === 3 || day === 23) suffix = 'rd';
+
+    return `${day}${suffix} ${month}, ${year}`;
+}
+
 export default async function BillPage({ params }: { params: { id: string } }) {
   const billData = await getBillData(params.id);
 
@@ -73,14 +88,14 @@ export default async function BillPage({ params }: { params: { id: string } }) {
   const total =
     prescription.billItems?.reduce((sum, b) => sum + (b.price || 0), 0) || 0;
 
-  const dueDateStr = prescription.dueDate
-    ? (prescription.dueDate.toDate()).toLocaleDateString()
-    : null;
+  const visitDateStr = new Date(prescription.visitDate).toLocaleDateString(undefined, { day: '2-digit', month: 'long', year: 'numeric' });
+  const dueDateStr = formatDate(prescription.dueDate);
+
 
   return (
     <div className="max-w-4xl mx-auto my-10 bg-white shadow-2xl p-8 rounded-lg font-sans text-gray-800">
       <header className="flex justify-between items-start pb-6 border-b border-gray-200">
-        <div className="flex items-center gap-6">
+        <div className="flex items-start gap-6">
           <ClinicLogo svg={settings.logoSvg} />
           <div>
             <h1 className="text-4xl font-bold text-gray-900">{settings.clinicName}</h1>
@@ -97,7 +112,7 @@ export default async function BillPage({ params }: { params: { id: string } }) {
         </div>
         <div className="text-right">
           <p className="text-sm"><span className="font-semibold text-gray-600">Invoice #:</span> {`INV-${prescription.id}`}</p>
-          <p className="text-sm"><span className="font-semibold text-gray-600">Date:</span> {prescription.visitDate}</p>
+          <p className="text-sm"><span className="font-semibold text-gray-600">Date:</span> {visitDateStr}</p>
           {dueDateStr && (
             <p className="text-sm"><span className="font-semibold text-gray-600">Due Date:</span> {dueDateStr}</p>
           )}
@@ -150,5 +165,3 @@ export default async function BillPage({ params }: { params: { id: string } }) {
     </div>
   );
 }
-
-    

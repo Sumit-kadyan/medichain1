@@ -33,6 +33,21 @@ interface BillPreviewDialogProps {
   } | null;
 }
 
+function formatDate(date: Date): string | null {
+    if (!date) return null;
+    const day = date.getDate();
+    const year = date.getFullYear();
+    const month = date.toLocaleString('default', { month: 'long' });
+
+    let suffix = 'th';
+    if (day === 1 || day === 21 || day === 31) suffix = 'st';
+    else if (day === 2 || day === 22) suffix = 'nd';
+    else if (day === 3 || day === 23) suffix = 'rd';
+
+    return `${day}${suffix} ${month}, ${year}`;
+}
+
+
 export function BillPreviewDialog({
   open,
   onOpenChange,
@@ -49,7 +64,7 @@ export function BillPreviewDialog({
   const total = Object.values(prices).reduce((sum, price) => sum + price, 0);
   
   const publicUrl = typeof window !== 'undefined' 
-    ? `${window.location.origin}/bill/${prescription.id}` 
+    ? `${window.location.origin}/bill/${clinicId}_${prescription.id}` 
     : '';
 
   const handleCopy = () => {
@@ -80,6 +95,9 @@ export function BillPreviewDialog({
     }
   };
   
+  const visitDateStr = new Date(prescription.visitDate).toLocaleDateString(undefined, { day: '2-digit', month: 'long', year: 'numeric' });
+  const dueDateStr = formatDate(dueDate);
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -94,7 +112,7 @@ export function BillPreviewDialog({
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 py-4">
             <div ref={billRef} className="md:col-span-2 p-6 border rounded-lg bg-white text-black font-sans">
                 <header className="flex justify-between items-start pb-4 border-b">
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-start gap-4">
                         <ClinicLogo svg={settings.logoSvg} />
                         <div>
                             <h1 className="text-2xl font-bold text-gray-800">{settings.clinicName}</h1>
@@ -111,8 +129,8 @@ export function BillPreviewDialog({
                     </div>
                     <div className="text-right">
                         <p><span className="font-semibold">Invoice #:</span> {`INV-${prescription.id}`}</p>
-                        <p><span className="font-semibold">Date:</span> {new Date().toLocaleDateString()}</p>
-                        <p><span className="font-semibold">Due Date:</span> {dueDate.toLocaleDateString()}</p>
+                        <p><span className="font-semibold">Date:</span> {visitDateStr}</p>
+                        {dueDateStr && <p><span className="font-semibold">Due Date:</span> {dueDateStr}</p>}
                     </div>
                 </section>
 
@@ -189,5 +207,3 @@ export function BillPreviewDialog({
     </Dialog>
   );
 }
-
-    

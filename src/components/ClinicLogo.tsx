@@ -4,5 +4,3 @@ export default function ClinicLogo({ svg }: { svg?: string }) {
   const dataUrl = `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
   return <img src={dataUrl} alt="Clinic Logo" style={{ width: 150, height: 50, objectFit: 'contain' }} />;
 }
-
-    
