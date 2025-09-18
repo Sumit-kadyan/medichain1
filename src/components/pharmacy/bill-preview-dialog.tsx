@@ -9,10 +9,8 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
 import { Prescription, BillDetails } from '@/context/clinic-context';
 import { useClinicContext } from '@/context/clinic-context';
 import { Download, QrCode, Copy, Check } from 'lucide-react';
@@ -77,22 +75,38 @@ export function BillPreviewDialog({
   }
 
   const handleDownload = async () => {
-    if (!billRef.current) return;
+    const input = billRef.current;
+    if (!input) return;
 
     try {
-        const canvas = await html2canvas(billRef.current, { scale: 2, useCORS: true });
-        const dataUrl = canvas.toDataURL('image/png');
+      const canvas = await html2canvas(input, { scale: 2, useCORS: true });
+      const imgData = canvas.toDataURL('image/png');
+      
+      const pdf = new jsPDF('p', 'px', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      
+      const imgProps = pdf.getImageProperties(imgData);
+      const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
+      
+      let heightLeft = imgHeight;
+      let position = 0;
 
-        const pdf = new jsPDF('p', 'px', 'a4');
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        
-        const imgProps= pdf.getImageProperties(dataUrl);
-        const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
-        
-        pdf.addImage(dataUrl, 'PNG', 0, 0, pdfWidth, imgHeight);
-        pdf.save(`bill-${prescription.patientName.replace(/\s/g, '_')}-${prescription.id}.pdf`);
+      pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
+      heightLeft -= pdfHeight;
+
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
+        heightLeft -= pdfHeight;
+      }
+      
+      pdf.save(`bill-${prescription.patientName.replace(/\s/g, '_')}-${prescription.id}.pdf`);
+
     } catch (error) {
         console.error('oops, something went wrong!', error);
+        toast({ title: 'PDF Error', description: 'Could not generate PDF. Please try again.', variant: 'destructive' });
     }
   };
   
