@@ -22,6 +22,7 @@ import QRCode from 'react-qr-code';
 import { Input } from '../ui/input';
 import { useToast } from '@/hooks/use-toast';
 import ClinicLogo from '../ClinicLogo';
+import { ScrollArea } from '../ui/scroll-area';
 
 interface BillPreviewDialogProps {
   open: boolean;
@@ -103,7 +104,7 @@ export function BillPreviewDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-4xl">
+      <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="font-headline">Bill Preview & Share</DialogTitle>
           <DialogDescription>
@@ -111,92 +112,96 @@ export function BillPreviewDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 py-4">
-            <div ref={billRef} className="md:col-span-2 p-6 border rounded-lg bg-white text-black font-sans">
-                <header className="flex justify-between items-start pb-4 border-b">
-                    <div className="flex items-start gap-4">
-                        <ClinicLogo svg={settings.logoSvg} />
-                        <div>
-                            <h1 className="text-2xl font-bold text-gray-800">{settings.clinicName}</h1>
-                            <p className="text-xs text-gray-500">{settings.clinicAddress}</p>
-                        </div>
-                    </div>
-                    <h2 className="text-xl font-semibold text-gray-600 shrink-0">INVOICE</h2>
-                </header>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 py-4 flex-1 overflow-hidden">
+            <ScrollArea className="md:col-span-2 h-full">
+              <div ref={billRef} className="p-6 border rounded-lg bg-white text-black font-sans">
+                  <header className="flex justify-between items-start pb-4 border-b">
+                      <div className="flex items-start gap-4">
+                          <ClinicLogo svg={settings.logoSvg} />
+                          <div>
+                              <h1 className="text-2xl font-bold text-gray-800">{settings.clinicName}</h1>
+                              <p className="text-xs text-gray-500">{settings.clinicAddress}</p>
+                          </div>
+                      </div>
+                      <h2 className="text-xl font-semibold text-gray-600 shrink-0">INVOICE</h2>
+                  </header>
 
-                <section className="grid grid-cols-2 gap-4 my-4">
-                    <div>
-                        <h3 className="text-sm font-semibold text-gray-500">BILL TO</h3>
-                        <p className="font-bold">{prescription.patientName}</p>
-                    </div>
-                    <div className="text-right">
-                        <p><span className="font-semibold">Invoice #:</span> {`INV-${prescription.id}`}</p>
-                        <p><span className="font-semibold">Date:</span> {visitDateStr}</p>
-                        {dueDateStr && <p><span className="font-semibold">Due Date:</span> {dueDateStr}</p>}
-                    </div>
-                </section>
+                  <section className="grid grid-cols-2 gap-4 my-4">
+                      <div>
+                          <h3 className="text-sm font-semibold text-gray-500 uppercase">BILL TO</h3>
+                          <p className="font-bold">{prescription.patientName}</p>
+                          <p className="text-sm text-gray-500">Prescribed by: {prescription.doctor}</p>
+                      </div>
+                      <div className="text-right">
+                          <p><span className="font-semibold">Invoice #:</span> {`INV-${prescription.id}`}</p>
+                          <p><span className="font-semibold">Date:</span> {visitDateStr}</p>
+                          {dueDateStr && <p><span className="font-semibold">Due Date:</span> {dueDateStr}</p>}
+                      </div>
+                  </section>
 
-                <table className="w-full text-sm">
-                    <thead className="bg-gray-100">
-                        <tr>
-                            <th className="p-2 text-left font-semibold">Item</th>
-                            <th className="p-2 text-right font-semibold">Price</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {items.map((item, index) => (
-                            <tr key={index} className="border-b">
-                                <td className="p-2">{item.item}</td>
-                                <td className="p-2 text-right">{settings.currency}{item.price.toFixed(2)}</td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-                
-                <div className="flex justify-end mt-4">
-                    <div className="w-full sm:w-2/3 md:w-1/2 space-y-1">
-                         <div className="flex justify-between p-2">
-                            <span className="font-semibold">Subtotal:</span>
-                            <span>{settings.currency}{subtotal.toFixed(2)}</span>
-                        </div>
-                        {taxInfo.amount > 0 && (
-                            <div className="flex justify-between p-2">
-                                <span className="font-semibold">{taxInfo.type} ({taxInfo.percentage}%):</span>
-                                <span>{settings.currency}{taxInfo.amount.toFixed(2)}</span>
-                            </div>
-                        )}
-                        {appointmentFee > 0 && (
-                             <div className="flex justify-between p-2">
-                                <span className="font-semibold">Appointment Fee:</span>
-                                <span>{settings.currency}{appointmentFee.toFixed(2)}</span>
-                            </div>
-                        )}
-                         {roundOff !== 0 && (
-                             <div className="flex justify-between p-2">
-                                <span className="font-semibold">Round Off:</span>
-                                <span>{settings.currency}{roundOff.toFixed(2)}</span>
-                            </div>
-                        )}
-                        <div className="flex justify-between p-2 bg-gray-200 font-bold text-base">
-                            <span>Total:</span>
-                            <span>{settings.currency}{total.toFixed(2)}</span>
-                        </div>
-                    </div>
-                </div>
+                  <table className="w-full text-sm">
+                      <thead className="bg-gray-100">
+                          <tr>
+                              <th className="p-2 text-left font-semibold">Item</th>
+                              <th className="p-2 text-right font-semibold">Price</th>
+                          </tr>
+                      </thead>
+                      <tbody>
+                          {items.map((item, index) => (
+                              <tr key={index} className="border-b">
+                                  <td className="p-2">{item.item}</td>
+                                  <td className="p-2 text-right">{settings.currency}{item.price.toFixed(2)}</td>
+                              </tr>
+                          ))}
+                      </tbody>
+                  </table>
+                  
+                  <div className="flex justify-end mt-4">
+                      <div className="w-full sm:w-2/3 md:w-1/2 space-y-1">
+                          <div className="flex justify-between p-2">
+                              <span className="font-semibold">Subtotal:</span>
+                              <span>{settings.currency}{subtotal.toFixed(2)}</span>
+                          </div>
+                          {taxInfo.amount > 0 && (
+                              <div className="flex justify-between p-2">
+                                  <span className="font-semibold">{taxInfo.type} ({taxInfo.percentage}%):</span>
+                                  <span>{settings.currency}{taxInfo.amount.toFixed(2)}</span>
+                              </div>
+                          )}
+                          {appointmentFee > 0 && (
+                              <div className="flex justify-between p-2">
+                                  <span className="font-semibold">Appointment Fee:</span>
+                                  <span>{settings.currency}{appointmentFee.toFixed(2)}</span>
+                              </div>
+                          )}
+                          {roundOff !== 0 && (
+                              <div className="flex justify-between p-2">
+                                  <span className="font-semibold">Round Off:</span>
+                                  <span>{settings.currency}{roundOff.toFixed(2)}</span>
+                              </div>
+                          )}
+                          <div className="flex justify-between p-2 bg-gray-200 font-bold text-base">
+                              <span>Total:</span>
+                              <span>{settings.currency}{total.toFixed(2)}</span>
+                          </div>
+                      </div>
+                  </div>
 
-                {prescription.advice && (
-                    <section className="mt-6">
-                        <h3 className="font-bold text-gray-700">Doctor's Advice:</h3>
-                        <p className="text-sm text-gray-600 italic mt-1 p-2 border-l-2">
-                           {prescription.advice}
-                        </p>
-                    </section>
-                )}
+                  {prescription.advice && (
+                      <section className="mt-6">
+                          <h3 className="font-bold text-gray-700">Doctor's Advice:</h3>
+                          <blockquote className="text-sm text-gray-600 italic mt-1 p-2 border-l-2">
+                            {prescription.advice}
+                          </blockquote>
+                      </section>
+                  )}
 
-                <footer className="mt-8 pt-4 border-t text-center text-xs text-gray-500">
-                    <p>Thank you for choosing {settings.clinicName}. This receipt is valid till the due date.</p>
-                </footer>
-            </div>
+                  <footer className="mt-8 pt-4 border-t text-center text-xs text-gray-500">
+                      <p>Thank you for choosing {settings.clinicName}.</p>
+                      {settings.receiptValidityDays > 0 && <p>This receipt is valid for {settings.receiptValidityDays} days from the date of issue.</p>}
+                  </footer>
+              </div>
+            </ScrollArea>
             <div className="flex flex-col items-center justify-center gap-6 p-4 border rounded-lg">
                 <div className="bg-white p-4 rounded-lg shadow-md">
                      <QRCode

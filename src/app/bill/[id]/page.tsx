@@ -109,6 +109,7 @@ export default async function BillPage({ params }: { params: { id: string } }) {
         <div>
           <h3 className="text-sm font-semibold text-gray-500 uppercase">Bill To</h3>
           <p className="text-lg font-bold mt-1">{prescription.patientName}</p>
+          <p className="text-md text-gray-600">Prescribed by: {prescription.doctor}</p>
         </div>
         <div className="text-right">
           <p className="text-sm"><span className="font-semibold text-gray-600">Invoice #:</span> {`INV-${prescription.id}`}</p>
