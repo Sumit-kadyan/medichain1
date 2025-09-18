@@ -19,7 +19,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { FileText, Printer, CheckCircle } from 'lucide-react';
-import { useClinicContext, Prescription } from '@/context/clinic-context';
+import { useClinicContext, Prescription, BillDetails } from '@/context/clinic-context';
 import { PrescriptionDetailsDialog } from '@/components/pharmacy/prescription-details-dialog';
 import { GenerateBillDialog } from '@/components/pharmacy/generate-bill-dialog';
 import { BillPreviewDialog } from '@/components/pharmacy/bill-preview-dialog';
@@ -29,20 +29,18 @@ export default function PharmacyPage() {
   const { pharmacyQueue, updatePrescriptionStatus } = useClinicContext();
   const [selectedPrescription, setSelectedPrescription] = useState<Prescription | null>(null);
   const [billGenerationPrescription, setBillGenerationPrescription] = useState<Prescription | null>(null);
-  const [billPreviewData, setBillPreviewData] = useState<{ prescription: Prescription, prices: Record<string, number>, dueDate: Date } | null>(null);
+  const [billPreviewData, setBillPreviewData] = useState<{ prescription: Prescription, billDetails: BillDetails, dueDate: Date } | null>(null);
   
   const handleMarkAsDispensed = (prescriptionId: string) => {
     updatePrescriptionStatus(prescriptionId, 'dispensed');
   };
 
-  const handleBillGenerated = (prices: Record<string, number>, dueDate: Date) => {
+  const handleBillGenerated = (billDetails: BillDetails, dueDate: Date) => {
     if (!billGenerationPrescription) return;
 
-    // Also update the prescription in the database with the price and due date
-    const billItems = Object.entries(prices).map(([item, price]) => ({ item, price }));
-    updatePrescriptionStatus(billGenerationPrescription.id, 'pending', billItems, dueDate);
+    updatePrescriptionStatus(billGenerationPrescription.id, 'pending', billDetails, dueDate);
 
-    setBillPreviewData({ prescription: billGenerationPrescription, prices, dueDate });
+    setBillPreviewData({ prescription: billGenerationPrescription, billDetails, dueDate });
     setBillGenerationPrescription(null); // Close the generation dialog
   };
 
