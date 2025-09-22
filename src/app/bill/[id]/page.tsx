@@ -99,6 +99,10 @@ export default async function BillPage({ params }: { params: { id: string } }) {
     validityDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   }
 
+  const footerBlockStyle: React.CSSProperties = billDetails.items.length > 7
+    ? { pageBreakBefore: 'always' }
+    : { pageBreakInside: 'avoid' };
+
 
   return (
     <div className="max-w-4xl mx-auto my-10 bg-white shadow-2xl p-8 rounded-lg font-sans text-gray-800">
@@ -145,50 +149,52 @@ export default async function BillPage({ params }: { params: { id: string } }) {
         </tbody>
       </table>
       
-      <div className="flex justify-end mt-8" style={{ pageBreakInside: 'avoid' }}>
-          <div className="w-full sm:w-1/2 md:w-2/5 space-y-1">
-              <div className="flex justify-between p-3">
-                <span className="font-semibold text-gray-600">Subtotal:</span>
-                <span>{settings.currency}{subtotal.toFixed(2)}</span>
-              </div>
-               {billDetails.taxInfo.amount > 0 && (
+      <div style={footerBlockStyle}>
+        <div className="flex justify-end mt-8">
+            <div className="w-full sm:w-1/2 md:w-2/5 space-y-1">
                 <div className="flex justify-between p-3">
-                    <span className="font-semibold text-gray-600">{billDetails.taxInfo.type} ({billDetails.taxInfo.percentage}%):</span>
-                    <span>{settings.currency}{billDetails.taxInfo.amount.toFixed(2)}</span>
+                  <span className="font-semibold text-gray-600">Subtotal:</span>
+                  <span>{settings.currency}{subtotal.toFixed(2)}</span>
                 </div>
-               )}
-                {billDetails.appointmentFee > 0 && (
-                    <div className="flex justify-between p-3">
-                    <span className="font-semibold text-gray-600">Appointment Fee:</span>
-                    <span>{settings.currency}{billDetails.appointmentFee.toFixed(2)}</span>
-                    </div>
+                {billDetails.taxInfo.amount > 0 && (
+                  <div className="flex justify-between p-3">
+                      <span className="font-semibold text-gray-600">{billDetails.taxInfo.type} ({billDetails.taxInfo.percentage}%):</span>
+                      <span>{settings.currency}{billDetails.taxInfo.amount.toFixed(2)}</span>
+                  </div>
                 )}
-                {billDetails.roundOff !== 0 && (
-                     <div className="flex justify-between p-3">
-                        <span className="font-semibold text-gray-600">Round Off:</span>
-                        <span>{settings.currency}{billDetails.roundOff.toFixed(2)}</span>
-                    </div>
-                )}
-              <div className="flex justify-between p-3 bg-gray-200 rounded-md font-bold text-xl">
-                <span>Total:</span>
-                <span>{settings.currency}{billDetails.total.toFixed(2)}</span>
-              </div>
-          </div>
+                  {billDetails.appointmentFee > 0 && (
+                      <div className="flex justify-between p-3">
+                      <span className="font-semibold text-gray-600">Appointment Fee:</span>
+                      <span>{settings.currency}{billDetails.appointmentFee.toFixed(2)}</span>
+                      </div>
+                  )}
+                  {billDetails.roundOff !== 0 && (
+                      <div className="flex justify-between p-3">
+                          <span className="font-semibold text-gray-600">Round Off:</span>
+                          <span>{settings.currency}{billDetails.roundOff.toFixed(2)}</span>
+                      </div>
+                  )}
+                <div className="flex justify-between p-3 bg-gray-200 rounded-md font-bold text-xl">
+                  <span>Total:</span>
+                  <span>{settings.currency}{billDetails.total.toFixed(2)}</span>
+                </div>
+            </div>
+        </div>
+
+        {prescription.advice && (
+          <section className="mt-8">
+            <h3 className="font-bold text-gray-700">Doctor's Advice:</h3>
+            <blockquote className="text-md text-gray-600 italic mt-2 p-3 border-l-4 border-gray-200 bg-gray-50 rounded-r-lg">
+              {prescription.advice}
+            </blockquote>
+          </section>
+        )}
+
+        <footer className="mt-12 pt-6 border-t border-gray-200 text-center text-sm text-gray-500">
+          <p>Thank you for choosing {settings.clinicName}.</p>
+          {validityDays > 0 && <p>This receipt is valid for {validityDays} days from the date of issue.</p>}
+        </footer>
       </div>
-
-      {prescription.advice && (
-        <section className="mt-8" style={{ pageBreakInside: 'avoid' }}>
-          <h3 className="font-bold text-gray-700">Doctor's Advice:</h3>
-          <blockquote className="text-md text-gray-600 italic mt-2 p-3 border-l-4 border-gray-200 bg-gray-50 rounded-r-lg">
-            {prescription.advice}
-          </blockquote>
-        </section>
-      )}
-
-      <footer className="mt-12 pt-6 border-t border-gray-200 text-center text-sm text-gray-500">
-        <p>Thank you for choosing {settings.clinicName}.</p>
-        {validityDays > 0 && <p>This receipt is valid for {validityDays} days from the date of issue.</p>}
-      </footer>
     </div>
   );
 }

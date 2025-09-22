@@ -122,6 +122,10 @@ export function BillPreviewDialog({
 
   const subtotal = items.reduce((sum, item) => sum + item.price, 0);
 
+  const footerBlockStyle: React.CSSProperties = items.length > 7
+    ? { pageBreakBefore: 'always' }
+    : { pageBreakInside: 'avoid' };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col">
@@ -176,50 +180,52 @@ export function BillPreviewDialog({
                       </tbody>
                   </table>
                   
-                  <div className="flex justify-end mt-4" style={{ pageBreakInside: 'avoid' }}>
-                      <div className="w-full sm:w-2/3 md:w-1/2 space-y-1">
-                          <div className="flex justify-between p-2">
-                              <span className="font-semibold">Subtotal:</span>
-                              <span>{settings.currency}{subtotal.toFixed(2)}</span>
-                          </div>
-                          {taxInfo.amount > 0 && (
-                              <div className="flex justify-between p-2">
-                                  <span className="font-semibold">{taxInfo.type} ({taxInfo.percentage}%):</span>
-                                  <span>{settings.currency}{taxInfo.amount.toFixed(2)}</span>
-                              </div>
-                          )}
-                          {appointmentFee > 0 && (
-                              <div className="flex justify-between p-2">
-                                  <span className="font-semibold">Appointment Fee:</span>
-                                  <span>{settings.currency}{appointmentFee.toFixed(2)}</span>
-                              </div>
-                          )}
-                          {roundOff !== 0 && (
-                              <div className="flex justify-between p-2">
-                                  <span className="font-semibold">Round Off:</span>
-                                  <span>{settings.currency}{roundOff.toFixed(2)}</span>
-                              </div>
-                          )}
-                          <div className="flex justify-between p-2 bg-gray-200 font-bold text-base">
-                              <span>Total:</span>
-                              <span>{settings.currency}{total.toFixed(2)}</span>
-                          </div>
-                      </div>
+                  <div style={footerBlockStyle}>
+                    <div className="flex justify-end mt-4">
+                        <div className="w-full sm:w-2/3 md:w-1/2 space-y-1">
+                            <div className="flex justify-between p-2">
+                                <span className="font-semibold">Subtotal:</span>
+                                <span>{settings.currency}{subtotal.toFixed(2)}</span>
+                            </div>
+                            {taxInfo.amount > 0 && (
+                                <div className="flex justify-between p-2">
+                                    <span className="font-semibold">{taxInfo.type} ({taxInfo.percentage}%):</span>
+                                    <span>{settings.currency}{taxInfo.amount.toFixed(2)}</span>
+                                </div>
+                            )}
+                            {appointmentFee > 0 && (
+                                <div className="flex justify-between p-2">
+                                    <span className="font-semibold">Appointment Fee:</span>
+                                    <span>{settings.currency}{appointmentFee.toFixed(2)}</span>
+                                </div>
+                            )}
+                            {roundOff !== 0 && (
+                                <div className="flex justify-between p-2">
+                                    <span className="font-semibold">Round Off:</span>
+                                    <span>{settings.currency}{roundOff.toFixed(2)}</span>
+                                </div>
+                            )}
+                            <div className="flex justify-between p-2 bg-gray-200 font-bold text-base">
+                                <span>Total:</span>
+                                <span>{settings.currency}{total.toFixed(2)}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {prescription.advice && (
+                        <section className="mt-6">
+                            <h3 className="font-bold text-gray-700">Doctor's Advice:</h3>
+                            <blockquote className="text-sm text-gray-600 italic mt-1 p-2 border-l-2">
+                              {prescription.advice}
+                            </blockquote>
+                        </section>
+                    )}
+
+                    <footer className="mt-8 pt-4 border-t text-center text-xs text-gray-500">
+                        <p>Thank you for choosing {settings.clinicName}.</p>
+                        {validityDays > 0 && <p>This receipt is valid for {validityDays} days from the date of issue.</p>}
+                    </footer>
                   </div>
-
-                  {prescription.advice && (
-                      <section className="mt-6" style={{ pageBreakInside: 'avoid' }}>
-                          <h3 className="font-bold text-gray-700">Doctor's Advice:</h3>
-                          <blockquote className="text-sm text-gray-600 italic mt-1 p-2 border-l-2">
-                            {prescription.advice}
-                          </blockquote>
-                      </section>
-                  )}
-
-                  <footer className="mt-8 pt-4 border-t text-center text-xs text-gray-500">
-                      <p>Thank you for choosing {settings.clinicName}.</p>
-                      {validityDays > 0 && <p>This receipt is valid for {validityDays} days from the date of issue.</p>}
-                  </footer>
               </div>
             </ScrollArea>
             <div className="flex flex-col items-center justify-center gap-6 p-4 border rounded-lg">
