@@ -135,7 +135,7 @@ export function BillPreviewDialog({
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 py-4 flex-1 overflow-hidden">
             <ScrollArea className="md:col-span-2 h-full">
               <div ref={billRef} className="p-6 border rounded-lg bg-white text-black font-sans">
-                  <header className="flex justify-between items-start pb-4 border-b">
+                  <header className="flex justify-between items-start pb-4 border-b" style={{ pageBreakInside: 'avoid' }}>
                       <div className="flex items-start gap-4">
                           <ClinicLogo svg={settings.logoSvg} />
                           <div>
@@ -146,7 +146,7 @@ export function BillPreviewDialog({
                       <h2 className="text-xl font-semibold text-gray-600 shrink-0">INVOICE</h2>
                   </header>
 
-                  <section className="grid grid-cols-2 gap-4 my-4">
+                  <section className="grid grid-cols-2 gap-4 my-4" style={{ pageBreakInside: 'avoid' }}>
                       <div>
                           <h3 className="text-sm font-semibold text-gray-500 uppercase">BILL TO</h3>
                           <p className="font-bold">{prescription.patientName}</p>
@@ -159,7 +159,7 @@ export function BillPreviewDialog({
                       </div>
                   </section>
 
-                  <table className="w-full text-sm">
+                  <table className="w-full text-sm" style={{ pageBreakInside: 'avoid' }}>
                       <thead className="bg-gray-100">
                           <tr>
                               <th className="p-2 text-left font-semibold">Item</th>
@@ -176,7 +176,7 @@ export function BillPreviewDialog({
                       </tbody>
                   </table>
                   
-                  <div className="flex justify-end mt-4">
+                  <div className="flex justify-end mt-4" style={{ pageBreakInside: 'avoid' }}>
                       <div className="w-full sm:w-2/3 md:w-1/2 space-y-1">
                           <div className="flex justify-between p-2">
                               <span className="font-semibold">Subtotal:</span>
@@ -208,7 +208,7 @@ export function BillPreviewDialog({
                   </div>
 
                   {prescription.advice && (
-                      <section className="mt-6">
+                      <section className="mt-6" style={{ pageBreakInside: 'avoid' }}>
                           <h3 className="font-bold text-gray-700">Doctor's Advice:</h3>
                           <blockquote className="text-sm text-gray-600 italic mt-1 p-2 border-l-2">
                             {prescription.advice}

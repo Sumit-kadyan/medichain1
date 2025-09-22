@@ -102,7 +102,7 @@ export default async function BillPage({ params }: { params: { id: string } }) {
 
   return (
     <div className="max-w-4xl mx-auto my-10 bg-white shadow-2xl p-8 rounded-lg font-sans text-gray-800">
-      <header className="flex justify-between items-start pb-6 border-b border-gray-200">
+      <header className="flex justify-between items-start pb-6 border-b border-gray-200" style={{ pageBreakInside: 'avoid' }}>
         <div className="flex items-start gap-6">
           <ClinicLogo svg={settings.logoSvg} />
           <div>
@@ -113,7 +113,7 @@ export default async function BillPage({ params }: { params: { id: string } }) {
         <h2 className="text-3xl font-semibold text-gray-500 uppercase tracking-widest shrink-0">Invoice</h2>
       </header>
 
-      <section className="grid grid-cols-2 gap-4 my-8">
+      <section className="grid grid-cols-2 gap-4 my-8" style={{ pageBreakInside: 'avoid' }}>
         <div>
           <h3 className="text-sm font-semibold text-gray-500 uppercase">Bill To</h3>
           <p className="text-lg font-bold mt-1">{prescription.patientName}</p>
@@ -128,7 +128,7 @@ export default async function BillPage({ params }: { params: { id: string } }) {
         </div>
       </section>
 
-      <table className="w-full text-md">
+      <table className="w-full text-md" style={{ pageBreakInside: 'avoid' }}>
         <thead className="bg-gray-100 rounded-lg">
           <tr>
             <th className="p-3 text-left font-semibold text-gray-600">Item</th>
@@ -145,7 +145,7 @@ export default async function BillPage({ params }: { params: { id: string } }) {
         </tbody>
       </table>
       
-      <div className="flex justify-end mt-8">
+      <div className="flex justify-end mt-8" style={{ pageBreakInside: 'avoid' }}>
           <div className="w-full sm:w-1/2 md:w-2/5 space-y-1">
               <div className="flex justify-between p-3">
                 <span className="font-semibold text-gray-600">Subtotal:</span>
@@ -177,7 +177,7 @@ export default async function BillPage({ params }: { params: { id: string } }) {
       </div>
 
       {prescription.advice && (
-        <section className="mt-8">
+        <section className="mt-8" style={{ pageBreakInside: 'avoid' }}>
           <h3 className="font-bold text-gray-700">Doctor's Advice:</h3>
           <blockquote className="text-md text-gray-600 italic mt-2 p-3 border-l-4 border-gray-200 bg-gray-50 rounded-r-lg">
             {prescription.advice}
