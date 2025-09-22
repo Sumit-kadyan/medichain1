@@ -66,3 +66,12 @@
     @apply bg-background text-foreground;
   }
 }
+
+@media print {
+  .no-page-break {
+    page-break-inside: avoid;
+    break-inside: avoid;
+    page-break-before: auto;
+    page-break-after: auto;
+  }
+}

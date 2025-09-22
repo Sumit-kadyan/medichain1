@@ -122,10 +122,6 @@ export function BillPreviewDialog({
 
   const subtotal = items.reduce((sum, item) => sum + item.price, 0);
 
-  const footerBlockStyle: React.CSSProperties = items.length > 7
-    ? { pageBreakBefore: 'always' }
-    : { pageBreakInside: 'avoid' };
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col">
@@ -163,16 +159,16 @@ export function BillPreviewDialog({
                       </div>
                   </section>
 
-                  <table className="w-full text-sm" style={{ pageBreakInside: 'avoid' }}>
+                  <table className="w-full text-sm" style={{ pageBreakInside: 'auto' }}>
                       <thead className="bg-gray-100">
-                          <tr>
+                          <tr style={{ pageBreakInside: 'avoid' }}>
                               <th className="p-2 text-left font-semibold">Item</th>
                               <th className="p-2 text-right font-semibold">Price</th>
                           </tr>
                       </thead>
                       <tbody>
                           {items.map((item, index) => (
-                              <tr key={index} className="border-b">
+                              <tr key={index} className="border-b" style={{ pageBreakInside: 'avoid' }}>
                                   <td className="p-2">{item.item}</td>
                                   <td className="p-2 text-right">{settings.currency}{item.price.toFixed(2)}</td>
                               </tr>
@@ -180,7 +176,7 @@ export function BillPreviewDialog({
                       </tbody>
                   </table>
                   
-                  <div style={footerBlockStyle}>
+                  <div className="no-page-break">
                     <div className="flex justify-end mt-4">
                         <div className="w-full sm:w-2/3 md:w-1/2 space-y-1">
                             <div className="flex justify-between p-2">
@@ -213,7 +209,7 @@ export function BillPreviewDialog({
                     </div>
 
                     {prescription.advice && (
-                        <section className="mt-6">
+                        <section className="mt-6 no-page-break">
                             <h3 className="font-bold text-gray-700">Doctor's Advice:</h3>
                             <blockquote className="text-sm text-gray-600 italic mt-1 p-2 border-l-2">
                               {prescription.advice}
@@ -221,7 +217,7 @@ export function BillPreviewDialog({
                         </section>
                     )}
 
-                    <footer className="mt-8 pt-4 border-t text-center text-xs text-gray-500">
+                    <footer className="mt-8 pt-4 border-t text-center text-xs text-gray-500 no-page-break">
                         <p>Thank you for choosing {settings.clinicName}.</p>
                         {validityDays > 0 && <p>This receipt is valid for {validityDays} days from the date of issue.</p>}
                     </footer>

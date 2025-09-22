@@ -98,12 +98,7 @@ export default async function BillPage({ params }: { params: { id: string } }) {
     const diffTime = Math.abs(dueDate.getTime() - visitDate.getTime());
     validityDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   }
-
-  const footerBlockStyle: React.CSSProperties = billDetails.items.length > 7
-    ? { pageBreakBefore: 'always' }
-    : { pageBreakInside: 'avoid' };
-
-
+  
   return (
     <div className="max-w-4xl mx-auto my-10 bg-white shadow-2xl p-8 rounded-lg font-sans text-gray-800">
       <header className="flex justify-between items-start pb-6 border-b border-gray-200" style={{ pageBreakInside: 'avoid' }}>
@@ -132,16 +127,16 @@ export default async function BillPage({ params }: { params: { id: string } }) {
         </div>
       </section>
 
-      <table className="w-full text-md" style={{ pageBreakInside: 'avoid' }}>
+      <table className="w-full text-md" style={{ pageBreakInside: 'auto' }}>
         <thead className="bg-gray-100 rounded-lg">
-          <tr>
+          <tr style={{ pageBreakInside: 'avoid' }}>
             <th className="p-3 text-left font-semibold text-gray-600">Item</th>
             <th className="p-3 text-right font-semibold text-gray-600">Price</th>
           </tr>
         </thead>
         <tbody>
           {billDetails.items.map((it, i) => (
-            <tr key={i} className="border-b border-gray-100">
+            <tr key={i} className="border-b border-gray-100" style={{ pageBreakInside: 'avoid' }}>
               <td className="p-3">{it.item}</td>
               <td className="p-3 text-right">{settings.currency}{it.price.toFixed(2)}</td>
             </tr>
@@ -149,7 +144,7 @@ export default async function BillPage({ params }: { params: { id: string } }) {
         </tbody>
       </table>
       
-      <div style={footerBlockStyle}>
+      <div className="no-page-break">
         <div className="flex justify-end mt-8">
             <div className="w-full sm:w-1/2 md:w-2/5 space-y-1">
                 <div className="flex justify-between p-3">
@@ -182,7 +177,7 @@ export default async function BillPage({ params }: { params: { id: string } }) {
         </div>
 
         {prescription.advice && (
-          <section className="mt-8">
+          <section className="mt-8 no-page-break">
             <h3 className="font-bold text-gray-700">Doctor's Advice:</h3>
             <blockquote className="text-md text-gray-600 italic mt-2 p-3 border-l-4 border-gray-200 bg-gray-50 rounded-r-lg">
               {prescription.advice}
@@ -190,7 +185,7 @@ export default async function BillPage({ params }: { params: { id: string } }) {
           </section>
         )}
 
-        <footer className="mt-12 pt-6 border-t border-gray-200 text-center text-sm text-gray-500">
+        <footer className="mt-12 pt-6 border-t border-gray-200 text-center text-sm text-gray-500 no-page-break">
           <p>Thank you for choosing {settings.clinicName}.</p>
           {validityDays > 0 && <p>This receipt is valid for {validityDays} days from the date of issue.</p>}
         </footer>
