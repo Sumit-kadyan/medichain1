@@ -74,4 +74,16 @@
     page-break-before: auto;
     page-break-after: auto;
   }
+
+  .bill-section-group {
+    page-break-inside: avoid;
+    break-inside: avoid;
+    page-break-before: auto;
+    page-break-after: auto;
+  }
+
+  .bill-footer {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
 }
