@@ -86,4 +86,15 @@
     page-break-inside: avoid;
     break-inside: avoid;
   }
+  .page {
+    page-break-after: always;
+  }
+  .page:last-child {
+    page-break-after: auto;
+  }
+  .shrinkable {
+    transform-origin: top;
+    max-height: 200mm;
+    overflow: hidden;
+  }
 }
