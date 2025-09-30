@@ -17,8 +17,10 @@ interface Prescription {
   dueDate?: Timestamp;
 }
 
-async function getBillData(id: string): Promise<{ prescription: Prescription, settings: ClinicSettings } | null> {
-  const [clinicId, prescriptionId] = id.split('_');
+async function getBillData(
+  id: string
+): Promise<{ prescription: Prescription; settings: ClinicSettings } | null> {
+  const [clinicId, prescriptionId] = id.split("_");
 
   if (!clinicId || !prescriptionId) {
     console.error("Invalid composite ID for bill:", id);
@@ -27,20 +29,26 @@ async function getBillData(id: string): Promise<{ prescription: Prescription, se
 
   try {
     const clinicRef = adminDb.collection("clinics").doc(clinicId);
-    const prescriptionRef = clinicRef.collection("pharmacyQueue").doc(prescriptionId);
+    const prescriptionRef = clinicRef
+      .collection("pharmacyQueue")
+      .doc(prescriptionId);
 
     const [clinicSnap, prescriptionSnap] = await Promise.all([
       clinicRef.get(),
       prescriptionRef.get(),
     ]);
 
+    // ✅ Using `.exists` property (Admin SDK)
     if (!clinicSnap.exists || !prescriptionSnap.exists) {
       return null;
     }
 
-    const prescription = { id: prescriptionSnap.id, ...prescriptionSnap.data() } as Prescription;
+    const prescription = {
+      id: prescriptionSnap.id,
+      ...prescriptionSnap.data(),
+    } as Prescription;
     const settings = clinicSnap.data() as ClinicSettings;
-    
+
     return { prescription, settings };
   } catch (error) {
     console.error("Error fetching bill data from Firestore:", error);
@@ -52,24 +60,30 @@ function formatDate(date: Date | undefined): string | null {
   if (!date) return null;
   const day = date.getDate();
   const year = date.getFullYear();
-  const month = date.toLocaleString('default', { month: 'short' });
+  const month = date.toLocaleString("default", { month: "short" });
 
-  let suffix = 'th';
-  if (day === 1 || day === 21 || day === 31) suffix = 'st';
-  else if (day === 2 || day === 22) suffix = 'nd';
-  else if (day === 3 || day === 23) suffix = 'rd';
+  let suffix = "th";
+  if (day === 1 || day === 21 || day === 31) suffix = "st";
+  else if (day === 2 || day === 22) suffix = "nd";
+  else if (day === 3 || day === 23) suffix = "rd";
 
   return `${day}${suffix} ${month}, ${year}`;
 }
 
-export default async function BillPage({ params }: { params: { id: string } }) {
+export default async function BillPage({
+  params,
+}: {
+  params: { id: string };
+}) {
   const billData = await getBillData(params.id);
 
   if (!billData || !billData.prescription.billDetails) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-100">
         <div className="p-10 text-center bg-white rounded-lg shadow-md">
-          <h1 className="text-2xl font-bold text-red-600 mb-4">Bill Not Found</h1>
+          <h1 className="text-2xl font-bold text-red-600 mb-4">
+            Bill Not Found
+          </h1>
           <p>The link may be invalid or the bill has not been generated yet.</p>
         </div>
       </div>
@@ -98,31 +112,51 @@ export default async function BillPage({ params }: { params: { id: string } }) {
 
   return (
     <div className="w-[210mm] mx-auto my-6 bg-white shadow-2xl rounded-lg font-sans text-gray-800 print:w-full">
-      
-      {/* PAGE 1 */}
+      {/* PAGE 1: Clinic + Patient + Items + Summary */}
       <div className="min-h-[297mm] p-8 flex flex-col justify-start page">
         <header className="flex justify-between items-start pb-6 border-b border-gray-200">
           <div className="flex items-start gap-6">
             <ClinicLogo svg={settings.logoSvg} />
             <div>
-              <h1 className="text-4xl font-bold text-gray-900">{settings.clinicName}</h1>
-              <p className="text-md text-gray-500 mt-1">{settings.clinicAddress}</p>
+              <h1 className="text-4xl font-bold text-gray-900">
+                {settings.clinicName}
+              </h1>
+              <p className="text-md text-gray-500 mt-1">
+                {settings.clinicAddress}
+              </p>
             </div>
           </div>
-          <h2 className="text-3xl font-semibold text-gray-500 uppercase tracking-widest shrink-0">Invoice</h2>
+          <h2 className="text-3xl font-semibold text-gray-500 uppercase tracking-widest shrink-0">
+            Invoice
+          </h2>
         </header>
 
         <section className="grid grid-cols-2 gap-4 my-8">
           <div>
-            <h3 className="text-sm font-semibold text-gray-500 uppercase">Bill To</h3>
-            <p className="text-lg font-bold mt-1">{prescription.patientName}</p>
-            <p className="text-md text-gray-600">Prescribed by: {prescription.doctor}</p>
+            <h3 className="text-sm font-semibold text-gray-500 uppercase">
+              Bill To
+            </h3>
+            <p className="text-lg font-bold mt-1">
+              {prescription.patientName}
+            </p>
+            <p className="text-md text-gray-600">
+              Prescribed by: {prescription.doctor}
+            </p>
           </div>
           <div className="text-right">
-            <p className="text-sm"><span className="font-semibold text-gray-600">Invoice #:</span> {`INV-${prescription.id}`}</p>
-            <p className="text-sm"><span className="font-semibold text-gray-600">Date:</span> {visitDateStr}</p>
+            <p className="text-sm">
+              <span className="font-semibold text-gray-600">Invoice #:</span>{" "}
+              {`INV-${prescription.id}`}
+            </p>
+            <p className="text-sm">
+              <span className="font-semibold text-gray-600">Date:</span>{" "}
+              {visitDateStr}
+            </p>
             {dueDateStr && (
-              <p className="text-sm"><span className="font-semibold text-gray-600">Due Date:</span> {dueDateStr}</p>
+              <p className="text-sm">
+                <span className="font-semibold text-gray-600">Due Date:</span>{" "}
+                {dueDateStr}
+              </p>
             )}
           </div>
         </section>
@@ -131,20 +165,25 @@ export default async function BillPage({ params }: { params: { id: string } }) {
           <thead className="bg-gray-100 rounded-lg">
             <tr>
               <th className="p-3 text-left font-semibold text-gray-600">Item</th>
-              <th className="p-3 text-right font-semibold text-gray-600">Price</th>
+              <th className="p-3 text-right font-semibold text-gray-600">
+                Price
+              </th>
             </tr>
           </thead>
           <tbody>
             {billDetails.items.map((it, i) => (
               <tr key={i} className="border-b border-gray-100">
                 <td className="p-3">{it.item}</td>
-                <td className="p-3 text-right">{settings.currency}{it.price.toFixed(2)}</td>
+                <td className="p-3 text-right">
+                  {settings.currency}
+                  {it.price.toFixed(2)}
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
 
-        {/* Summary - shrinkable if overflow */}
+        {/* Bill Summary (shrinkable if overflow) */}
         <div className="shrinkable mt-6">
           <div className="flex justify-end">
             <div className="w-full sm:w-1/2 md:w-2/5 space-y-1">
@@ -154,20 +193,31 @@ export default async function BillPage({ params }: { params: { id: string } }) {
               </div>
               {billDetails.taxInfo.amount > 0 && (
                 <div className="flex justify-between p-3">
-                  <span className="font-semibold text-gray-600">{billDetails.taxInfo.type} ({billDetails.taxInfo.percentage}%):</span>
-                  <span>{settings.currency}{billDetails.taxInfo.amount.toFixed(2)}</span>
+                  <span className="font-semibold text-gray-600">
+                    {billDetails.taxInfo.type} ({billDetails.taxInfo.percentage}
+                    %):
+                  </span>
+                  <span>
+                    {settings.currency}{billDetails.taxInfo.amount.toFixed(2)}
+                  </span>
                 </div>
               )}
               {billDetails.appointmentFee > 0 && (
                 <div className="flex justify-between p-3">
-                  <span className="font-semibold text-gray-600">Appointment Fee:</span>
-                  <span>{settings.currency}{billDetails.appointmentFee.toFixed(2)}</span>
+                  <span className="font-semibold text-gray-600">
+                    Appointment Fee:
+                  </span>
+                  <span>
+                    {settings.currency}{billDetails.appointmentFee.toFixed(2)}
+                  </span>
                 </div>
               )}
               {billDetails.roundOff !== 0 && (
                 <div className="flex justify-between p-3">
                   <span className="font-semibold text-gray-600">Round Off:</span>
-                  <span>{settings.currency}{billDetails.roundOff.toFixed(2)}</span>
+                  <span>
+                    {settings.currency}{billDetails.roundOff.toFixed(2)}
+                  </span>
                 </div>
               )}
               <div className="flex justify-between p-3 bg-gray-200 rounded-md font-bold text-xl">
@@ -179,7 +229,7 @@ export default async function BillPage({ params }: { params: { id: string } }) {
         </div>
       </div>
 
-      {/* PAGE 2 */}
+      {/* PAGE 2: Advice + Footer at bottom */}
       <div className="min-h-[297mm] p-8 flex flex-col justify-between page">
         <div>
           {prescription.advice && (
@@ -193,7 +243,12 @@ export default async function BillPage({ params }: { params: { id: string } }) {
         </div>
         <footer className="pt-6 border-t border-gray-200 text-center text-sm text-gray-500">
           <p>Thank you for choosing {settings.clinicName}.</p>
-          {validityDays > 0 && <p>This receipt is valid for {validityDays} days from the date of issue.</p>}
+          {validityDays > 0 && (
+            <p>
+              This receipt is valid for {validityDays} days from the date of
+              issue.
+            </p>
+          )}
         </footer>
       </div>
     </div>
