@@ -75,55 +75,69 @@
 /* PRINT STYLES (BILLING)        */
 /* ----------------------------- */
 @media print {
-  /* Force A4 pages */
+  /* Page container: fixed A4. Keep as a flex column so footer can be pinned. */
   .page {
     width: 210mm;
     height: 297mm;
     background: white;
     page-break-after: always;
-    position: relative; /* for footer pinning */
+    position: relative;           /* required for footer absolute pin */
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
+    box-sizing: border-box;
+    overflow: hidden;
   }
 
   .page:last-child {
     page-break-after: auto;
   }
 
-  /* Prevent breaking inside critical blocks */
+  /* Prevent breaking inside these critical blocks */
+  #bill-summary,
   .no-page-break,
   .bill-section-group,
   .bill-footer,
-  #bill-summary,
   table,
+  table tr,
+  blockquote {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  /* Footer: absolutely pinned to bottom of the page container */
+  .footer-absolute {
+    position: absolute !important;
+    left: 12mm;
+    right: 12mm;
+    bottom: 16mm;
+    text-align: center;
+  }
+
+  /* Compressed style for the summary when items === 7 */
+  .summary-compressed {
+    font-size: 0.92rem;
+    line-height: 1.06;
+    padding: 0.35rem !important;
+    /* slight vertical compression; avoids scaling entire DOM */
+  }
+
+  /* Shrinkable fallback: if you truly need to clip */
+  .shrinkable {
+    max-height: 200mm;
+    overflow: hidden;
+  }
+
+  /* ensure table rows aren't split across pages */
   table tr {
     page-break-inside: avoid !important;
     break-inside: avoid !important;
   }
 
-  /* Compressed summary for "7 items" case */
-  .summary-compressed {
-    font-size: 0.9rem;   /* slightly smaller text */
-    line-height: 1.1;
-    padding: 0.4rem !important;
-    transform: scaleY(0.95);
-    transform-origin: top;
-  }
-
-  /* Shrinkable container if absolutely necessary */
-  .shrinkable {
-    transform-origin: top;
-    max-height: 200mm;
-    overflow: hidden;
-  }
-
-  /* Footer pinned at bottom of the page */
-  .footer-absolute {
-    position: absolute;
-    left: 10mm;
-    right: 10mm;
-    bottom: 15mm;
-    text-align: center;
+  /* Prevent images/inline-blocks from causing page shifts */
+  img, svg {
+    max-width: 100%;
+    height: auto;
+    page-break-inside: avoid;
   }
 }
