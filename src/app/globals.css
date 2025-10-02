@@ -75,34 +75,40 @@
 /* PRINT STYLES (BILLING)        */
 /* ----------------------------- */
 @media print {
-  /* Avoid breaking inside critical sections */
-  .no-page-break,
-  .bill-section-group,
-  .bill-footer,
-  #bill-summary,
-  table tr {
-    page-break-inside: avoid;
-    break-inside: avoid;
-  }
-
-  /* Pages */
+  /* Force A4 pages */
   .page {
     width: 210mm;
     height: 297mm;
     background: white;
     page-break-after: always;
-    position: relative; /* required for footer pinning */
+    position: relative; /* for footer pinning */
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
   }
 
   .page:last-child {
     page-break-after: auto;
   }
 
+  /* Prevent breaking inside critical blocks */
+  .no-page-break,
+  .bill-section-group,
+  .bill-footer,
+  #bill-summary,
+  table,
+  table tr {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
   /* Compressed summary for "7 items" case */
   .summary-compressed {
-    font-size: 0.88rem;   /* slightly smaller text */
-    line-height: 1.05;
-    padding: 0.5rem !important;
+    font-size: 0.9rem;   /* slightly smaller text */
+    line-height: 1.1;
+    padding: 0.4rem !important;
+    transform: scaleY(0.95);
+    transform-origin: top;
   }
 
   /* Shrinkable container if absolutely necessary */
@@ -112,11 +118,12 @@
     overflow: hidden;
   }
 
-  /* Footer pinned at bottom of page */
+  /* Footer pinned at bottom of the page */
   .footer-absolute {
     position: absolute;
-    left: 8mm;
-    right: 8mm;
-    bottom: 16mm;
+    left: 10mm;
+    right: 10mm;
+    bottom: 15mm;
+    text-align: center;
   }
 }
