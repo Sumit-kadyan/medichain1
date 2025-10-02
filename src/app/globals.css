@@ -75,79 +75,27 @@
 /* PRINT STYLES (BILLING)        */
 /* ----------------------------- */
 @media print {
-  /* Page container: fixed A4. Keep as a flex column so footer can be pinned. */
   .page {
     width: 210mm;
     height: 297mm;
     background: white;
     page-break-after: always;
-    position: relative;           /* required for footer absolute pin */
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
-    box-sizing: border-box;
-    overflow: hidden;
-    padding: 12mm;
+    position: relative;
   }
-
   .page:last-child {
     page-break-after: auto;
   }
 
-  /* Page body area: content goes here; reserve space for footer */
-  .page .page-body {
-    flex: 1 1 auto;
-    display: flex;
-    flex-direction: column;
-    overflow: visible; /* allow measurement & DOM moves on screen */
-    padding-bottom: 28mm; /* space to prevent overlapping the pinned footer */
-  }
-
-  /* Prevent breaking inside key blocks - use !important to help browsers obey */
-  #bill-summary,
-  .no-page-break,
-  .bill-section-group,
-  .bill-footer,
-  table,
-  table tr,
-  blockquote {
-    page-break-inside: avoid !important;
-    break-inside: avoid !important;
-  }
-
-  /* Footer: absolutely pinned to bottom of the page container */
-  .footer-absolute {
-    position: absolute !important;
-    left: 12mm;
-    right: 12mm;
+  .bill-footer {
+    position: absolute;
     bottom: 16mm;
-    text-align: center;
+    left: 8mm;
+    right: 8mm;
   }
 
-  /* Compressed style for the summary when items === 7 */
   .summary-compressed {
-    font-size: 0.92rem;
-    line-height: 1.06;
-    padding: 0.35rem !important;
-  }
-
-  /* safety fallback */
-  .shrinkable {
-    max-height: 200mm;
-    overflow: hidden;
-  }
-
-  /* ensure table rows aren't split across pages */
-  table tr {
-    page-break-inside: avoid !important;
-    break-inside: avoid !important;
-  }
-
-  /* images */
-  img, svg {
-    max-width: 100% !important;
-    height: auto !important;
-    page-break-inside: avoid !important;
+    font-size: 0.88rem;
+    line-height: 1.05;
+    padding: 0.5rem !important;
   }
 }
-
