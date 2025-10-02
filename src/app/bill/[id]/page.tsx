@@ -1,3 +1,4 @@
+// src/app/bill/[id]/page.tsx
 import { adminDb } from "@/lib/firebaseAdmin";
 import { Timestamp } from "firebase-admin/firestore";
 import ClinicLogo from "@/components/ClinicLogo";
@@ -38,10 +39,7 @@ async function getBillData(
       prescriptionRef.get(),
     ]);
 
-    // ✅ Using `.exists` property (Admin SDK)
-    if (!clinicSnap.exists || !prescriptionSnap.exists) {
-      return null;
-    }
+    if (!clinicSnap.exists || !prescriptionSnap.exists) return null;
 
     const prescription = {
       id: prescriptionSnap.id,
@@ -93,10 +91,9 @@ export default async function BillPage({
   const { prescription, settings } = billData;
   const { billDetails } = prescription;
 
-  if (!billDetails) {
-    return <p>Bill details not found.</p>;
-  }
+  if (!billDetails) return <p>Bill details not found.</p>;
 
+  const itemsCount = billDetails.items.length;
   const subtotal = billDetails.items.reduce((sum, item) => sum + item.price, 0);
 
   const visitDate = new Date(`${prescription.visitDate}T00:00:00`);
@@ -110,10 +107,53 @@ export default async function BillPage({
     validityDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   }
 
+  // decide placement rules
+  const summaryOnPage2 = itemsCount >= 8;
+  const summaryCompressed = itemsCount === 7;
+  const summaryOnPage1 = itemsCount <= 6 || summaryCompressed;
+
+  // helper component
+  const SummaryBlock = ({ compressed = false }: { compressed?: boolean }) => (
+    <div
+      className={`w-full sm:w-1/2 md:w-2/5 space-y-1 ${
+        compressed ? "p-2 text-sm summary-compressed" : "p-3 text-base"
+      }`}
+    >
+      <div className="flex justify-between">
+        <span className="font-semibold text-gray-600">Subtotal:</span>
+        <span>{settings.currency}{subtotal.toFixed(2)}</span>
+      </div>
+      {billDetails.taxInfo.amount > 0 && (
+        <div className="flex justify-between">
+          <span className="font-semibold text-gray-600">
+            {billDetails.taxInfo.type} ({billDetails.taxInfo.percentage}%):
+          </span>
+          <span>{settings.currency}{billDetails.taxInfo.amount.toFixed(2)}</span>
+        </div>
+      )}
+      {billDetails.appointmentFee > 0 && (
+        <div className="flex justify-between">
+          <span className="font-semibold text-gray-600">Appointment Fee:</span>
+          <span>{settings.currency}{billDetails.appointmentFee.toFixed(2)}</span>
+        </div>
+      )}
+      {billDetails.roundOff !== 0 && (
+        <div className="flex justify-between">
+          <span className="font-semibold text-gray-600">Round Off:</span>
+          <span>{settings.currency}{billDetails.roundOff.toFixed(2)}</span>
+        </div>
+      )}
+      <div className="flex justify-between bg-gray-200 rounded-md font-bold text-xl p-2">
+        <span>Total:</span>
+        <span>{settings.currency}{billDetails.total.toFixed(2)}</span>
+      </div>
+    </div>
+  );
+
   return (
-    <div className="w-[210mm] mx-auto my-6 bg-white shadow-2xl rounded-lg font-sans text-gray-800 print:w-full">
-      {/* PAGE 1: Clinic + Patient + Items + Summary */}
-      <div className="min-h-[297mm] p-8 flex flex-col justify-start page">
+    <div className="w-[210mm] mx-auto my-6 bg-white rounded-lg font-sans text-gray-800 print:w-full">
+      {/* PAGE 1 */}
+      <div className="page h-[297mm] mx-auto p-8 flex flex-col justify-start relative bg-white">
         <header className="flex justify-between items-start pb-6 border-b border-gray-200">
           <div className="flex items-start gap-6">
             <ClinicLogo svg={settings.logoSvg} />
@@ -136,9 +176,7 @@ export default async function BillPage({
             <h3 className="text-sm font-semibold text-gray-500 uppercase">
               Bill To
             </h3>
-            <p className="text-lg font-bold mt-1">
-              {prescription.patientName}
-            </p>
+            <p className="text-lg font-bold mt-1">{prescription.patientName}</p>
             <p className="text-md text-gray-600">
               Prescribed by: {prescription.doctor}
             </p>
@@ -161,79 +199,48 @@ export default async function BillPage({
           </div>
         </section>
 
-        <table className="w-full text-md flex-grow">
-          <thead className="bg-gray-100 rounded-lg">
-            <tr>
-              <th className="p-3 text-left font-semibold text-gray-600">Item</th>
-              <th className="p-3 text-right font-semibold text-gray-600">
-                Price
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {billDetails.items.map((it, i) => (
-              <tr key={i} className="border-b border-gray-100">
-                <td className="p-3">{it.item}</td>
-                <td className="p-3 text-right">
-                  {settings.currency}
-                  {it.price.toFixed(2)}
-                </td>
+        <div className="flex-1 overflow-hidden">
+          <table className="w-full text-md">
+            <thead className="bg-gray-100 rounded-lg">
+              <tr>
+                <th className="p-3 text-left font-semibold text-gray-600">
+                  Item
+                </th>
+                <th className="p-3 text-right font-semibold text-gray-600">
+                  Price
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-
-        {/* Bill Summary (shrinkable if overflow) */}
-        <div className="shrinkable mt-6">
-          <div className="flex justify-end">
-            <div className="w-full sm:w-1/2 md:w-2/5 space-y-1">
-              <div className="flex justify-between p-3">
-                <span className="font-semibold text-gray-600">Subtotal:</span>
-                <span>{settings.currency}{subtotal.toFixed(2)}</span>
-              </div>
-              {billDetails.taxInfo.amount > 0 && (
-                <div className="flex justify-between p-3">
-                  <span className="font-semibold text-gray-600">
-                    {billDetails.taxInfo.type} ({billDetails.taxInfo.percentage}
-                    %):
-                  </span>
-                  <span>
-                    {settings.currency}{billDetails.taxInfo.amount.toFixed(2)}
-                  </span>
-                </div>
-              )}
-              {billDetails.appointmentFee > 0 && (
-                <div className="flex justify-between p-3">
-                  <span className="font-semibold text-gray-600">
-                    Appointment Fee:
-                  </span>
-                  <span>
-                    {settings.currency}{billDetails.appointmentFee.toFixed(2)}
-                  </span>
-                </div>
-              )}
-              {billDetails.roundOff !== 0 && (
-                <div className="flex justify-between p-3">
-                  <span className="font-semibold text-gray-600">Round Off:</span>
-                  <span>
-                    {settings.currency}{billDetails.roundOff.toFixed(2)}
-                  </span>
-                </div>
-              )}
-              <div className="flex justify-between p-3 bg-gray-200 rounded-md font-bold text-xl">
-                <span>Total:</span>
-                <span>{settings.currency}{billDetails.total.toFixed(2)}</span>
-              </div>
-            </div>
-          </div>
+            </thead>
+            <tbody>
+              {billDetails.items.map((it, i) => (
+                <tr key={i} className="border-b border-gray-100">
+                  <td className="p-3">{it.item}</td>
+                  <td className="p-3 text-right">
+                    {settings.currency}{it.price.toFixed(2)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
+
+        {summaryOnPage1 && (
+          <div className="mt-6 w-full flex justify-end no-page-break">
+            <SummaryBlock compressed={summaryCompressed} />
+          </div>
+        )}
       </div>
 
-      {/* PAGE 2: Advice + Footer at bottom */}
-      <div className="min-h-[297mm] p-8 flex flex-col justify-between page">
+      {/* PAGE 2 */}
+      <div className="page h-[297mm] mx-auto p-8 flex flex-col justify-between relative bg-white">
         <div>
+          {summaryOnPage2 && (
+            <div className="mb-6 w-full flex justify-end no-page-break">
+              <SummaryBlock />
+            </div>
+          )}
           {prescription.advice && (
-            <section className="mt-8">
+            <section className="mt-2 no-page-break">
               <h3 className="font-bold text-gray-700">Doctor's Advice:</h3>
               <blockquote className="text-md text-gray-600 italic mt-2 p-3 border-l-4 border-gray-200 bg-gray-50 rounded-r-lg">
                 {prescription.advice}
@@ -241,13 +248,10 @@ export default async function BillPage({
             </section>
           )}
         </div>
-        <footer className="pt-6 border-t border-gray-200 text-center text-sm text-gray-500">
+        <footer className="pt-6 border-t border-gray-200 text-center text-sm text-gray-500 footer-absolute">
           <p>Thank you for choosing {settings.clinicName}.</p>
           {validityDays > 0 && (
-            <p>
-              This receipt is valid for {validityDays} days from the date of
-              issue.
-            </p>
+            <p>This receipt is valid for {validityDays} days from the date of issue.</p>
           )}
         </footer>
       </div>
