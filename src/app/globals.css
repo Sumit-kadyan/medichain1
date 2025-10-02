@@ -87,13 +87,23 @@
     justify-content: flex-start;
     box-sizing: border-box;
     overflow: hidden;
+    padding: 12mm;
   }
 
   .page:last-child {
     page-break-after: auto;
   }
 
-  /* Prevent breaking inside these critical blocks */
+  /* Page body area: content goes here; reserve space for footer */
+  .page .page-body {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    overflow: visible; /* allow measurement & DOM moves on screen */
+    padding-bottom: 28mm; /* space to prevent overlapping the pinned footer */
+  }
+
+  /* Prevent breaking inside key blocks - use !important to help browsers obey */
   #bill-summary,
   .no-page-break,
   .bill-section-group,
@@ -119,10 +129,9 @@
     font-size: 0.92rem;
     line-height: 1.06;
     padding: 0.35rem !important;
-    /* slight vertical compression; avoids scaling entire DOM */
   }
 
-  /* Shrinkable fallback: if you truly need to clip */
+  /* safety fallback */
   .shrinkable {
     max-height: 200mm;
     overflow: hidden;
@@ -134,10 +143,11 @@
     break-inside: avoid !important;
   }
 
-  /* Prevent images/inline-blocks from causing page shifts */
+  /* images */
   img, svg {
-    max-width: 100%;
-    height: auto;
-    page-break-inside: avoid;
+    max-width: 100% !important;
+    height: auto !important;
+    page-break-inside: avoid !important;
   }
 }
+

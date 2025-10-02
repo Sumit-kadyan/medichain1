@@ -3,97 +3,171 @@
 
 import { useEffect } from "react";
 
+/**
+ * BillAdjuster: client-side logic to ensure:
+ * - summary obeys your 6/7/8 rules (compress if 7, move if needed),
+ * - moves item rows from page1 -> page2 until page1 fits,
+ * - preserves order and moves only DOM nodes (no data duplication).
+ *
+ * Add debug=true to see console logs while testing.
+ */
+
 function isOverflowing(el: HTMLElement) {
-  return el.scrollHeight > el.clientHeight + 1; // +1 tolerance
+  // small tolerance because browser rounding differs
+  return el.scrollHeight > el.clientHeight + 2;
 }
 
-export default function BillAdjuster({ itemsCount }: { itemsCount: number }) {
+export default function BillAdjuster({
+  itemsCount,
+  debug = false,
+}: {
+  itemsCount: number;
+  debug?: boolean;
+}) {
   useEffect(() => {
-    // Elements we need
     const page1 = document.getElementById("page1");
     const page2 = document.getElementById("page2");
+    const page1Items = document.getElementById("page1-items");
+    const page2Items = document.getElementById("page2-items");
     const summary = document.getElementById("bill-summary");
-    const page2Summary = document.getElementById("page2-summary");
+    const page2SummaryPlaceholder = document.getElementById("page2-summary");
     const footer = document.getElementById("page2-footer");
 
-    if (!page1 || !page2 || !page2Summary || !footer) return;
+    if (!page1 || !page2 || !page1Items || !page2Items || !page2SummaryPlaceholder || !footer) {
+      if (debug) console.warn("BillAdjuster: required element missing");
+      return;
+    }
 
-    // run after fonts/images load (one repaint)
-    const checkAndMove = () => {
-      try {
-        // If items >= 8, server already put summary on page2. Ensure it exists there:
-        if (itemsCount >= 8) {
-          if (summary && page2Summary && summary.parentElement !== page2Summary) {
-            page2Summary.appendChild(summary);
-            // console.log("Moved summary -> page2 (>=8 items)");
-          }
-          return;
-        }
+    const log = (...args: any[]) => debug && console.log("[BillAdjuster]", ...args);
 
-        // If items <= 6 we want summary on page1 (do nothing unless overflow)
-        if (itemsCount <= 6) {
-          // if somehow summary ended up on page2, move it back
-          if (summary && page1 && summary.parentElement !== page1 && page1.querySelector("#bill-summary") == null) {
-            // find insertion position (at end of page1 content)
-            page1.appendChild(summary);
-          }
-          // if overflow despite <=6, move to page2 as safety
-          if (isOverflowing(page1) && summary) {
-            page2Summary.appendChild(summary);
-            // console.warn("Page1 overflow with <=6 items — moved summary to page2 as fallback.");
-          }
-          return;
-        }
+    // Helper to move last row from page1 to page2 (keeps order)
+    function moveLastRowToPage2(): boolean {
+      const rows = page1Items.querySelectorAll("tr");
+      if (!rows || rows.length === 0) return false;
+      const last = rows[rows.length - 1] as HTMLElement;
+      page2Items.appendChild(last);
+      return true;
+    }
 
-        // itemsCount === 7: we tried compression server-side. If still overflowing, move summary.
-        if (itemsCount === 7) {
-          // allow rendering frame
-          if (!summary) return;
-          if (!isOverflowing(page1)) return; // fits, nothing to do
+    // Move first row from page2 back to page1 (used when necessary)
+    function moveFirstRowToPage1(): boolean {
+      const rows = page2Items.querySelectorAll("tr");
+      if (!rows || rows.length === 0) return false;
+      const first = rows[0] as HTMLElement;
+      page1Items.appendChild(first);
+      return true;
+    }
 
-          // try compressed: if not already compressed, attempt to compress (server should have applied 'summary-compressed' class,
-          // but in case not, apply here)
-          if (!summary.classList.contains("summary-compressed")) {
-            summary.classList.add("summary-compressed");
-          }
-
-          // allow a tick for reflow, then check again
-          requestAnimationFrame(() => {
-            if (isOverflowing(page1)) {
-              // still overflowing: move summary to page2
-              try {
-                page2Summary.appendChild(summary);
-                // console.warn("7 items and compressed still overflow: moved summary to page2");
-              } catch (e) {
-                console.error("Could not move summary to page2", e);
-              }
-            } else {
-              // fits after compression
-              // console.log("Summary fits after compression for 7 items.");
-            }
-          });
-          return;
-        }
-      } catch (e) {
-        console.error("BillAdjuster error:", e);
+    // Move the summary element to page2 placeholder
+    function moveSummaryToPage2() {
+      if (!summary) return;
+      if (page2SummaryPlaceholder && summary.parentElement !== page2SummaryPlaceholder) {
+        page2SummaryPlaceholder.appendChild(summary);
+        log("Moved summary -> page2");
       }
-    };
+    }
 
-    // Run after small delay to allow fonts/images
-    const t = setTimeout(checkAndMove, 200);
-    // Also run when window resizes (user can resize preview)
-    window.addEventListener("resize", checkAndMove);
+    // Move summary back to page1 right after the items table (append to page1)
+    function moveSummaryToPage1() {
+      if (!summary) return;
+      const page1Body = page1.querySelector(".page-body") as HTMLElement | null;
+      if (page1Body && summary.parentElement !== page1Body) {
+        page1Body.appendChild(summary);
+        log("Moved summary -> page1");
+      }
+    }
 
-    // If images/fonts cause later layout shifts, observe
-    const mo = new MutationObserver(checkAndMove);
+    // Core: ensure page1 fits by moving rows
+    function normalizePagesAccordingToRules() {
+      try {
+        log("normalize start", { itemsCount });
+
+        // 1) initial placement rules
+        if (itemsCount >= 8) {
+          // summary should be on page2 server-side ideally; ensure it is
+          if (summary) moveSummaryToPage2();
+        } else if (itemsCount <= 6) {
+          if (summary) moveSummaryToPage1();
+        } else if (itemsCount === 7) {
+          // try compressed summary on page1 first
+          if (summary && !summary.classList.contains("summary-compressed")) {
+            summary.classList.add("summary-compressed");
+            log("Applied summary-compressed class");
+          }
+          if (summary) moveSummaryToPage1();
+        }
+
+        // Allow the browser to paint compressed styles then check overflow
+        requestAnimationFrame(() => {
+          // If page1 overflows, move rows until it fits
+          let safety = 1000; // fail-safe
+          let moved = 0;
+          while (isOverflowing(page1) && safety-- > 0) {
+            const did = moveLastRowToPage2();
+            moved++;
+            if (!did) break;
+          }
+          if (moved) log(`Moved ${moved} rows to page2 to avoid overflow`);
+
+          // If page1 has too few rows (edge case), try moving one back (keeps balanced)
+          // but only if itemsCount <=6 rule requests summary on page1
+          if (itemsCount <= 6) {
+            // try to move rows back from page2 if space and rows exist
+            let returnSafety = 100;
+            while (!isOverflowing(page1) && page2Items.children.length > 0 && returnSafety-- > 0) {
+              // attempt to move first row back and test overflow
+              const movedBack = moveFirstRowToPage1();
+              if (!movedBack) break;
+              // After moving back, if now overflowing, move it back to page2
+              if (isOverflowing(page1)) {
+                // move it back to page2
+                moveLastRowToPage2();
+                break;
+              }
+            }
+          }
+
+          // For 7 items: if compression did not help and page1 still overflows, move summary to page2
+          if (itemsCount === 7 && isOverflowing(page1) && summary) {
+            log("7 items: compression insufficient, moving summary to page2");
+            // ensure summary is on page2
+            moveSummaryToPage2();
+            // re-check and move rows as needed
+            let s = 1000;
+            while (isOverflowing(page1) && s-- > 0) {
+              if (!moveLastRowToPage2()) break;
+            }
+          }
+
+          // final safety & logging
+          log("normalize done", {
+            page1_scroll: page1.scrollHeight,
+            page1_client: page1.clientHeight,
+            page1_rows: page1Items.querySelectorAll("tr").length,
+            page2_rows: page2Items.querySelectorAll("tr").length,
+            summary_parent: summary?.parentElement?.id,
+          });
+        });
+      } catch (err) {
+        console.error("BillAdjuster normalize error", err);
+      }
+    }
+
+    // Run after small timeout to allow fonts/images to load
+    const t = setTimeout(normalizePagesAccordingToRules, 220);
+
+    // Also run on resize (preview resizing) and on mutation (fonts/images)
+    window.addEventListener("resize", normalizePagesAccordingToRules);
+
+    const mo = new MutationObserver(normalizePagesAccordingToRules);
     mo.observe(document.body, { childList: true, subtree: true, characterData: true });
 
     return () => {
       clearTimeout(t);
-      window.removeEventListener("resize", checkAndMove);
+      window.removeEventListener("resize", normalizePagesAccordingToRules);
       mo.disconnect();
     };
-  }, [itemsCount]);
+  }, [itemsCount, debug]);
 
   return null;
 }
