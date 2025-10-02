@@ -9,7 +9,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Prescription } from '@/context/clinic-context';
-import { User, Stethoscope, Clock, Pill } from 'lucide-react';
+import { User, Stethoscope, Clock, Pill, MessageSquareQuote } from 'lucide-react';
 import { Separator } from '../ui/separator';
 
 interface PrescriptionDetailsDialogProps {
@@ -31,7 +31,7 @@ export function PrescriptionDetailsDialog({
         <DialogHeader>
           <DialogTitle className="font-headline">Prescription Details</DialogTitle>
           <DialogDescription>
-            Review the prescription items before dispensing.
+            Review the prescription items and advice before dispensing.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
@@ -70,6 +70,20 @@ export function PrescriptionDetailsDialog({
                     ))}
                 </ul>
             </div>
+             {prescription.advice && (
+                <>
+                    <Separator />
+                    <div>
+                        <h3 className="font-semibold mb-2 flex items-center gap-2">
+                           <MessageSquareQuote className="h-4 w-4 text-primary" />
+                           <span>Doctor's Advice:</span>
+                        </h3>
+                        <blockquote className="mt-2 border-l-2 pl-4 italic text-sm text-muted-foreground">
+                           {prescription.advice}
+                        </blockquote>
+                    </div>
+                </>
+            )}
         </div>
       </DialogContent>
     </Dialog>

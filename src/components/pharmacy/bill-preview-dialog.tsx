@@ -9,15 +9,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Prescription, BillDetails } from "@/context/clinic-context";
 import { useClinicContext } from "@/context/clinic-context";
-import { Download, Copy, ExternalLink, Loader2 } from "lucide-react";
+import { Download, Loader2, BriefcaseMedical } from "lucide-react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import { useToast } from "@/hooks/use-toast";
 import ClinicLogo from "../ClinicLogo";
-import QRCode from "react-qr-code";
 
 interface BillPreviewDialogProps {
   open: boolean;
@@ -81,7 +79,7 @@ const BillSummary = ({ billDetails, settings }: { billDetails: BillDetails; sett
 };
 
 export function BillPreviewDialog({ open, onOpenChange, billData }: BillPreviewDialogProps) {
-  const { settings, clinicId } = useClinicContext();
+  const { settings } = useClinicContext();
   const page1Ref = useRef<HTMLDivElement>(null);
   const page2Ref = useRef<HTMLDivElement>(null);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -89,10 +87,6 @@ export function BillPreviewDialog({ open, onOpenChange, billData }: BillPreviewD
 
   if (!billData || !settings) return null;
   const { prescription, billDetails, dueDate } = billData;
-
-  const publicBillUrl = clinicId
-    ? `${window.location.origin}/bill/${clinicId}_${prescription.id}`
-    : "";
 
   const visitDate = new Date(`${prescription.visitDate}T00:00:00`);
   const visitDateStr = formatDate(visitDate);
@@ -133,18 +127,18 @@ export function BillPreviewDialog({ open, onOpenChange, billData }: BillPreviewD
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0">
+      <DialogContent className="max-w-7xl h-[90vh] flex flex-col p-0">
         <DialogHeader className="p-6 pb-2">
-          <DialogTitle>Bill Preview & Share</DialogTitle>
+          <DialogTitle className="font-headline">Bill Preview & Share</DialogTitle>
           <DialogDescription>The layout you see is what will be downloaded.</DialogDescription>
         </DialogHeader>
 
         <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-6 overflow-hidden px-6 pb-6">
           {/* Left side: Two-page Preview */}
-          <div className="md:col-span-2 overflow-y-auto bg-muted/40 p-4 rounded-lg border flex flex-col gap-6">
+          <div className="md:col-span-2 overflow-y-auto bg-muted/40 p-4 rounded-lg border flex flex-row gap-6 justify-center items-start bill-preview-container">
             
             {/* Page 1 */}
-            <div ref={page1Ref} className="page bg-white p-8 w-[210mm] h-[297mm] mx-auto shadow-md relative">
+            <div ref={page1Ref} className="a4-page bg-white p-8 w-[210mm] min-h-[297mm] shadow-md relative">
               <header className="flex justify-between items-start pb-6 border-b border-gray-200">
                 <div className="flex items-start gap-6">
                   <ClinicLogo svg={settings.logoSvg} />
@@ -188,7 +182,7 @@ export function BillPreviewDialog({ open, onOpenChange, billData }: BillPreviewD
             </div>
 
             {/* Page 2 */}
-            <div ref={page2Ref} className="page bg-white p-8 w-[210mm] h-[297mm] mx-auto shadow-md relative flex flex-col">
+            <div ref={page2Ref} className="a4-page bg-white p-8 w-[210mm] min-h-[297mm] shadow-md relative flex flex-col">
               <BillSummary billDetails={billDetails} settings={settings} />
 
               {prescription.advice && (
@@ -210,29 +204,16 @@ export function BillPreviewDialog({ open, onOpenChange, billData }: BillPreviewD
           </div>
 
           {/* Right side: Actions */}
-          <div className="col-span-1 space-y-6">
+          <div className="col-span-1 space-y-6 flex flex-col">
+            <div className="space-y-4 rounded-lg border bg-background p-4 flex-1 flex flex-col items-center justify-center">
+               <BriefcaseMedical className="w-16 h-16 text-primary/70" />
+                <h3 className="text-lg font-bold font-headline text-primary">MediChain</h3>
+                <p className="text-sm text-center text-muted-foreground">This bill was generated using the MediChain platform.</p>
+            </div>
             <Button onClick={handleDownload} className="w-full" disabled={isDownloading}>
               {isDownloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
               {isDownloading ? "Generating PDF..." : "Download as PDF"}
             </Button>
-
-            <div className="space-y-4 rounded-lg border bg-background p-4">
-              <h3 className="text-lg font-bold">Shareable Link</h3>
-              <div className="flex items-center space-x-2">
-                <Input id="link" value={publicBillUrl} readOnly />
-                <Button type="button" size="sm" onClick={() => navigator.clipboard.writeText(publicBillUrl)}>
-                  <Copy className="h-4 w-4" />
-                </Button>
-                <a href={publicBillUrl} target="_blank" rel="noopener noreferrer">
-                  <Button type="button" size="sm" variant="outline">
-                    <ExternalLink className="h-4 w-4" />
-                  </Button>
-                </a>
-              </div>
-              <div className="p-4 bg-white rounded-md flex items-center justify-center">
-                <QRCode value={publicBillUrl} size={128} />
-              </div>
-            </div>
           </div>
         </div>
       </DialogContent>
