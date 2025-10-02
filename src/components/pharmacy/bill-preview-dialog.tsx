@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useRef, useState } from 'react';
@@ -7,17 +6,16 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Prescription, BillDetails } from '@/context/clinic-context';
 import { useClinicContext } from '@/context/clinic-context';
-import { Download, QrCode, Copy, Check } from 'lucide-react';
+import { Download } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
-import QRCode from 'react-qr-code';
-import { Input } from '../ui/input';
 import { useToast } from '@/hooks/use-toast';
 import ClinicLogo from '../ClinicLogo';
 import { ScrollArea } from '../ui/scroll-area';
@@ -46,63 +44,80 @@ function formatDate(date: Date | undefined): string | null {
     return `${day}${suffix} ${month}, ${year}`;
 }
 
+const BillSummary = ({ billDetails, settings }: { billDetails: BillDetails; settings: any; }) => {
+    const subtotal = billDetails.items.reduce((sum, item) => sum + item.price, 0);
+
+    return (
+        <div className="flex justify-end mt-4">
+            <div className="w-full sm:w-2/3 md:w-1/2 space-y-1 text-sm">
+                <div className="flex justify-between p-2">
+                    <span className="font-semibold text-gray-600">Subtotal:</span>
+                    <span>{settings.currency}{subtotal.toFixed(2)}</span>
+                </div>
+                {billDetails.taxInfo.amount > 0 && (
+                    <div className="flex justify-between p-2">
+                        <span className="font-semibold text-gray-600">{billDetails.taxInfo.type} ({billDetails.taxInfo.percentage}%):</span>
+                        <span>{settings.currency}{billDetails.taxInfo.amount.toFixed(2)}</span>
+                    </div>
+                )}
+                {billDetails.appointmentFee > 0 && (
+                    <div className="flex justify-between p-2">
+                        <span className="font-semibold text-gray-600">Appointment Fee:</span>
+                        <span>{settings.currency}{billDetails.appointmentFee.toFixed(2)}</span>
+                    </div>
+                )}
+                {billDetails.roundOff !== 0 && (
+                    <div className="flex justify-between p-2">
+                        <span className="font-semibold text-gray-600">Round Off:</span>
+                        <span>{settings.currency}{billDetails.roundOff.toFixed(2)}</span>
+                    </div>
+                )}
+                <div className="flex justify-between p-2 bg-gray-100 rounded-md font-bold">
+                    <span>Total:</span>
+                    <span>{settings.currency}{billDetails.total.toFixed(2)}</span>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 export function BillPreviewDialog({
   open,
   onOpenChange,
   billData,
 }: BillPreviewDialogProps) {
-  const { settings, clinicId } = useClinicContext();
-  const billRef = useRef<HTMLDivElement>(null);
-  const [isCopied, setIsCopied] = useState(false);
+  const { settings } = useClinicContext();
+  const page1Ref = useRef<HTMLDivElement>(null);
+  const page2Ref = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
   if (!billData || !settings) return null;
 
   const { prescription, billDetails, dueDate } = billData;
-  const { items, taxInfo, appointmentFee, roundOff, total } = billDetails;
-  
-  const publicUrl = typeof window !== 'undefined' 
-    ? `${window.location.origin}/bill/${clinicId}_${prescription.id}` 
-    : '';
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(publicUrl).then(() => {
-        setIsCopied(true);
-        toast({ title: 'Copied!', description: 'Bill link copied to clipboard.'});
-        setTimeout(() => setIsCopied(false), 2000);
-    });
-  }
 
   const handleDownload = async () => {
-    const input = billRef.current;
-    if (!input) return;
+    const page1 = page1Ref.current;
+    const page2 = page2Ref.current;
+    if (!page1) return;
 
     try {
-      const canvas = await html2canvas(input, { scale: 2, useCORS: true });
-      const imgData = canvas.toDataURL('image/png');
-      
-      const pdf = new jsPDF('p', 'px', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-      
-      const imgProps = pdf.getImageProperties(imgData);
-      const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
-      
-      let heightLeft = imgHeight;
-      let position = 0;
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const pdfWidth = 210;
+        const pdfHeight = 297;
 
-      pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
-      heightLeft -= pdfHeight;
+        const canvas1 = await html2canvas(page1, { scale: 3, useCORS: true, windowWidth: page1.scrollWidth, windowHeight: page1.scrollHeight });
+        const imgData1 = canvas1.toDataURL('image/png');
+        pdf.addImage(imgData1, 'PNG', 0, 0, pdfWidth, pdfHeight);
 
-      while (heightLeft > 0) {
-        position = heightLeft - imgHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
-        heightLeft -= pdfHeight;
-      }
+        // Check if page 2 has content before adding it
+        if (page2 && page2.innerHTML.trim() !== '') {
+            const canvas2 = await html2canvas(page2, { scale: 3, useCORS: true, windowWidth: page2.scrollWidth, windowHeight: page2.scrollHeight });
+            const imgData2 = canvas2.toDataURL('image/png');
+            pdf.addPage();
+            pdf.addImage(imgData2, 'PNG', 0, 0, pdfWidth, pdfHeight);
+        }
       
-      pdf.save(`bill-${prescription.patientName.replace(/\s/g, '_')}-${prescription.id}.pdf`);
+        pdf.save(`bill-${prescription.patientName.replace(/\s/g, '_')}-${prescription.id}.pdf`);
 
     } catch (error) {
         console.error('oops, something went wrong!', error);
@@ -120,137 +135,135 @@ export function BillPreviewDialog({
     validityDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   }
 
-  const subtotal = items.reduce((sum, item) => sum + item.price, 0);
-
+  // Simplified content splitting
+  const MAX_ITEMS_PAGE_1 = 15; // Adjust this based on average item height
+  const itemsPage1 = billDetails.items.slice(0, MAX_ITEMS_PAGE_1);
+  const itemsPage2 = billDetails.items.slice(MAX_ITEMS_PAGE_1);
+  const showPage2 = itemsPage2.length > 0;
+  
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col">
+      <DialogContent className="max-w-6xl max-h-[95vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle className="font-headline">Bill Preview & Share</DialogTitle>
+          <DialogTitle className="font-headline">Bill Preview</DialogTitle>
           <DialogDescription>
-            Review the final bill. You can download it, copy a public link, or scan the QR code.
+            Review the final bill. What you see here is what will be downloaded.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 py-4 flex-1 overflow-hidden">
-            <ScrollArea className="md:col-span-2 h-full">
-              <div ref={billRef} className="p-6 border rounded-lg bg-white text-black font-sans">
-                  <header className="flex justify-between items-start pb-4 border-b" style={{ pageBreakInside: 'avoid' }}>
-                      <div className="flex items-start gap-4">
-                          <ClinicLogo svg={settings.logoSvg} />
-                          <div>
-                              <h1 className="text-2xl font-bold text-gray-800">{settings.clinicName}</h1>
-                              <p className="text-xs text-gray-500">{settings.clinicAddress}</p>
-                          </div>
-                      </div>
-                      <h2 className="text-xl font-semibold text-gray-600 shrink-0">INVOICE</h2>
-                  </header>
-
-                  <section className="grid grid-cols-2 gap-4 my-4" style={{ pageBreakInside: 'avoid' }}>
-                      <div>
-                          <h3 className="text-sm font-semibold text-gray-500 uppercase">BILL TO</h3>
-                          <p className="font-bold">{prescription.patientName}</p>
-                          <p className="text-sm text-gray-500">Prescribed by: {prescription.doctor}</p>
-                      </div>
-                      <div className="text-right">
-                          <p><span className="font-semibold">Invoice #:</span> {`INV-${prescription.id}`}</p>
-                          <p><span className="font-semibold">Date:</span> {visitDateStr}</p>
-                          {dueDateStr && <p><span className="font-semibold">Due Date:</span> {dueDateStr}</p>}
-                      </div>
-                  </section>
-
-                  <table className="w-full text-sm" style={{ pageBreakInside: 'auto' }}>
-                      <thead className="bg-gray-100">
-                          <tr style={{ pageBreakInside: 'avoid' }}>
-                              <th className="p-2 text-left font-semibold">Item</th>
-                              <th className="p-2 text-right font-semibold">Price</th>
-                          </tr>
-                      </thead>
-                      <tbody>
-                          {items.map((item, index) => (
-                              <tr key={index} className="border-b" style={{ pageBreakInside: 'avoid' }}>
-                                  <td className="p-2">{item.item}</td>
-                                  <td className="p-2 text-right">{settings.currency}{item.price.toFixed(2)}</td>
-                              </tr>
-                          ))}
-                      </tbody>
-                  </table>
-                  
-                  <div className="no-page-break">
-                    <div className="flex justify-end mt-4">
-                        <div className="w-full sm:w-2/3 md:w-1/2 space-y-1">
-                            <div className="flex justify-between p-2">
-                                <span className="font-semibold">Subtotal:</span>
-                                <span>{settings.currency}{subtotal.toFixed(2)}</span>
-                            </div>
-                            {taxInfo.amount > 0 && (
-                                <div className="flex justify-between p-2">
-                                    <span className="font-semibold">{taxInfo.type} ({taxInfo.percentage}%):</span>
-                                    <span>{settings.currency}{taxInfo.amount.toFixed(2)}</span>
-                                </div>
-                            )}
-                            {appointmentFee > 0 && (
-                                <div className="flex justify-between p-2">
-                                    <span className="font-semibold">Appointment Fee:</span>
-                                    <span>{settings.currency}{appointmentFee.toFixed(2)}</span>
-                                </div>
-                            )}
-                            {roundOff !== 0 && (
-                                <div className="flex justify-between p-2">
-                                    <span className="font-semibold">Round Off:</span>
-                                    <span>{settings.currency}{roundOff.toFixed(2)}</span>
-                                </div>
-                            )}
-                            <div className="flex justify-between p-2 bg-gray-200 font-bold text-base">
-                                <span>Total:</span>
-                                <span>{settings.currency}{total.toFixed(2)}</span>
+        <div className="flex-1 overflow-auto bg-muted/40 p-4 rounded-lg">
+          <div className="flex justify-center items-start gap-4">
+              {/* Page 1 */}
+              <div ref={page1Ref} className="a4-page-container">
+                  <div className="a4-page">
+                    <header className="flex justify-between items-start pb-4 border-b">
+                        <div className="flex items-start gap-4">
+                            <ClinicLogo svg={settings.logoSvg} />
+                            <div>
+                                <h1 className="text-xl font-bold text-gray-800">{settings.clinicName}</h1>
+                                <p className="text-xs text-gray-500">{settings.clinicAddress}</p>
                             </div>
                         </div>
-                    </div>
-
-                    {prescription.advice && (
-                        <section className="mt-6 no-page-break">
-                            <h3 className="font-bold text-gray-700">Doctor's Advice:</h3>
-                            <blockquote className="text-sm text-gray-600 italic mt-1 p-2 border-l-2">
-                              {prescription.advice}
-                            </blockquote>
-                        </section>
+                        <h2 className="text-lg font-semibold text-gray-600 shrink-0 uppercase">Invoice</h2>
+                    </header>
+                    <section className="grid grid-cols-2 gap-4 my-4">
+                        <div>
+                            <h3 className="text-xs font-semibold text-gray-500 uppercase">Bill To</h3>
+                            <p className="font-bold text-sm">{prescription.patientName}</p>
+                            <p className="text-xs text-gray-500">Prescribed by: {prescription.doctor}</p>
+                        </div>
+                        <div className="text-right text-xs">
+                            <p><span className="font-semibold">Invoice #:</span> {`INV-${prescription.id}`}</p>
+                            <p><span className="font-semibold">Date:</span> {visitDateStr}</p>
+                            {dueDateStr && <p><span className="font-semibold">Due Date:</span> {dueDateStr}</p>}
+                        </div>
+                    </section>
+                    <table className="w-full text-xs">
+                        <thead className="bg-gray-50">
+                            <tr>
+                                <th className="p-2 text-left font-semibold">Item</th>
+                                <th className="p-2 text-right font-semibold">Price</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {itemsPage1.map((item, index) => (
+                                <tr key={index} className="border-b">
+                                    <td className="p-2">{item.item}</td>
+                                    <td className="p-2 text-right">{settings.currency}{item.price.toFixed(2)}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                    {!showPage2 && (
+                         <div className="mt-auto pt-4">
+                            <BillSummary billDetails={billDetails} settings={settings} />
+                            {prescription.advice && (
+                                <section className="mt-4">
+                                    <h3 className="font-bold text-gray-700 text-sm">Doctor's Advice:</h3>
+                                    <blockquote className="text-xs text-gray-600 italic mt-1 p-2 border-l-2">
+                                      {prescription.advice}
+                                    </blockquote>
+                                </section>
+                            )}
+                            <footer className="mt-4 pt-2 border-t text-center text-[10px] text-gray-500">
+                                <p>Thank you for choosing {settings.clinicName}.</p>
+                                {validityDays > 0 && <p>This receipt is valid for {validityDays} days from the date of issue.</p>}
+                            </footer>
+                        </div>
                     )}
-
-                    <footer className="mt-8 pt-4 border-t text-center text-xs text-gray-500 no-page-break">
-                        <p>Thank you for choosing {settings.clinicName}.</p>
-                        {validityDays > 0 && <p>This receipt is valid for {validityDays} days from the date of issue.</p>}
-                    </footer>
                   </div>
               </div>
-            </ScrollArea>
-            <div className="flex flex-col items-center justify-center gap-6 p-4 border rounded-lg">
-                <div className="bg-white p-4 rounded-lg shadow-md">
-                     <QRCode
-                        value={publicUrl}
-                        size={180}
-                        bgColor="#ffffff"
-                        fgColor="#000000"
-                        level="L"
-                     />
-                </div>
-                <p className="text-sm text-center text-muted-foreground">Scan this code to view and download a copy of your bill.</p>
-                 <div className="w-full space-y-2">
-                    <label className="text-sm font-medium">Public Link</label>
-                    <div className="flex items-center gap-2">
-                        <Input readOnly value={publicUrl} className="text-xs h-9"/>
-                        <Button size="icon" className="h-9 w-9 shrink-0" onClick={handleCopy}>
-                            {isCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                        </Button>
-                    </div>
-                </div>
-                <Button onClick={handleDownload} className="w-full">
-                    <Download className="mr-2" /> Download as PDF
-                </Button>
-            </div>
+              
+              {/* Page 2 */}
+              {showPage2 && (
+                  <div ref={page2Ref} className="a4-page-container">
+                      <div className="a4-page">
+                          <p className="text-center text-xs text-gray-400 pb-2">Page 2</p>
+                           <table className="w-full text-xs">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="p-2 text-left font-semibold">Item</th>
+                                        <th className="p-2 text-right font-semibold">Price</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {itemsPage2.map((item, index) => (
+                                        <tr key={index} className="border-b">
+                                            <td className="p-2">{item.item}</td>
+                                            <td className="p-2 text-right">{settings.currency}{item.price.toFixed(2)}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                             <div className="mt-auto pt-4">
+                                <BillSummary billDetails={billDetails} settings={settings} />
+                                {prescription.advice && (
+                                    <section className="mt-4">
+                                        <h3 className="font-bold text-gray-700 text-sm">Doctor's Advice:</h3>
+                                        <blockquote className="text-xs text-gray-600 italic mt-1 p-2 border-l-2">
+                                        {prescription.advice}
+                                        </blockquote>
+                                    </section>
+                                )}
+                                <footer className="mt-4 pt-2 border-t text-center text-[10px] text-gray-500">
+                                    <p>Thank you for choosing {settings.clinicName}.</p>
+                                    {validityDays > 0 && <p>This receipt is valid for {validityDays} days from the date of issue.</p>}
+                                </footer>
+                            </div>
+                      </div>
+                  </div>
+              )}
+          </div>
         </div>
 
+        <DialogFooter>
+            <Button onClick={handleDownload}>
+                <Download className="mr-2 h-4 w-4" /> Download as PDF
+            </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
+
+    
