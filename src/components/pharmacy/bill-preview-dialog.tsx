@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useRef } from 'react';
+import { useRef, useState, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -11,13 +11,16 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Prescription, BillDetails } from '@/context/clinic-context';
 import { useClinicContext } from '@/context/clinic-context';
-import { Download } from 'lucide-react';
+import { Download, Copy, ExternalLink, Loader2 } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { useToast } from '@/hooks/use-toast';
 import ClinicLogo from '../ClinicLogo';
+import QRCode from 'react-qr-code';
 
 interface BillPreviewDialogProps {
   open: boolean;
@@ -47,8 +50,8 @@ const BillSummary = ({ billDetails, settings }: { billDetails: BillDetails; sett
     const subtotal = billDetails.items.reduce((sum, item) => sum + item.price, 0);
 
     return (
-        <div className="flex justify-end mt-4">
-            <div className="w-full sm:w-2/3 md:w-1/2 space-y-1 text-sm">
+        <div className="flex justify-end mt-6">
+            <div className="w-full sm:w-2/3 md:w-1/2 space-y-2 text-sm">
                 <div className="flex justify-between p-2">
                     <span className="font-semibold text-gray-600">Subtotal:</span>
                     <span>{settings.currency}{subtotal.toFixed(2)}</span>
@@ -71,7 +74,7 @@ const BillSummary = ({ billDetails, settings }: { billDetails: BillDetails; sett
                         <span>{settings.currency}{billDetails.roundOff.toFixed(2)}</span>
                     </div>
                 )}
-                <div className="flex justify-between p-2 bg-gray-100 rounded-md font-bold">
+                <div className="flex justify-between p-3 bg-gray-100 rounded-md font-bold text-lg">
                     <span>Total:</span>
                     <span>{settings.currency}{billDetails.total.toFixed(2)}</span>
                 </div>
@@ -85,54 +88,72 @@ export function BillPreviewDialog({
   onOpenChange,
   billData,
 }: BillPreviewDialogProps) {
-  const { settings } = useClinicContext();
-  const page1Ref = useRef<HTMLDivElement>(null);
-  const page2Ref = useRef<HTMLDivElement>(null);
+  const { settings, clinicId } = useClinicContext();
+  const billContentRef = useRef<HTMLDivElement>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
   const { toast } = useToast();
+
+  const publicBillUrl = useMemo(() => {
+    if (!billData || !clinicId) return '';
+    const compositeId = `${clinicId}_${billData.prescription.id}`;
+    return `${window.location.origin}/bill/${compositeId}`;
+  }, [billData, clinicId]);
 
   if (!billData || !settings) return null;
 
   const { prescription, billDetails, dueDate } = billData;
 
   const handleDownload = async () => {
-    const page1 = page1Ref.current;
-    const page2 = page2Ref.current;
-    if (!page1) return;
+    const billContent = billContentRef.current;
+    if (!billContent) return;
 
+    setIsDownloading(true);
     try {
-        const pdf = new jsPDF('p', 'mm', 'a4');
+        const canvas = await html2canvas(billContent, {
+            scale: 2, // Higher scale for better quality
+            useCORS: true,
+        });
+
+        const pdf = new jsPDF({
+            orientation: 'p',
+            unit: 'mm',
+            format: 'a4',
+        });
+        
         const pdfWidth = 210;
         const pdfHeight = 297;
-
-        // Temporarily remove scaling for PDF generation
-        page1.style.transform = 'scale(1)';
-        if (page2) page2.style.transform = 'scale(1)';
-
-
-        const canvas1 = await html2canvas(page1, { scale: 3, windowWidth: page1.scrollWidth, windowHeight: page1.scrollHeight });
-        pdf.addImage(canvas1.toDataURL('image/png', 1.0), 'PNG', 0, 0, pdfWidth, pdfHeight);
-
-        const page2HasContent = page2Ref.current && Array.from(page2Ref.current.children).some(el => el.clientHeight > 0);
-
-        if (page2 && page2HasContent) {
-            const canvas2 = await html2canvas(page2, { scale: 3, windowWidth: page2.scrollWidth, windowHeight: page2.scrollHeight });
-            pdf.addPage();
-            pdf.addImage(canvas2.toDataURL('image/png', 1.0), 'PNG', 0, 0, pdfWidth, pdfHeight);
-        }
-      
-        pdf.save(`bill-${prescription.patientName.replace(/\s/g, '_')}-${prescription.id}.pdf`);
+        const canvasWidth = canvas.width;
+        const canvasHeight = canvas.height;
+        const ratio = canvasWidth / canvasHeight;
         
-        // Re-apply scaling after PDF generation
-        page1.style.transform = '';
-        if (page2) page2.style.transform = '';
+        let imgHeight = pdfWidth / ratio;
+        let heightLeft = imgHeight;
+        let position = 0;
 
+        pdf.addImage(canvas, 'PNG', 0, 0, pdfWidth, imgHeight);
+        heightLeft -= pdfHeight;
 
+        while (heightLeft > 0) {
+            position = heightLeft - imgHeight;
+            pdf.addPage();
+            pdf.addImage(canvas, 'PNG', 0, position, pdfWidth, imgHeight);
+            heightLeft -= pdfHeight;
+        }
+
+        pdf.save(`bill-${prescription.patientName.replace(/\s/g, '_')}-${prescription.id}.pdf`);
     } catch (error) {
         console.error('oops, something went wrong!', error);
         toast({ title: 'PDF Error', description: 'Could not generate PDF. Please try again.', variant: 'destructive' });
+    } finally {
+        setIsDownloading(false);
     }
   };
   
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(publicBillUrl);
+    toast({ title: 'Link Copied', description: 'Public bill link copied to clipboard.' });
+  }
+
   const visitDate = new Date(`${prescription.visitDate}T00:00:00`);
   const visitDateStr = formatDate(visitDate);
   const dueDateStr = formatDate(dueDate);
@@ -142,134 +163,114 @@ export function BillPreviewDialog({
     const diffTime = Math.abs(dueDate.getTime() - visitDate.getTime());
     validityDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   }
-
-  // Simplified content splitting
-  const MAX_ITEMS_PAGE_1 = 15; // Adjust this based on average item height
-  const itemsPage1 = billDetails.items.slice(0, MAX_ITEMS_PAGE_1);
-  const itemsPage2 = billDetails.items.slice(MAX_ITEMS_PAGE_1);
-  const showPage2 = itemsPage2.length > 0;
   
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-7xl h-[95vh] flex flex-col p-0">
-        <DialogHeader className="p-6 pb-0">
-          <DialogTitle className="font-headline">Bill Preview</DialogTitle>
+      <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0">
+        <DialogHeader className="p-6 pb-2">
+          <DialogTitle className="font-headline">Bill Preview & Share</DialogTitle>
           <DialogDescription>
-            Review the final bill. The layout you see here will be downloaded as a PDF.
+            Review the final bill and share it with the patient. The layout you see is what will be downloaded.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-hidden bg-muted/30 p-8 flex justify-center items-start gap-8">
-            {/* Page Previews */}
-            <div className="bill-preview-container">
-              {/* Page 1 */}
-              <div ref={page1Ref} className="a4-page-preview">
-                  <div className="a4-content">
-                    <header className="flex justify-between items-start pb-4 border-b">
-                        <div className="flex items-start gap-4">
-                            <ClinicLogo svg={settings.logoSvg} />
-                            <div>
-                                <h1 className="text-xl font-bold text-gray-800">{settings.clinicName}</h1>
-                                <p className="text-xs text-gray-500">{settings.clinicAddress}</p>
-                            </div>
-                        </div>
-                        <h2 className="text-lg font-semibold text-gray-600 shrink-0 uppercase">Invoice</h2>
-                    </header>
-                    <section className="grid grid-cols-2 gap-4 my-4">
+        <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-6 overflow-hidden px-6 pb-6">
+            {/* Left side: Bill Preview */}
+            <div className="md:col-span-2 overflow-y-auto bg-muted/40 p-4 rounded-lg border">
+                 <div ref={billContentRef} className="bg-white p-8 w-[210mm] min-h-[297mm] mx-auto text-gray-800 font-sans shadow-md">
+                    {/* Header */}
+                    <header className="flex justify-between items-start pb-6 border-b border-gray-200">
+                      <div className="flex items-start gap-6">
+                        <ClinicLogo svg={settings.logoSvg} />
                         <div>
-                            <h3 className="text-xs font-semibold text-gray-500 uppercase">Bill To</h3>
-                            <p className="font-bold text-sm">{prescription.patientName}</p>
-                            <p className="text-xs text-gray-500">Prescribed by: {prescription.doctor}</p>
+                          <h1 className="text-4xl font-bold text-gray-900">{settings.clinicName}</h1>
+                          <p className="text-md text-gray-500 mt-1">{settings.clinicAddress}</p>
                         </div>
-                        <div className="text-right text-xs">
-                            <p><span className="font-semibold">Invoice #:</span> {`INV-${prescription.id}`}</p>
-                            <p><span className="font-semibold">Date:</span> {visitDateStr}</p>
-                            {dueDateStr && <p><span className="font-semibold">Due Date:</span> {dueDateStr}</p>}
-                        </div>
+                      </div>
+                      <h2 className="text-3xl font-semibold text-gray-500 uppercase tracking-widest shrink-0">Invoice</h2>
+                    </header>
+                    {/* Bill To & Info */}
+                    <section className="grid grid-cols-2 gap-4 my-8">
+                       <div>
+                          <h3 className="text-sm font-semibold text-gray-500 uppercase">Bill To</h3>
+                          <p className="text-lg font-bold mt-1">{prescription.patientName}</p>
+                          <p className="text-md text-gray-600">Prescribed by: {prescription.doctor}</p>
+                       </div>
+                       <div className="text-right">
+                          <p className="text-sm"><span className="font-semibold text-gray-600">Invoice #:</span> {`INV-${prescription.id}`}</p>
+                          <p className="text-sm"><span className="font-semibold text-gray-600">Date:</span> {visitDateStr}</p>
+                          {dueDateStr && <p className="text-sm"><span className="font-semibold text-gray-600">Due Date:</span> {dueDateStr}</p>}
+                       </div>
                     </section>
-                    <table className="w-full text-xs">
-                        <thead className="bg-gray-50">
-                            <tr>
-                                <th className="p-2 text-left font-semibold">Item</th>
-                                <th className="p-2 text-right font-semibold">Price</th>
+                    {/* Items Table */}
+                    <table className="w-full text-md">
+                        <thead className="bg-gray-100 rounded-lg">
+                           <tr>
+                                <th className="p-3 text-left font-semibold text-gray-600">Item</th>
+                                <th className="p-3 text-right font-semibold text-gray-600">Price</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {itemsPage1.map((item, index) => (
-                                <tr key={index} className="border-b">
-                                    <td className="p-2">{item.item}</td>
-                                    <td className="p-2 text-right">{settings.currency}{item.price.toFixed(2)}</td>
+                            {billDetails.items.map((it, i) => (
+                                <tr key={i} className="border-b border-gray-100">
+                                    <td className="p-3">{it.item}</td>
+                                    <td className="p-3 text-right">{settings.currency}{it.price.toFixed(2)}</td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
-                    {!showPage2 && (
-                         <div className="mt-auto pt-4">
-                            <BillSummary billDetails={billDetails} settings={settings} />
-                            {prescription.advice && (
-                                <section className="mt-4">
-                                    <h3 className="font-bold text-gray-700 text-sm">Doctor's Advice:</h3>
-                                    <blockquote className="text-xs text-gray-600 italic mt-1 p-2 border-l-2">
-                                      {prescription.advice}
-                                    </blockquote>
-                                </section>
-                            )}
-                            <footer className="mt-4 pt-2 border-t text-center text-[10px] text-gray-500">
-                                <p>Thank you for choosing {settings.clinicName}.</p>
-                                {validityDays > 0 && <p>This receipt is valid for {validityDays} days from the date of issue.</p>}
-                            </footer>
-                        </div>
+                    {/* Summary */}
+                    <BillSummary billDetails={billDetails} settings={settings} />
+                    
+                    {/* Doctor's Advice */}
+                    {prescription.advice && (
+                        <section className="mt-8">
+                            <h3 className="font-bold text-gray-700">Doctor's Advice:</h3>
+                            <blockquote className="text-md text-gray-600 italic mt-2 p-3 border-l-4 border-gray-200 bg-gray-50 rounded-r-lg">
+                                {prescription.advice}
+                            </blockquote>
+                        </section>
                     )}
-                  </div>
-              </div>
-              
-              {/* Page 2 */}
-              <div ref={page2Ref} className="a4-page-preview">
-                  {showPage2 && (
-                      <div className="a4-content">
-                          <p className="text-center text-xs text-gray-400 pb-2">Page 2</p>
-                           <table className="w-full text-xs">
-                                <thead className="bg-gray-50">
-                                    <tr>
-                                        <th className="p-2 text-left font-semibold">Item</th>
-                                        <th className="p-2 text-right font-semibold">Price</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {itemsPage2.map((item, index) => (
-                                        <tr key={index} className="border-b">
-                                            <td className="p-2">{item.item}</td>
-                                            <td className="p-2 text-right">{settings.currency}{item.price.toFixed(2)}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                             <div className="mt-auto pt-4">
-                                <BillSummary billDetails={billDetails} settings={settings} />
-                                {prescription.advice && (
-                                    <section className="mt-4">
-                                        <h3 className="font-bold text-gray-700 text-sm">Doctor's Advice:</h3>
-                                        <blockquote className="text-xs text-gray-600 italic mt-1 p-2 border-l-2">
-                                        {prescription.advice}
-                                        </blockquote>
-                                    </section>
-                                )}
-                                <footer className="mt-4 pt-2 border-t text-center text-[10px] text-gray-500">
-                                    <p>Thank you for choosing {settings.clinicName}.</p>
-                                    {validityDays > 0 && <p>This receipt is valid for {validityDays} days from the date of issue.</p>}
-                                </footer>
-                            </div>
-                      </div>
-                  )}
-              </div>
+
+                    {/* Footer */}
+                     <footer className="mt-12 pt-6 border-t border-gray-200 text-center text-sm text-gray-500">
+                        <p>Thank you for choosing {settings.clinicName}.</p>
+                        {validityDays > 0 && <p>This receipt is valid for {validityDays} days from the date of issue.</p>}
+                    </footer>
+                 </div>
+            </div>
+
+            {/* Right side: Actions */}
+            <div className="col-span-1 space-y-6">
+                <Button onClick={handleDownload} className="w-full" disabled={isDownloading}>
+                    {isDownloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Download className="mr-2 h-4 w-4" />}
+                    {isDownloading ? 'Generating PDF...' : 'Download as PDF'}
+                </Button>
+                <div className="space-y-4 rounded-lg border bg-background p-4">
+                    <h3 className="font-headline text-lg">Shareable Link</h3>
+                    <p className="text-sm text-muted-foreground">
+                        Use this public link to share the bill directly.
+                    </p>
+                     <div className="flex items-center space-x-2">
+                        <Input id="link" value={publicBillUrl} readOnly />
+                        <Button type="button" size="sm" onClick={handleCopyLink}>
+                            <Copy className="h-4 w-4" />
+                            <span className="sr-only">Copy</span>
+                        </Button>
+                         <a href={publicBillUrl} target="_blank" rel="noopener noreferrer">
+                            <Button type="button" size="sm" variant="outline">
+                                <ExternalLink className="h-4 w-4" />
+                                <span className="sr-only">Open in new tab</span>
+                            </Button>
+                        </a>
+                    </div>
+                     <div className="p-4 bg-white rounded-md flex items-center justify-center">
+                        <QRCode value={publicBillUrl} size={128} />
+                    </div>
+                    <p className="text-xs text-center text-muted-foreground">Scan QR code to view bill on any device.</p>
+                </div>
             </div>
         </div>
-
-        <DialogFooter className="p-6 pt-0">
-            <Button onClick={handleDownload}>
-                <Download className="mr-2 h-4 w-4" /> Download as PDF
-            </Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
