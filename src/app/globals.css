@@ -74,6 +74,34 @@
 /* ----------------------------- */
 /* PRINT STYLES (BILLING)        */
 /* ----------------------------- */
+@layer components {
+    .bill-preview-container {
+      @apply flex items-start justify-center gap-8 w-full h-full;
+    }
+    
+    .a4-page-preview {
+        @apply w-[210mm] h-[297mm] bg-white text-gray-800 shadow-lg rounded-sm border;
+        transform-origin: top left;
+        transform: scale(var(--bill-scale, 0.4));
+    }
+    
+    .a4-content {
+        @apply p-8 flex flex-col h-full;
+    }
+}
+
+@media screen and (min-width: 1400px) {
+  :root {
+    --bill-scale: 0.45;
+  }
+}
+
+@media screen and (min-width: 1600px) {
+  :root {
+    --bill-scale: 0.5;
+  }
+}
+
 @media print {
   .page {
     width: 210mm;
@@ -81,6 +109,7 @@
     background: white;
     page-break-after: always;
     position: relative;
+    overflow: hidden;
   }
   .page:last-child {
     page-break-after: auto;
@@ -91,11 +120,5 @@
     bottom: 16mm;
     left: 8mm;
     right: 8mm;
-  }
-
-  .summary-compressed {
-    font-size: 0.88rem;
-    line-height: 1.05;
-    padding: 0.5rem !important;
   }
 }

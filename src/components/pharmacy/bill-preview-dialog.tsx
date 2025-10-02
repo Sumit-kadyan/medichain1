@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useRef, useState } from 'react';
+import { useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -18,7 +18,6 @@ import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { useToast } from '@/hooks/use-toast';
 import ClinicLogo from '../ClinicLogo';
-import { ScrollArea } from '../ui/scroll-area';
 
 interface BillPreviewDialogProps {
   open: boolean;
@@ -105,19 +104,28 @@ export function BillPreviewDialog({
         const pdfWidth = 210;
         const pdfHeight = 297;
 
-        const canvas1 = await html2canvas(page1, { scale: 3, useCORS: true, windowWidth: page1.scrollWidth, windowHeight: page1.scrollHeight });
-        const imgData1 = canvas1.toDataURL('image/png');
-        pdf.addImage(imgData1, 'PNG', 0, 0, pdfWidth, pdfHeight);
+        // Temporarily remove scaling for PDF generation
+        page1.style.transform = 'scale(1)';
+        if (page2) page2.style.transform = 'scale(1)';
 
-        // Check if page 2 has content before adding it
-        if (page2 && page2.innerHTML.trim() !== '') {
-            const canvas2 = await html2canvas(page2, { scale: 3, useCORS: true, windowWidth: page2.scrollWidth, windowHeight: page2.scrollHeight });
-            const imgData2 = canvas2.toDataURL('image/png');
+
+        const canvas1 = await html2canvas(page1, { scale: 3, windowWidth: page1.scrollWidth, windowHeight: page1.scrollHeight });
+        pdf.addImage(canvas1.toDataURL('image/png', 1.0), 'PNG', 0, 0, pdfWidth, pdfHeight);
+
+        const page2HasContent = page2Ref.current && Array.from(page2Ref.current.children).some(el => el.clientHeight > 0);
+
+        if (page2 && page2HasContent) {
+            const canvas2 = await html2canvas(page2, { scale: 3, windowWidth: page2.scrollWidth, windowHeight: page2.scrollHeight });
             pdf.addPage();
-            pdf.addImage(imgData2, 'PNG', 0, 0, pdfWidth, pdfHeight);
+            pdf.addImage(canvas2.toDataURL('image/png', 1.0), 'PNG', 0, 0, pdfWidth, pdfHeight);
         }
       
         pdf.save(`bill-${prescription.patientName.replace(/\s/g, '_')}-${prescription.id}.pdf`);
+        
+        // Re-apply scaling after PDF generation
+        page1.style.transform = '';
+        if (page2) page2.style.transform = '';
+
 
     } catch (error) {
         console.error('oops, something went wrong!', error);
@@ -143,19 +151,20 @@ export function BillPreviewDialog({
   
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl max-h-[95vh] flex flex-col">
-        <DialogHeader>
+      <DialogContent className="max-w-7xl h-[95vh] flex flex-col p-0">
+        <DialogHeader className="p-6 pb-0">
           <DialogTitle className="font-headline">Bill Preview</DialogTitle>
           <DialogDescription>
-            Review the final bill. What you see here is what will be downloaded.
+            Review the final bill. The layout you see here will be downloaded as a PDF.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-auto bg-muted/40 p-4 rounded-lg">
-          <div className="flex justify-center items-start gap-4">
+        <div className="flex-1 overflow-hidden bg-muted/30 p-8 flex justify-center items-start gap-8">
+            {/* Page Previews */}
+            <div className="bill-preview-container">
               {/* Page 1 */}
-              <div ref={page1Ref} className="a4-page-container">
-                  <div className="a4-page">
+              <div ref={page1Ref} className="a4-page-preview">
+                  <div className="a4-content">
                     <header className="flex justify-between items-start pb-4 border-b">
                         <div className="flex items-start gap-4">
                             <ClinicLogo svg={settings.logoSvg} />
@@ -215,9 +224,9 @@ export function BillPreviewDialog({
               </div>
               
               {/* Page 2 */}
-              {showPage2 && (
-                  <div ref={page2Ref} className="a4-page-container">
-                      <div className="a4-page">
+              <div ref={page2Ref} className="a4-page-preview">
+                  {showPage2 && (
+                      <div className="a4-content">
                           <p className="text-center text-xs text-gray-400 pb-2">Page 2</p>
                            <table className="w-full text-xs">
                                 <thead className="bg-gray-50">
@@ -251,12 +260,12 @@ export function BillPreviewDialog({
                                 </footer>
                             </div>
                       </div>
-                  </div>
-              )}
-          </div>
+                  )}
+              </div>
+            </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="p-6 pt-0">
             <Button onClick={handleDownload}>
                 <Download className="mr-2 h-4 w-4" /> Download as PDF
             </Button>
@@ -265,5 +274,3 @@ export function BillPreviewDialog({
     </Dialog>
   );
 }
-
-    
