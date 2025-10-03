@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -19,7 +19,6 @@ import { Label } from '@/components/ui/label';
 import { useClinicContext, Doctor } from '@/context/clinic-context';
 import { useToast } from '@/hooks/use-toast';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '../ui/form';
-import { Loader2 } from 'lucide-react';
 
 const formSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters.'),
@@ -35,7 +34,6 @@ interface EditDoctorDialogProps {
 export function EditDoctorDialog({ open, onOpenChange, doctor }: EditDoctorDialogProps) {
   const { updateDoctor } = useClinicContext();
   const { toast } = useToast();
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -54,36 +52,20 @@ export function EditDoctorDialog({ open, onOpenChange, doctor }: EditDoctorDialo
     }
   }, [open, doctor, form])
 
-  const handleOpenChange = (isOpen: boolean) => {
-    // Allow closing the dialog even when submitting
-    onOpenChange(isOpen);
-  }
   
-  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+  const onSubmit = (values: z.infer<typeof formSchema>) => {
     if (!doctor) return;
 
-    setIsSubmitting(true);
-    try {
-      await updateDoctor(doctor.id, values);
-      toast({
-          title: 'Doctor Updated',
-          description: `Details for ${values.name} have been updated.`
-      });
-      onOpenChange(false);
-    } catch (error) {
-       console.error("Failed to update doctor:", error);
-       toast({
-        title: 'Error',
-        description: 'Could not update doctor details. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
+    updateDoctor(doctor.id, values);
+    toast({
+        title: 'Doctor Updated',
+        description: `Details for ${values.name} have been updated.`
+    });
+    onOpenChange(false);
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Edit Doctor Details</DialogTitle>
@@ -101,7 +83,7 @@ export function EditDoctorDialog({ open, onOpenChange, doctor }: EditDoctorDialo
                     <FormItem>
                         <Label>Name</Label>
                         <FormControl>
-                        <Input placeholder="e.g., Dr. Jane Smith" {...field} disabled={isSubmitting} />
+                        <Input placeholder="e.g., Dr. Jane Smith" {...field} />
                         </FormControl>
                         <FormMessage />
                     </FormItem>
@@ -114,20 +96,14 @@ export function EditDoctorDialog({ open, onOpenChange, doctor }: EditDoctorDialo
                     <FormItem>
                         <Label>Specialization</Label>
                         <FormControl>
-                        <Input placeholder="e.g., Cardiologist" {...field} disabled={isSubmitting} />
+                        <Input placeholder="e.g., Cardiologist" {...field} />
                         </FormControl>
                         <FormMessage />
                     </FormItem>
                     )}
                 />
                 <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
-                    Cancel
-                    </Button>
-                <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {isSubmitting ? 'Saving...' : 'Save Changes'}
-                </Button>
+                <Button type="submit">Save Changes</Button>
                 </DialogFooter>
             </form>
             </Form>

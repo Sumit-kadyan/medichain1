@@ -43,7 +43,7 @@ interface AddPatientDialogProps {
 }
 
 export function AddPatientDialog({ open, onOpenChange }: AddPatientDialogProps) {
-  const { doctors, addPatient, addPatientToWaitingList } = useClinicContext();
+  const { doctors, addPatient, addPatientToWaitingList, patients } = useClinicContext();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
 
@@ -65,26 +65,25 @@ export function AddPatientDialog({ open, onOpenChange }: AddPatientDialogProps) 
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setLoading(true);
-    try {
-      const newPatient = await addPatient(values);
-      if (newPatient && newPatient.id) {
-        await addPatientToWaitingList(newPatient, values.doctorId);
-      } else {
-        throw new Error("Failed to create patient or retrieve patient ID.");
-      }
-      
-      reset();
-      onOpenChange(false);
-    } catch (error) {
-      console.error(error);
-      toast({
-        title: 'Error',
-        description: 'Failed to add new patient. Please try again.',
-        variant: 'destructive'
-      })
-    } finally {
-        setLoading(false);
+    await addPatient(values);
+    
+    // This is a bit of a hack to get the newly added patient
+    // A better solution would be for addPatient to return the new patient object
+    const newPatient = patients.find(p => p.name === values.name && p.phone === values.phone);
+
+    if (newPatient) {
+       addPatientToWaitingList(newPatient, values.doctorId);
+    } else {
+        toast({
+            title: 'Error',
+            description: 'Could not find newly added patient to add to waiting list.',
+            variant: 'destructive'
+        })
     }
+    
+    reset();
+    setLoading(false);
+    onOpenChange(false);
   };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>, fieldChange: (value: string) => void) => {

@@ -66,23 +66,14 @@ export function SettingsTab() {
       setLocalSettings(prev => ({...prev, [id]: value}));
   }
 
-  const handleSave = async () => {
+  const handleSave = () => {
     setIsSaving(true);
-    try {
-        await updateSettings(localSettings);
-        toast({
-            title: 'Settings Saved',
-            description: 'Your clinic profile has been updated.',
-        });
-    } catch (error) {
-         toast({
-            title: 'Error',
-            description: 'Failed to save settings. Please try again.',
-            variant: 'destructive'
-        });
-    } finally {
-        setIsSaving(false);
-    }
+    updateSettings(localSettings);
+    toast({
+        title: 'Settings Saved',
+        description: 'Your clinic profile has been updated.',
+    });
+    setIsSaving(false);
   }
 
   if (contextLoading && !settings) {

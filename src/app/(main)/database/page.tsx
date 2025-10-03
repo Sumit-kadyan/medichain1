@@ -17,12 +17,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { useClinicContext, Patient } from '@/context/clinic-context';
+import { useClinicContext } from '@/context/clinic-context';
 import { Loader2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useEffect, useState } from 'react';
-import { db } from '@/lib/firebase';
-import { collection, getDocs } from 'firebase/firestore';
 
 
 function DataTable({
@@ -77,27 +74,7 @@ function DataTable({
 
 
 export default function DatabaseViewerPage() {
-  const { doctors, loading: contextLoading, clinicId } = useClinicContext();
-  const [patients, setPatients] = useState<Patient[]>([]);
-  const [patientsLoading, setPatientsLoading] = useState(true);
-
-  useEffect(() => {
-    async function fetchAllPatients() {
-        if (!clinicId) return;
-        setPatientsLoading(true);
-        try {
-            const patientsCollection = collection(db, 'clinics', clinicId, 'patients');
-            const patientSnapshot = await getDocs(patientsCollection);
-            const patientList = patientSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Patient));
-            setPatients(patientList);
-        } catch (error) {
-            console.error("Failed to fetch all patients for database view", error);
-        } finally {
-            setPatientsLoading(false);
-        }
-    }
-    fetchAllPatients();
-  }, [clinicId])
+  const { patients, doctors, loading } = useClinicContext();
 
   const patientColumns = [
     { key: 'id', label: 'ID' },
@@ -129,10 +106,10 @@ export default function DatabaseViewerPage() {
             <TabsTrigger value="doctors">Doctors</TabsTrigger>
           </TabsList>
           <TabsContent value="patients">
-            <DataTable columns={patientColumns} data={patients} loading={patientsLoading} />
+            <DataTable columns={patientColumns} data={patients} loading={loading} />
           </TabsContent>
           <TabsContent value="doctors">
-             <DataTable columns={doctorColumns} data={doctors} loading={contextLoading} />
+             <DataTable columns={doctorColumns} data={doctors} loading={loading} />
           </TabsContent>
         </Tabs>
       </CardContent>

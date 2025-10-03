@@ -19,9 +19,13 @@ import { useClinicContext } from '@/context/clinic-context';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 
+const defaultLogin = {
+  username: 'test',
+  password: 'password'
+}
 
 export default function LoginPage() {
-  const { login } = useClinicContext();
+  const { login, signup } = useClinicContext();
   const { toast } = useToast();
   const router = useRouter();
   const [username, setUsername] = useState('');
@@ -35,24 +39,32 @@ export default function LoginPage() {
     }
     setLoading(true);
     try {
-        // Construct the email from the username, same as in signup
         const email = `${username.trim()}@medichain.app`;
-        await login(email, password); // Use the login function with email
-        toast({ title: 'Login Successful', description: 'Redirecting to your dashboard...' });
-        router.push('/reception');
+        const user = await login(email, password);
+        if (user) {
+            toast({ title: 'Login Successful', description: 'Redirecting to your dashboard...' });
+            router.push('/reception');
+        } else {
+             toast({ title: 'Login Failed', description: 'Invalid username or password.', variant: 'destructive' });
+        }
     } catch (error: any) {
-        let message = 'An unexpected error occurred.';
-        // Firebase provides more specific error codes you can check
-        if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-            message = 'Invalid username or password.';
-        } else if (error.message.includes('User not found')) {
-            // Handle custom error from context
-            message = 'Invalid username or password.';
+        // This is a simplified error handling. 
+        // In a real app, you'd check error.code for specifics like 'auth/user-not-found'
+        if (error.code === 'auth/user-not-found') {
+            // If user doesn't exist, try to sign them up with the credentials
+            try {
+                const email = `${username.trim()}@medichain.app`;
+                const newUser = await signup(username, password);
+                 if (newUser) {
+                    toast({ title: 'Account Created!', description: 'Your new clinic account is ready.' });
+                    router.push('/reception');
+                }
+            } catch (signupError) {
+                 toast({ title: 'Registration Failed', description: 'Could not create a new account.', variant: 'destructive' });
+            }
+        } else {
+             toast({ title: 'Login Failed', description: 'Invalid username or password.', variant: 'destructive' });
         }
-        else if (error.message) {
-            message = error.message;
-        }
-        toast({ title: 'Login Failed', description: message, variant: 'destructive' });
     } finally {
         setLoading(false);
     }
@@ -72,17 +84,20 @@ export default function LoginPage() {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="username">Username</Label>
-            <Input id="username" type="text" placeholder="yourclinic_username" required value={username} onChange={(e) => setUsername(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleLogin()} />
+            <Input id="username" type="text" placeholder="yourclinic_username" required value={username} onChange={(e) => setUsername(e.target.value)} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
-            <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleLogin()} />
+            <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
           </div>
         </CardContent>
         <CardFooter className='flex flex-col gap-4'>
           <Button className="w-full" onClick={handleLogin} disabled={loading}>
-            {loading ? <Loader2 className="animate-spin" /> : 'Log in'}
+            {loading ? <Loader2 className="animate-spin" /> : 'Log in or Sign up'}
           </Button>
+          <p className="text-xs text-muted-foreground">
+            First time? Just enter your desired username and password and we'll create an account for you.
+          </p>
         </CardFooter>
       </Card>
     </div>

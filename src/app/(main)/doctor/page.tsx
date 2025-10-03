@@ -26,8 +26,6 @@ import { useClinicContext, Doctor, PatientStatus, WaitingPatient, PatientHistory
 import { useToast } from '@/hooks/use-toast';
 import { Textarea } from '@/components/ui/textarea';
 import { DrugSuggestionForm } from '@/components/ai/drug-suggestion-form';
-import { PinEntryDialog } from '@/components/doctor/pin-entry-dialog';
-import { ChangePinCard } from '@/components/doctor/change-pin-card';
 
 const statusConfig: Record<PatientStatus, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' | null }> = {
     waiting: { label: 'Waiting', variant: 'outline' },
@@ -283,7 +281,6 @@ Ibuprofen 200mg - as needed for pain"
               </div>
             </CardContent>
           </Card>
-          <ChangePinCard doctor={doctor} />
         </div>
       </div>
     </>
@@ -292,43 +289,8 @@ Ibuprofen 200mg - as needed for pain"
 
 
 export default function DoctorPage() {
-    const { doctors, loading, verifyDoctorPincode } = useClinicContext();
-    const { toast } = useToast();
+    const { doctors, loading } = useClinicContext();
     const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
-    const [pinVerified, setPinVerified] = useState(false);
-    const [isPinDialogOpen, setIsPinDialogOpen] = useState(false);
-
-    const handleSelectDoctor = (doctor: Doctor) => {
-        setSelectedDoctor(doctor);
-        setIsPinDialogOpen(true);
-    };
-
-    const handlePinVerification = async (pincode: string) => {
-        if (!selectedDoctor) return;
-        const isValid = await verifyDoctorPincode(selectedDoctor.id, pincode);
-        if (isValid) {
-            setPinVerified(true);
-            setIsPinDialogOpen(false);
-            toast({ title: "Access Granted", description: `Welcome, ${selectedDoctor.name}` });
-        } else {
-            toast({ title: "Incorrect PIN", description: "The PIN you entered is incorrect.", variant: "destructive" });
-        }
-    };
-    
-    const handleBack = () => {
-        setSelectedDoctor(null);
-        setPinVerified(false);
-    }
-    
-    const handlePinDialogClose = (open: boolean) => {
-        if (!open) {
-            // If the dialog is closed without verification, go back to selection
-            if (!pinVerified) {
-                setSelectedDoctor(null);
-            }
-        }
-        setIsPinDialogOpen(open);
-    }
 
     if (loading) {
         return (
@@ -337,20 +299,10 @@ export default function DoctorPage() {
             </div>
         );
     }
-
-    if (!selectedDoctor || !pinVerified) {
-        return (
-            <>
-                <DoctorSelection doctors={doctors} onSelectDoctor={handleSelectDoctor} />
-                <PinEntryDialog 
-                    open={isPinDialogOpen}
-                    onOpenChange={handlePinDialogClose}
-                    doctor={selectedDoctor}
-                    onVerify={handlePinVerification}
-                />
-            </>
-        )
+    
+    if (!selectedDoctor) {
+        return <DoctorSelection doctors={doctors} onSelectDoctor={setSelectedDoctor} />;
     }
 
-    return <DoctorDashboard doctor={selectedDoctor} onBack={handleBack} />;
+    return <DoctorDashboard doctor={selectedDoctor} onBack={() => setSelectedDoctor(null)} />;
 }
