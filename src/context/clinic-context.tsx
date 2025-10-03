@@ -1,8 +1,7 @@
 
-
 'use client';
 
-import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { auth, db } from '@/lib/firebase';
 import { User, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
@@ -14,6 +13,7 @@ import { resolveClinicId } from '@/lib/clinicIdentity';
 // Types
 export type PatientStatus = 'waiting' | 'called' | 'in_consult' | 'prescribed' | 'sent_to_pharmacy' | 'dispensed';
 export type PrescriptionStatus = 'pending' | 'dispensed';
+export type OnlineStatus = 'online' | 'offline' | 'reconnected';
 
 export interface FirestoreDocument {
     id: string;
@@ -113,6 +113,7 @@ interface ClinicContextType {
     loading: boolean;
     authLoading: boolean;
     clinicId: string | null;
+    onlineStatus: OnlineStatus;
     signup: (email: string, password: string, clinicName: string, username: string) => Promise<void>;
     login: (email: string, password: string) => Promise<void>;
     logout: () => Promise<void>;
@@ -144,6 +145,13 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
     const [settings, setSettings] = useState<ClinicSettings | null>(null);
     const [loading, setLoading] = useState(true);
     const [authLoading, setAuthLoading] = useState(true);
+    const [onlineStatus, setOnlineStatus] = useState<OnlineStatus>('online');
+    const onlineStatusRef = useRef(onlineStatus);
+
+     useEffect(() => {
+        onlineStatusRef.current = onlineStatus;
+    }, [onlineStatus]);
+
 
     useEffect(() => {
         const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
@@ -179,9 +187,23 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         const todayStr = new Date().toISOString().split('T')[0];
 
         try {
-            const settingsUnsub = onSnapshot(doc(db, 'clinics', clinicId), (doc) => {
-                if (doc.exists()) {
-                    setSettings(doc.data() as ClinicSettings);
+            const settingsUnsub = onSnapshot(doc(db, 'clinics', clinicId), (snapshot) => {
+                 const isFromCache = snapshot.metadata.fromCache;
+
+                if (isFromCache && onlineStatusRef.current === 'online') {
+                    setOnlineStatus('offline');
+                } else if (!isFromCache && onlineStatusRef.current === 'offline') {
+                    setOnlineStatus('reconnected');
+                    setTimeout(() => {
+                        // Only transition to online if we are still in the 'reconnected' state
+                        if (onlineStatusRef.current === 'reconnected') {
+                           setOnlineStatus('online');
+                        }
+                    }, 3000); // Show "reconnected" message for 3 seconds
+                }
+
+                if (snapshot.exists()) {
+                    setSettings(snapshot.data() as ClinicSettings);
                 }
             }, (error) => {
                 console.error("Error fetching settings:", error);
@@ -538,6 +560,7 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         loading,
         authLoading,
         clinicId,
+        onlineStatus,
         signup,
         login,
         logout,
@@ -569,7 +592,3 @@ export const useClinicContext = () => {
     }
     return context;
 };
-
-    
-
-    

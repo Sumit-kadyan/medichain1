@@ -1,9 +1,11 @@
+
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { cn } from '@/lib/utils';
 import { Toaster } from '@/components/ui/toaster';
 import { ClinicProvider } from '@/context/clinic-context';
+import ConnectionStatusBanner from '@/components/layout/connection-status-banner';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
@@ -35,6 +37,7 @@ export default function RootLayout({
       >
         <ClinicProvider>
           {children}
+          <ConnectionStatusBanner />
         </ClinicProvider>
         <Toaster />
       </body>
