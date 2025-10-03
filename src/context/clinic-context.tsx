@@ -5,7 +5,7 @@ import React, { createContext, useContext, useState, ReactNode, useEffect, useCa
 import { useToast } from '@/hooks/use-toast';
 import { auth, db } from '@/lib/firebase';
 import { User, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
-import { doc, getDoc, setDoc, collection, addDoc, updateDoc, deleteDoc, query, where, onSnapshot, Unsubscribe, serverTimestamp, Timestamp, writeBatch, getDocs } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, addDoc, updateDoc, deleteDoc, query, where, onSnapshot, Unsubscribe, serverTimestamp, Timestamp, writeBatch, getDocs, enableNetwork, disableNetwork } from 'firebase/firestore';
 import Papa from 'papaparse';
 import { resolveClinicId } from '@/lib/clinicIdentity';
 
@@ -146,11 +146,34 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
     const [loading, setLoading] = useState(true);
     const [authLoading, setAuthLoading] = useState(true);
     const [onlineStatus, setOnlineStatus] = useState<OnlineStatus>('online');
-    const onlineStatusRef = useRef(onlineStatus);
+    
+    // Listen to browser online/offline events
+    useEffect(() => {
+        const handleOnline = () => {
+            setOnlineStatus('reconnected');
+            // Allow Firebase to sync
+            enableNetwork(db);
+            setTimeout(() => setOnlineStatus('online'), 3000);
+        };
+        const handleOffline = () => {
+            setOnlineStatus('offline');
+            // When offline, subsequent reads will come from cache without hitting network
+            disableNetwork(db);
+        };
 
-     useEffect(() => {
-        onlineStatusRef.current = onlineStatus;
-    }, [onlineStatus]);
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+
+        // Check initial status
+        if (!navigator.onLine) {
+            handleOffline();
+        }
+
+        return () => {
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+        };
+    }, []);
 
 
     useEffect(() => {
@@ -188,20 +211,6 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
 
         try {
             const settingsUnsub = onSnapshot(doc(db, 'clinics', clinicId), (snapshot) => {
-                 const isFromCache = snapshot.metadata.fromCache;
-
-                if (isFromCache && onlineStatusRef.current === 'online') {
-                    setOnlineStatus('offline');
-                } else if (!isFromCache && onlineStatusRef.current === 'offline') {
-                    setOnlineStatus('reconnected');
-                    setTimeout(() => {
-                        // Only transition to online if we are still in the 'reconnected' state
-                        if (onlineStatusRef.current === 'reconnected') {
-                           setOnlineStatus('online');
-                        }
-                    }, 3000); // Show "reconnected" message for 3 seconds
-                }
-
                 if (snapshot.exists()) {
                     setSettings(snapshot.data() as ClinicSettings);
                 }
@@ -592,3 +601,5 @@ export const useClinicContext = () => {
     }
     return context;
 };
+
+    
