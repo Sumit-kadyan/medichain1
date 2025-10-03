@@ -1,6 +1,7 @@
 
 'use client';
 
+import { useState } from 'react';
 import {
   SidebarContent,
   SidebarHeader,
@@ -21,7 +22,7 @@ import {
   Database,
 } from 'lucide-react';
 import { Button } from '../ui/button';
-import { useToast } from '@/hooks/use-toast';
+import { HelpSupportDialog } from './help-support-dialog';
 
 const menuItems = [
   {
@@ -48,14 +49,7 @@ const menuItems = [
 
 export default function MainSidebar() {
   const pathname = usePathname();
-  const { toast } = useToast();
-
-  const handleHelpClick = () => {
-    toast({
-        title: 'Help & Support',
-        description: 'This is a mock help and support button.',
-    });
-  }
+  const [isHelpOpen, setHelpOpen] = useState(false);
 
   return (
     <>
@@ -98,11 +92,12 @@ export default function MainSidebar() {
               </SidebarMenuButton>
             </SidebarMenuItem>
          </SidebarMenu>
-        <Button variant="outline" className="w-full" onClick={handleHelpClick}>
+        <Button variant="outline" className="w-full" onClick={() => setHelpOpen(true)}>
             <CircleHelp className="mr-2 h-4 w-4" />
             Help & Support
         </Button>
       </SidebarFooter>
+      <HelpSupportDialog open={isHelpOpen} onOpenChange={setHelpOpen} />
     </>
   );
 }
