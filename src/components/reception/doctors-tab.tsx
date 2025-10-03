@@ -62,7 +62,7 @@ export function DoctorsTab() {
     } catch (error) {
       toast({
         title: 'Error',
-        description: `Could not delete ${name}.`,
+        description: `Could not delete ${name}. Please try again.`,
         variant: 'destructive',
       });
     }

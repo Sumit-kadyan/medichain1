@@ -359,7 +359,6 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
             return { id: docRef.id, ...newPatientData };
         } catch (error) {
              console.error("Error adding patient:", error);
-             toast({ title: 'Error Adding Patient', description: 'Could not save new patient to the database.', variant: 'destructive' });
              throw new Error("Failed to save patient to database.");
         }
     };
