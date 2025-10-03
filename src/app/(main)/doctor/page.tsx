@@ -1,6 +1,7 @@
 
+
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Card,
   CardContent,
@@ -21,7 +22,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Play, Clock, FileText, Send, ArrowLeft, Loader2, BookMarked, XCircle, CheckCircle, MessageSquareQuote } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useClinicContext, Doctor, PatientStatus, WaitingPatient, PatientHistory } from '@/context/clinic-context';
+import { useClinicContext, Doctor, PatientStatus, WaitingPatient, PatientHistory, Patient } from '@/context/clinic-context';
 import { useToast } from '@/hooks/use-toast';
 import { Textarea } from '@/components/ui/textarea';
 import { DrugSuggestionForm } from '@/components/ai/drug-suggestion-form';
@@ -73,16 +74,29 @@ function DoctorSelection({ doctors, onSelectDoctor }: { doctors: Doctor[], onSel
 
 function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => void }) {
   const { toast } = useToast();
-  const { waitingList, patients, updatePatientStatus } = useClinicContext();
+  const { waitingList, getPatientById, updatePatientStatus } = useClinicContext();
   const [prescription, setPrescription] = useState('');
   const [advice, setAdvice] = useState('');
   const [activePatient, setActivePatient] = useState<WaitingPatient | null>(null);
+  const [patientDetails, setPatientDetails] = useState<Patient | null>(null);
 
   const doctorWaitingList = waitingList.filter(p => p.doctorId === doctor.id && p.status !== 'sent_to_pharmacy' && p.status !== 'dispensed' && p.status !== 'prescribed');
   const patientInConsultation = waitingList.find(p => p.doctorId === doctor.id && p.status === 'in_consult');
   
-  const patientDetails = activePatient ? patients.find(p => p.id === activePatient.patientId) : null;
   const patientHistory: PatientHistory[] = patientDetails?.history || [];
+  
+  useEffect(() => {
+    const fetchDetails = async () => {
+        if (activePatient?.patientId) {
+            const details = await getPatientById(activePatient.patientId);
+            setPatientDetails(details);
+        } else {
+            setPatientDetails(null);
+        }
+    }
+    fetchDetails();
+  }, [activePatient, getPatientById]);
+
 
   const handleStartConsultation = (patient: WaitingPatient) => {
     updatePatientStatus(patient.id, 'in_consult');
@@ -196,7 +210,9 @@ function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => voi
                 </CardHeader>
                 <CardContent>
                     <Textarea
-                        placeholder="e.g.,&#10;Amoxicillin 500mg - 1 tab 3 times a day for 7 days&#10;Ibuprofen 200mg - as needed for pain"
+                        placeholder="e.g.,
+Amoxicillin 500mg - 1 tab 3 times a day for 7 days
+Ibuprofen 200mg - as needed for pain"
                         className="min-h-[150px] font-mono text-sm"
                         value={prescription}
                         onChange={(e) => setPrescription(e.target.value)}
@@ -307,7 +323,9 @@ export default function DoctorPage() {
     const handlePinDialogClose = (open: boolean) => {
         if (!open) {
             // If the dialog is closed without verification, go back to selection
-            setSelectedDoctor(null);
+            if (!pinVerified) {
+                setSelectedDoctor(null);
+            }
         }
         setIsPinDialogOpen(open);
     }

@@ -105,7 +105,6 @@ type Notification = {
 
 interface ClinicContextType {
     user: User | null;
-    patients: Patient[];
     doctors: Doctor[];
     waitingList: WaitingPatient[];
     pharmacyQueue: Prescription[];
@@ -127,7 +126,6 @@ interface ClinicContextType {
     deleteDoctor: (doctorId: string) => Promise<void>;
     dismissNotification: (id: number) => void;
     updateSettings: (newSettings: Partial<ClinicSettings>) => Promise<void>;
-    exportPatientsToCSV: () => Promise<void>;
     exportDoctorsToCSV: () => Promise<void>;
     verifyDoctorPincode: (doctorId: string, pincode: string) => Promise<boolean>;
 }
@@ -138,7 +136,6 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
     const { toast } = useToast();
     const [user, setUser] = useState<User | null>(null);
     const [clinicId, setClinicId] = useState<string | null>(null);
-    const [patients, setPatients] = useState<Patient[]>([]);
     const [doctors, setDoctors] = useState<Doctor[]>([]);
     const [waitingList, setWaitingList] = useState<WaitingPatient[]>([]);
     const [pharmacyQueue, setPharmacyQueue] = useState<Prescription[]>([]);
@@ -185,7 +182,6 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
             } else {
                 setUser(null);
                 setClinicId(null);
-                setPatients([]);
                 setDoctors([]);
                 setWaitingList([]);
                 setPharmacyQueue([]);
@@ -227,15 +223,6 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
                 toast({ title: 'Error', description: 'Could not load doctor list.', variant: 'destructive'});
             });
             listeners.push(doctorsUnsub);
-
-            const patientsUnsub = onSnapshot(collection(db, 'clinics', clinicId, 'patients'), (snapshot) => {
-                const patientsData = snapshot.docs.map(p => ({ id: p.id, ...p.data() } as Patient));
-                setPatients(patientsData);
-            }, (error) => {
-                console.error("Error fetching patients:", error);
-                toast({ title: 'Error', description: 'Could not load patient list.', variant: 'destructive'});
-            });
-            listeners.push(patientsUnsub);
 
             const waitingListQuery = query(collection(db, 'clinics', clinicId, 'waitingList'), where('visitDate', '==', todayStr));
             const waitingListUnsub = onSnapshot(waitingListQuery, (snapshot) => {
@@ -415,7 +402,9 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
                 notes: 'Added to waiting list for consultation.'
             };
             const patientRef = doc(db, 'clinics', clinicId, 'patients', patient.id);
-            const updatedHistory = [...patient.history, newHistoryEntry];
+            const patientDoc = await getDoc(patientRef);
+            const existingPatientData = patientDoc.data() as Patient;
+            const updatedHistory = [...(existingPatientData.history || []), newHistoryEntry];
             batch.update(patientRef, { history: updatedHistory });
 
             await batch.commit();
@@ -521,43 +510,28 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         }
     };
 
-    const exportDataToCSV = async (dataToExport: 'patients' | 'doctors', filename: string) => {
-      const data = dataToExport === 'patients' ? patients : doctors;
-
-      if (data.length === 0) {
+    const exportDoctorsToCSV = async () => {
+      if (doctors.length === 0) {
         toast({
           title: 'No Data',
-          description: `There is no data to export for ${dataToExport}.`,
+          description: `There is no data to export for doctors.`,
         });
         return;
       }
-
-      // We don't want to export the full history object in the CSV
-      const processedData = data.map(item => {
-        const { history, ...rest } = item as Patient; // Use type assertion
-        return rest;
-      });
-
-
-      const csv = Papa.unparse(processedData);
+      const csv = Papa.unparse(doctors);
       const blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
       const link = document.createElement('a');
       const url = URL.createObjectURL(blob);
       link.setAttribute('href', url);
-      link.setAttribute('download', filename);
+      link.setAttribute('download', 'doctors.csv');
       link.style.visibility = 'hidden';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
     };
 
-    
-    const exportPatientsToCSV = () => exportDataToCSV('patients', 'patients.csv');
-    const exportDoctorsToCSV = () => exportDataToCSV('doctors', 'doctors.csv');
-
     const contextValue = { 
         user,
-        patients, 
         doctors, 
         waitingList, 
         pharmacyQueue: pharmacyQueue.filter(p => p.status === 'pending'), 
@@ -579,7 +553,6 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         deleteDoctor,
         dismissNotification,
         updateSettings,
-        exportPatientsToCSV,
         exportDoctorsToCSV,
         verifyDoctorPincode,
     };
