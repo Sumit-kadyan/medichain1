@@ -43,6 +43,7 @@ export interface Doctor extends FirestoreDocument {
     specialization: string;
     avatarUrl: string;
     initials: string;
+    pincode?: string;
 }
 
 export interface WaitingPatient extends FirestoreDocument {
@@ -114,7 +115,6 @@ interface ClinicContextType {
     authLoading: boolean;
     clinicId: string | null;
     onlineStatus: OnlineStatus;
-    signup: (email: string, password: string, clinicName: string, username: string) => Promise<void>;
     login: (email: string, password: string) => Promise<void>;
     logout: () => Promise<void>;
     addPatient: (patient: NewPatientData) => Promise<Patient | undefined>;
@@ -122,13 +122,14 @@ interface ClinicContextType {
     addPatientToWaitingList: (patient: Patient, doctorId: string) => Promise<void>;
     updatePatientStatus: (waitingPatientId: string, status: PatientStatus, items?: string[], advice?: string) => Promise<void>;
     updatePrescriptionStatus: (prescriptionId: string, status: PrescriptionStatus, billDetails?: BillDetails, dueDate?: Date) => Promise<void>;
-    addDoctor: (doctor: Omit<Doctor, 'id' | 'initials' | 'avatarUrl'>) => Promise<void>;
+    addDoctor: (doctor: Omit<Doctor, 'id' | 'initials' | 'avatarUrl' | 'pincode'>) => Promise<void>;
     updateDoctor: (doctorId: string, doctorData: Partial<Omit<Doctor, 'id' | 'initials' | 'avatarUrl'>>) => Promise<void>;
     deleteDoctor: (doctorId: string) => Promise<void>;
     dismissNotification: (id: number) => void;
     updateSettings: (newSettings: Partial<ClinicSettings>) => Promise<void>;
     exportPatientsToCSV: () => Promise<void>;
     exportDoctorsToCSV: () => Promise<void>;
+    verifyDoctorPincode: (doctorId: string, pincode: string) => Promise<boolean>;
 }
 
 const ClinicContext = createContext<ClinicContextType | undefined>(undefined);
@@ -150,15 +151,13 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
     // Listen to browser online/offline events
     useEffect(() => {
         const handleOnline = () => {
-            setOnlineStatus('reconnected');
-            // Allow Firebase to sync
             enableNetwork(db);
+            setOnlineStatus('reconnected');
             setTimeout(() => setOnlineStatus('online'), 3000);
         };
         const handleOffline = () => {
-            setOnlineStatus('offline');
-            // When offline, subsequent reads will come from cache without hitting network
             disableNetwork(db);
+            setOnlineStatus('offline');
         };
 
         window.addEventListener('online', handleOnline);
@@ -271,27 +270,6 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
     }, [clinicId, toast]);
     
     // AUTH FUNCTIONS
-    const signup = async (email: string, password: string, clinicName: string, username: string) => {
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        const { user } = userCredential;
-        const newSettings: ClinicSettings = {
-            clinicName,
-            clinicAddress: 'Not set',
-            receiptValidityDays: 30,
-            currency: '$',
-            logoUrl: '',
-            taxType: 'VAT',
-            taxPercentage: 0,
-            appointmentFee: 0,
-        };
-        const batch = writeBatch(db);
-        // The username is stored in the clinic document for display/reference if needed,
-        // and also in the users document for the login lookup.
-        batch.set(doc(db, 'clinics', user.uid), { ...newSettings, ownerUsername: username });
-        batch.set(doc(db, 'users', user.uid), { clinicId: user.uid, email, username });
-        await batch.commit();
-    };
-
     const login = async (email: string, password: string) => {
         await signInWithEmailAndPassword(auth, email, password);
     };
@@ -317,13 +295,14 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
     };
     
     // DATA FUNCTIONS
-    const addDoctor = async (doctorData: Omit<Doctor, 'id' | 'initials' | 'avatarUrl'>) => {
+    const addDoctor = async (doctorData: Omit<Doctor, 'id' | 'initials' | 'avatarUrl' | 'pincode'>) => {
         if (!clinicId) throw new Error("Not authenticated");
         try {
              const newDoctorData = {
               ...doctorData,
               initials: doctorData.name.split(' ').map(n => n[0]).join('').toUpperCase(),
               avatarUrl: `https://placehold.co/100x100.png?text=${doctorData.name.charAt(0)}`,
+              pincode: '1111', // Default PIN
             }
             await addDoc(collection(db, 'clinics', clinicId, 'doctors'), newDoctorData);
         } catch (error) {
@@ -351,6 +330,24 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
             throw new Error("Failed to update doctor in database.");
         }
     };
+    
+    const verifyDoctorPincode = async (doctorId: string, pincode: string): Promise<boolean> => {
+        if (!clinicId) throw new Error("Not authenticated");
+        try {
+            const doctorRef = doc(db, 'clinics', clinicId, 'doctors', doctorId);
+            const docSnap = await getDoc(doctorRef);
+            if (docSnap.exists()) {
+                const doctor = docSnap.data() as Doctor;
+                const storedPincode = doctor.pincode || '1111';
+                return storedPincode === pincode;
+            }
+            return false;
+        } catch (error) {
+            console.error("Error verifying pincode:", error);
+            return false;
+        }
+    };
+
 
     const deleteDoctor = async (doctorId: string) => {
         if (!clinicId) throw new Error("Not authenticated");
@@ -570,7 +567,6 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         authLoading,
         clinicId,
         onlineStatus,
-        signup,
         login,
         logout,
         addPatient,
@@ -585,6 +581,7 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         updateSettings,
         exportPatientsToCSV,
         exportDoctorsToCSV,
+        verifyDoctorPincode,
     };
 
     return (
@@ -601,5 +598,3 @@ export const useClinicContext = () => {
     }
     return context;
 };
-
-    
