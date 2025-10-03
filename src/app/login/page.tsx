@@ -83,12 +83,6 @@ export default function LoginPage() {
           <Button className="w-full" onClick={handleLogin} disabled={loading}>
             {loading ? <Loader2 className="animate-spin" /> : 'Log in'}
           </Button>
-           <p className="text-xs text-center text-muted-foreground">
-            Don't have an account?{' '}
-            <Link href="/signup" className="underline">
-                Sign up
-            </Link>
-          </p>
         </CardFooter>
       </Card>
     </div>
