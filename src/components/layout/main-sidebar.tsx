@@ -19,7 +19,6 @@ import {
   Settings,
   CircleHelp,
   BriefcaseMedical,
-  Database,
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { HelpSupportDialog } from './help-support-dialog';
@@ -40,11 +39,6 @@ const menuItems = [
     label: 'Pharmacy',
     icon: Pill,
   },
-  {
-    href: '/database',
-    label: 'Database',
-    icon: Database,
-  }
 ];
 
 export default function MainSidebar() {
