@@ -26,6 +26,7 @@ import { useClinicContext, Doctor, PatientStatus, WaitingPatient, PatientHistory
 import { useToast } from '@/hooks/use-toast';
 import { Textarea } from '@/components/ui/textarea';
 import { DrugSuggestionForm } from '@/components/ai/drug-suggestion-form';
+import { PinEntryDialog } from '@/components/doctor/pin-entry-dialog';
 
 const statusConfig: Record<PatientStatus, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' | null }> = {
     waiting: { label: 'Waiting', variant: 'outline' },
@@ -289,8 +290,42 @@ Ibuprofen 200mg - as needed for pain"
 
 
 export default function DoctorPage() {
-    const { doctors, loading } = useClinicContext();
+    const { doctors, loading, verifyDoctorPincode } = useClinicContext();
+    const { toast } = useToast();
     const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
+    const [authenticatedDoctor, setAuthenticatedDoctor] = useState<Doctor | null>(null);
+    const [isPinDialogOpen, setPinDialogOpen] = useState(false);
+
+    const handleSelectDoctor = (doctor: Doctor) => {
+        setSelectedDoctor(doctor);
+        setPinDialogOpen(true);
+    };
+
+    const handleVerifyPin = async (pincode: string) => {
+        if (!selectedDoctor) return;
+
+        const isValid = await verifyDoctorPincode(selectedDoctor.id, pincode);
+
+        if (isValid) {
+            setAuthenticatedDoctor(selectedDoctor);
+            setPinDialogOpen(false);
+            toast({
+                title: 'Access Granted',
+                description: `Welcome, ${selectedDoctor.name}.`,
+            });
+        } else {
+            toast({
+                title: 'Access Denied',
+                description: 'The PIN you entered is incorrect.',
+                variant: 'destructive',
+            });
+        }
+    };
+    
+    const handleBackToSelection = () => {
+        setAuthenticatedDoctor(null);
+        setSelectedDoctor(null);
+    }
 
     if (loading) {
         return (
@@ -300,9 +335,19 @@ export default function DoctorPage() {
         );
     }
     
-    if (!selectedDoctor) {
-        return <DoctorSelection doctors={doctors} onSelectDoctor={setSelectedDoctor} />;
+    if (!authenticatedDoctor) {
+        return (
+            <>
+                <DoctorSelection doctors={doctors} onSelectDoctor={handleSelectDoctor} />
+                <PinEntryDialog
+                    open={isPinDialogOpen}
+                    onOpenChange={setPinDialogOpen}
+                    doctor={selectedDoctor}
+                    onVerify={handleVerifyPin}
+                />
+            </>
+        )
     }
 
-    return <DoctorDashboard doctor={selectedDoctor} onBack={() => setSelectedDoctor(null)} />;
+    return <DoctorDashboard doctor={authenticatedDoctor} onBack={handleBackToSelection} />;
 }

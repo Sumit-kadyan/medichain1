@@ -13,11 +13,12 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Save } from 'lucide-react';
+import { Loader2, Save, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useClinicContext, ClinicSettings } from '@/context/clinic-context';
+import { useClinicContext, ClinicSettings, Doctor } from '@/context/clinic-context';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Textarea } from '../ui/textarea';
+import { ChangePinCard } from '../doctor/change-pin-card';
 
 const currencies = [
     { value: '$', label: 'USD ($) - Dollar' },
@@ -35,7 +36,7 @@ const taxTypes = ['VAT', 'GST', 'Sales Tax', 'No Tax'];
 
 export function SettingsTab() {
   const { toast } = useToast();
-  const { settings, updateSettings, loading: contextLoading } = useClinicContext();
+  const { settings, updateSettings, loading: contextLoading, doctors } = useClinicContext();
   const [localSettings, setLocalSettings] = useState<ClinicSettings>({
       clinicName: '',
       clinicAddress: '',
@@ -48,6 +49,7 @@ export function SettingsTab() {
       appointmentFee: 0,
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
 
   useEffect(() => {
     if (settings) {
@@ -85,7 +87,8 @@ export function SettingsTab() {
   }
 
   return (
-    <div className="grid gap-6">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+     <div className="lg:col-span-2 space-y-6">
       <Card>
         <CardHeader>
           <CardTitle className="font-headline">Clinic Profile</CardTitle>
@@ -199,6 +202,40 @@ export function SettingsTab() {
             Save All Settings
         </Button>
       </div>
+    </div>
+    
+    <div className="lg:col-span-1">
+        <Card>
+            <CardHeader>
+                <CardTitle className="font-headline">Doctor Security</CardTitle>
+                <CardDescription>Select a doctor to manage their PIN.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                 <div className="space-y-2">
+                    <Label htmlFor="doctor-select">Select Doctor</Label>
+                    <Select onValueChange={(id) => setSelectedDoctor(doctors.find(d => d.id === id) || null)}>
+                        <SelectTrigger id="doctor-select">
+                            <SelectValue placeholder="Select a doctor..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                             {doctors.map(d => (
+                                <SelectItem key={d.id} value={d.id}>
+                                    <div className="flex items-center gap-2">
+                                        <User className="h-4 w-4" />
+                                        <span>{d.name}</span>
+                                    </div>
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                 </div>
+
+                 {selectedDoctor && (
+                    <ChangePinCard doctor={selectedDoctor} />
+                 )}
+            </CardContent>
+        </Card>
+    </div>
     </div>
   );
 }

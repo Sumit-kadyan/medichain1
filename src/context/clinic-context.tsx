@@ -44,6 +44,7 @@ export interface Doctor extends FirestoreDocument {
     specialization: string;
     avatarUrl: string;
     initials: string;
+    pincode: string;
 }
 
 export interface WaitingPatient extends FirestoreDocument {
@@ -123,8 +124,9 @@ interface ClinicContextType {
     addPatientToWaitingList: (patient: Patient, doctorId: string) => void;
     updatePatientStatus: (waitingPatientId: string, status: PatientStatus, items?: string[], advice?: string) => void;
     updatePrescriptionStatus: (prescriptionId: string, status: PrescriptionStatus, billDetails?: BillDetails, dueDate?: Date) => void;
-    addDoctor: (doctor: Omit<Doctor, 'id' | 'initials' | 'avatarUrl'>) => Promise<void>;
+    addDoctor: (doctor: Omit<Doctor, 'id' | 'initials' | 'avatarUrl' | 'pincode'>) => Promise<void>;
     updateDoctor: (doctorId: string, doctorData: Partial<Omit<Doctor, 'id' | 'initials' | 'avatarUrl'>>) => void;
+    verifyDoctorPincode: (doctorId: string, pincode: string) => Promise<boolean>;
     deleteDoctor: (doctorId: string) => void;
     dismissNotification: (id: number) => void;
     updateSettings: (newSettings: Partial<ClinicSettings>) => void;
@@ -322,10 +324,11 @@ MediChain
     };
     
     // DATA FUNCTIONS
-    const addDoctor = async (doctorData: Omit<Doctor, 'id' | 'initials' | 'avatarUrl'>) => {
+    const addDoctor = async (doctorData: Omit<Doctor, 'id' | 'initials' | 'avatarUrl' | 'pincode'>) => {
         if (!clinicId) return;
          const newDoctorData = {
           ...doctorData,
+          pincode: '1111',
           initials: doctorData.name.split(' ').map(n => n[0]).join('').toUpperCase(),
           avatarUrl: `https://placehold.co/100x100.png?text=${doctorData.name.charAt(0)}`,
         }
@@ -345,6 +348,22 @@ MediChain
             updatedData.avatarUrl = `https://placehold.co/100x100.png?text=${doctorData.name.charAt(0)}`;
         }
         updateDoc(docRef, updatedData);
+    };
+    
+    const verifyDoctorPincode = async (doctorId: string, pincode: string): Promise<boolean> => {
+        if (!clinicId) return false;
+        try {
+            const docRef = doc(db, 'clinics', clinicId, 'doctors', doctorId);
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+                const doctor = docSnap.data() as Doctor;
+                return doctor.pincode === pincode;
+            }
+            return false;
+        } catch (error) {
+            console.error('Error verifying PIN:', error);
+            return false;
+        }
     };
 
     const deleteDoctor = (doctorId: string) => {
@@ -525,6 +544,7 @@ MediChain
         updatePrescriptionStatus,
         addDoctor,
         updateDoctor,
+        verifyDoctorPincode,
         deleteDoctor,
         dismissNotification,
         updateSettings,
