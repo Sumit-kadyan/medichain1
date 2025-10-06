@@ -428,7 +428,7 @@ MediChain
         toast({ title: 'Added to Waitlist', description: `${patient.name} is now waiting for Dr. ${doctor.name}.` });
     };
 
-    const updatePatientStatus = (waitingPatientId: string, status: PatientStatus, items: string[] = [], advice?: string) => {
+    const updatePatientStatus = async (waitingPatientId: string, status: PatientStatus, items: string[] = [], advice?: string) => {
         if (!clinicId) return;
         const patientToUpdate = waitingList.find(p => p.id === waitingPatientId);
         if (!patientToUpdate) return;
@@ -438,13 +438,15 @@ MediChain
             updateData.advice = advice;
         }
 
-        updateDoc(doc(db, 'clinics', clinicId, 'waitingList', waitingPatientId), updateData);
+        const waitingListRef = doc(db, 'clinics', clinicId, 'waitingList', waitingPatientId);
+        updateDoc(waitingListRef, updateData);
 
         if (status === 'called') {
             addNotification(`Dr. ${patientToUpdate.doctorName} is calling for ${patientToUpdate.patientName}.`);
         }
         
         if (status === 'sent_to_pharmacy') {
+            // Create prescription
             const newPrescriptionData: Omit<Prescription, 'id'> = {
                 waitingPatientId: waitingPatientId,
                 patientName: patientToUpdate.patientName,
@@ -456,6 +458,24 @@ MediChain
                 visitDate: new Date().toISOString().split('T')[0],
             };
             addDoc(collection(db, 'clinics', clinicId, 'pharmacyQueue'), newPrescriptionData);
+            
+            // Add consultation details to patient history
+            const batch = writeBatch(db);
+            const patientRef = doc(db, 'clinics', clinicId, 'patients', patientToUpdate.patientId);
+            const patientDoc = await getDoc(patientRef);
+            if (patientDoc.exists()) {
+                const historyNote = `Consultation complete. Prescription: ${items.join(', ')}. ${advice ? `Advice: ${advice}` : ''}`;
+                const newHistoryEntry: PatientHistory = {
+                    date: new Date().toISOString(),
+                    doctorName: patientToUpdate.doctorName,
+                    notes: historyNote
+                };
+                const existingPatientData = patientDoc.data() as Patient;
+                const updatedHistory = [...(existingPatientData.history || []), newHistoryEntry];
+                batch.update(patientRef, { history: updatedHistory });
+                await batch.commit();
+            }
+            
             toast({ title: 'Sent to Pharmacy', description: `${patientToUpdate.patientName}'s prescription has been sent.` });
         } else if (status !== 'in_consult') {
             toast({ title: 'Status Updated', description: `${patientToUpdate.patientName}'s status is now ${status.replace(/_/g, ' ')}.`, });
@@ -565,3 +585,5 @@ export const useClinicContext = () => {
     }
     return context;
 };
+
+    
