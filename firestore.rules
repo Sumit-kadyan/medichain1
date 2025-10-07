@@ -3,47 +3,55 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check if a user belongs to the clinic they are accessing.
-    // It checks if the user is the owner OR if they are a registered user of the clinic.
+    // 🧩 Helper: Determine if the current user belongs to the clinic
     function isClinicMember(clinicId) {
-      return request.auth != null && (request.auth.uid == clinicId || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.clinicId == clinicId);
+      // true if the user is the clinic owner
+      return request.auth != null && (
+        request.auth.uid == clinicId ||
+
+        // or the user's profile (/users/{uid}) lists the same clinicId
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.clinicId == clinicId
+      );
     }
 
-    // Lock down the users collection. Users can only read their own data.
-    match /users/{userId} {
-        allow read: if request.auth != null && request.auth.uid == userId;
-        allow write: if false; // Nobody can write to the user records from the client
-    }
-
-    // Top-level clinics collection
+    // 🏥 Clinics Collection
     match /clinics/{clinicId} {
-      // Clinic settings can be read by clinic members. Writes are not allowed from client.
+      // Clinic metadata is readable by members only, not writable from the client
       allow read: if isClinicMember(clinicId);
       allow write: if false;
 
-      // Doctors sub-collection
-      match /doctors/{doctorId} {
+      // 👨‍⚕️ Doctors sub-collection
+      match /doctors/{docId} {
         allow read, write: if isClinicMember(clinicId);
       }
 
-      // Patients sub-collection
-      match /patients/{patientId} {
+      // 👩‍⚕️ Patients sub-collection
+      match /patients/{patId} {
         allow read, write: if isClinicMember(clinicId);
       }
 
-      // Waiting List sub-collection
-      match /waitingList/{entryId} {
+      // 🕒 Waiting list sub-collection
+      match /waitingList/{wId} {
         allow read, write: if isClinicMember(clinicId);
       }
 
-      // Pharmacy Queue (Bills)
-      match /pharmacyQueue/{prescriptionId} {
-        // Public GET access for bill viewing
+      // 💊 Pharmacy Queue (Bills)
+      match /pharmacyQueue/{prescId} {
+        // Anyone can view a single bill (for QR/public links)
         allow get: if true;
 
-        // Restrict all other operations to clinic members only
+        // Only clinic members can list, create, update, or delete
         allow list, create, update, delete: if isClinicMember(clinicId);
       }
+    }
+
+    // 👤 Users Collection
+    match /users/{userId} {
+      // A user can read their own document
+      allow read: if request.auth != null && request.auth.uid == userId;
+
+      // No direct writes from the client to user documents
+      allow write: if false;
     }
   }
 }
