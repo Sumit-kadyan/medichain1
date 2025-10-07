@@ -3,54 +3,43 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check if a user belongs to the clinic they are accessing.
-    // An owner's uid IS the clinicId. Other users would have a mapping in a 'users' collection.
+    // Helper function to check if a user belongs to the clinic they are accessing
     function isClinicMember(clinicId) {
+      // Allow if the user is the clinic owner OR if their user document maps to the clinic.
       return request.auth != null && (request.auth.uid == clinicId || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.clinicId == clinicId);
     }
 
-    // A user can read their own user document (which might map them to a clinic).
+    // Lock down the users collection. Users can only read their own data.
     match /users/{userId} {
-      allow read: if request.auth != null && request.auth.uid == userId;
-      // Writes to user documents are disallowed from the client for security.
-      allow write: if false;
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow write: if false; // Nobody can write to the user records from the client
     }
 
     match /clinics/{clinicId} {
-      // Clinic settings can be read by clinic members. Writes are not allowed from the client.
+      // Clinic settings can be read by clinic members. Writes are not allowed from client.
       allow read: if isClinicMember(clinicId);
       allow write: if false;
 
-      // --- Validation Rules for Sub-collections ---
-
-      // Doctors: Must have a name and specialization.
+      // Rules for doctors collection
       match /doctors/{doctorId} {
-        allow read, delete: if isClinicMember(clinicId);
-        allow create, update: if isClinicMember(clinicId)
-                            && request.resource.data.name is string
-                            && request.resource.data.name.size() > 1
-                            && request.resource.data.specialization is string
-                            && request.resource.data.specialization.size() > 1;
+        allow read, write: if isClinicMember(clinicId);
       }
 
-      // Patients: Validate fields.
+      // Rules for patients collection
       match /patients/{patientId} {
-        allow read, write: if isClinicMember(clinicId)
-                          && request.resource.data.name is string
-                          && request.resource.data.name.size() > 1
-                          && request.resource.data.phone is string
-                          && request.resource.data.age is number
-                          && request.resource.data.gender in ['Male', 'Female', 'Other'];
+        allow read, write: if isClinicMember(clinicId);
       }
-
-      // Waiting List & Pharmacy Queue: General access for clinic members.
-      // More specific rules can be added later if needed.
+      
+      // Rules for waiting list
       match /waitingList/{waitingId} {
-        allow read, write: if isClinicMember(clinicId);
+         allow read, write: if isClinicMember(clinicId);
       }
 
+      // Special override for bills: Allow public GET but no other access.
+      // This is for the public bill sharing link.
       match /pharmacyQueue/{prescriptionId} {
-        allow read, write: if isClinicMember(clinicId);
+        allow get: if true;
+        allow list, create, update, delete: if isClinicMember(clinicId);
       }
     }
   }
