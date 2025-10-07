@@ -1,44 +1,43 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check if a user belongs to the clinic they are accessing
+    // Helper function to check if a user is an authorized member of the clinic
     function isClinicMember(clinicId) {
-      // Allow if the user is the clinic owner OR if their user document maps to the clinic.
-      return request.auth != null && (request.auth.uid == clinicId || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.clinicId == clinicId);
+      // A user is a member if they are authenticated and their UID matches the clinic ID.
+      // This is a simple model where the clinic owner's UID is the clinicId.
+      return request.auth != null && request.auth.uid == clinicId;
     }
 
-    // Lock down the users collection. Users can only read their own data.
     match /users/{userId} {
-        allow read: if request.auth != null && request.auth.uid == userId;
-        allow write: if false; // Nobody can write to the user records from the client
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if false; // Disallow client-side writes to user profiles
     }
 
     match /clinics/{clinicId} {
-      // Clinic settings can be read by clinic members. Writes are not allowed from client.
+      // Clinic settings can be read by members, but not written to from the client.
       allow read: if isClinicMember(clinicId);
       allow write: if false;
 
-      // Rules for doctors collection
+      // Rules for sub-collections
       match /doctors/{doctorId} {
         allow read, write: if isClinicMember(clinicId);
       }
-
-      // Rules for patients collection
       match /patients/{patientId} {
         allow read, write: if isClinicMember(clinicId);
       }
-      
-      // Rules for waiting list
-      match /waitingList/{waitingId} {
-         allow read, write: if isClinicMember(clinicId);
+      match /waitingList/{waitId} {
+        allow read, write: if isClinicMember(clinicId);
       }
 
-      // Special override for bills: Allow public GET but no other access.
-      // This is for the public bill sharing link.
+      // Special rule for the pharmacy queue (bills)
       match /pharmacyQueue/{prescriptionId} {
+        // Allow anyone to GET a single bill document for public sharing.
         allow get: if true;
+
+        // All other operations (list, create, update, delete) require membership.
         allow list, create, update, delete: if isClinicMember(clinicId);
       }
     }
