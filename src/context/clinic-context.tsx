@@ -133,7 +133,6 @@ interface ClinicContextType {
     verifyDoctorPincode: (doctorId: string, pincode: string) => Promise<boolean>;
     deleteDoctor: (doctorId: string) => void;
     dismissNotification: (id: number) => void;
-    updateSettings: (newSettings: Partial<ClinicSettings>) => void;
     exportDoctorsToCSV: () => Promise<void>;
 }
 
@@ -614,20 +613,6 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         setNotifications(prev => prev.filter(n => n.id !== id));
     }
     
-     const updateSettings = (newSettings: Partial<ClinicSettings>) => {
-        if (!clinicId) return;
-        const settingsRef = doc(db, 'clinics', clinicId);
-        updateDoc(settingsRef, newSettings)
-         .catch(async (serverError) => {
-            const permissionError = new FirestorePermissionError({
-                path: settingsRef.path,
-                operation: 'update',
-                requestResourceData: newSettings,
-            });
-            errorEmitter.emit('permission-error', permissionError);
-         });
-    };
-
     const exportDoctorsToCSV = async () => {
       if (doctors.length === 0) {
         toast({
@@ -672,8 +657,7 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         updateDoctor,
         verifyDoctorPincode,
         deleteDoctor,
-dismissNotification,
-        updateSettings,
+        dismissNotification,
         exportDoctorsToCSV,
     };
 

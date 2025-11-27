@@ -13,7 +13,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Save, User, Building2 } from 'lucide-react';
+import { Loader2, Save, User, Building2, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useClinicContext, ClinicSettings, Doctor, ClinicStructure } from '@/context/clinic-context';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
@@ -41,8 +41,7 @@ const clinicStructures: { value: ClinicStructure, label: string, description: st
 ];
 
 export function SettingsTab() {
-  const { toast } = useToast();
-  const { settings, updateSettings, loading: contextLoading, doctors } = useClinicContext();
+  const { settings, loading: contextLoading, doctors, clinicId } = useClinicContext();
   const [localSettings, setLocalSettings] = useState<ClinicSettings>({
       clinicName: '',
       clinicAddress: '',
@@ -55,7 +54,6 @@ export function SettingsTab() {
       appointmentFee: 0,
       clinicStructure: 'full_workflow',
   });
-  const [isSaving, setIsSaving] = useState(false);
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
 
   useEffect(() => {
@@ -63,27 +61,6 @@ export function SettingsTab() {
         setLocalSettings(settings);
     }
   }, [settings]);
-
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-      const { id, value } = e.target;
-      const numValue = id === 'receiptValidityDays' || id === 'taxPercentage' || id === 'appointmentFee' ? Number(value) : value;
-      setLocalSettings(prev => ({...prev, [id]: numValue }))
-  }
-
-  const handleSelectChange = (id: 'currency' | 'taxType' | 'clinicStructure', value: string) => {
-      setLocalSettings(prev => ({...prev, [id]: value}));
-  }
-
-  const handleSave = () => {
-    setIsSaving(true);
-    updateSettings(localSettings);
-    toast({
-        title: 'Settings Saved',
-        description: 'Your clinic profile has been updated.',
-    });
-    setIsSaving(false);
-  }
 
   if (contextLoading && !settings) {
       return (
@@ -93,36 +70,49 @@ export function SettingsTab() {
       )
   }
 
+  const firestoreUrl = `https://console.firebase.google.com/project/${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}/firestore/data/clinics/${clinicId}`;
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
      <div className="lg:col-span-2 space-y-6">
+       <Card>
+        <CardHeader>
+          <CardTitle className="font-headline">View Clinic Settings</CardTitle>
+          <CardDescription className="!flex !items-center !gap-2">
+            Settings are read-only. To make changes, please edit the document directly in the Firebase Console.
+            <a href={firestoreUrl} target="_blank" rel="noopener noreferrer">
+              <Button variant="outline" size="sm">
+                <ExternalLink className="mr-2 h-4 w-4" />
+                Open Console
+              </Button>
+            </a>
+          </CardDescription>
+        </CardHeader>
+      </Card>
+      
       <Card>
         <CardHeader>
           <CardTitle className="font-headline">Clinic Profile</CardTitle>
-          <CardDescription>Update your clinic's public information and receipt settings.</CardDescription>
+          <CardDescription>Your clinic's public information and receipt settings.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="clinicName">Clinic Name</Label>
-            <Input id="clinicName" value={localSettings.clinicName || ''} onChange={handleInputChange} disabled={isSaving || contextLoading} />
+            <Input id="clinicName" value={localSettings.clinicName || ''} disabled />
           </div>
           <div className="space-y-2">
             <Label htmlFor="clinicAddress">Address</Label>
-            <Input id="clinicAddress" value={localSettings.clinicAddress || ''} onChange={handleInputChange} disabled={isSaving || contextLoading} />
+            <Input id="clinicAddress" value={localSettings.clinicAddress || ''} disabled />
           </div>
           <div className="space-y-2">
             <Label htmlFor="logoSvg">Logo SVG Markup</Label>
             <Textarea 
               id="logoSvg" 
               value={localSettings.logoSvg || ''} 
-              onChange={handleInputChange} 
-              disabled={isSaving || contextLoading} 
+              disabled
               placeholder="<svg>...</svg>"
               className="min-h-[120px] font-code"
             />
-             <p className="text-sm text-muted-foreground">
-                Paste the raw SVG code for your clinic's logo.
-            </p>
           </div>
         </CardContent>
       </Card>
@@ -133,11 +123,11 @@ export function SettingsTab() {
                 <Building2 className="h-6 w-6 text-primary" />
                 Clinic Structure
             </CardTitle>
-            <CardDescription>Configure the application workflow to match your clinic's operations.</CardDescription>
+            <CardDescription>The application workflow configured for your clinic.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
             <Label htmlFor="clinicStructure">Workflow Mode</Label>
-            <Select value={localSettings.clinicStructure} onValueChange={(v) => handleSelectChange('clinicStructure', v)} disabled={isSaving || contextLoading}>
+            <Select value={localSettings.clinicStructure} disabled>
                 <SelectTrigger id="clinicStructure">
                     <SelectValue placeholder="Select a workflow" />
                 </SelectTrigger>
@@ -156,13 +146,13 @@ export function SettingsTab() {
       <Card>
         <CardHeader>
           <CardTitle className="font-headline">Billing &amp; Tax</CardTitle>
-          <CardDescription>Configure currency, taxes, and standard fees.</CardDescription>
+          <CardDescription>Configured currency, taxes, and standard fees.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                      <Label htmlFor="currency">Currency</Label>
-                     <Select value={localSettings.currency} onValueChange={(v) => handleSelectChange('currency', v)} disabled={isSaving || contextLoading}>
+                     <Select value={localSettings.currency} disabled>
                          <SelectTrigger>
                              <SelectValue placeholder="Select a currency" />
                          </SelectTrigger>
@@ -179,16 +169,15 @@ export function SettingsTab() {
                         id="appointmentFee" 
                         type="number"
                         value={localSettings.appointmentFee || 0} 
-                        onChange={handleInputChange} 
                         min="0"
-                        disabled={isSaving || contextLoading}
+                        disabled
                         />
                 </div>
            </div>
            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                      <Label htmlFor="taxType">Tax Type</Label>
-                     <Select value={localSettings.taxType} onValueChange={(v) => handleSelectChange('taxType', v)} disabled={isSaving || contextLoading}>
+                     <Select value={localSettings.taxType} disabled>
                          <SelectTrigger>
                              <SelectValue placeholder="Select a tax type" />
                          </SelectTrigger>
@@ -205,10 +194,9 @@ export function SettingsTab() {
                     id="taxPercentage" 
                     type="number"
                     value={localSettings.taxPercentage || 0} 
-                    onChange={handleInputChange} 
                     min="0"
                     max="100"
-                    disabled={isSaving || contextLoading || localSettings.taxType === 'No Tax'}
+                    disabled
                     />
                 </div>
            </div>
@@ -218,23 +206,12 @@ export function SettingsTab() {
                 id="receiptValidityDays" 
                 type="number"
                 value={localSettings.receiptValidityDays || 0} 
-                onChange={handleInputChange} 
                 min="0"
-                disabled={isSaving || contextLoading}
+                disabled
                 />
-                 <p className="text-sm text-muted-foreground">
-                    Set how many days a receipt is valid for before it's considered overdue.
-                </p>
             </div>
         </CardContent>
       </Card>
-      
-      <div className="flex justify-end">
-        <Button onClick={handleSave} disabled={isSaving || contextLoading || !settings}>
-            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-            Save All Settings
-        </Button>
-      </div>
     </div>
     
     <div className="lg:col-span-1">
@@ -272,5 +249,3 @@ export function SettingsTab() {
     </div>
   );
 }
-
-    
