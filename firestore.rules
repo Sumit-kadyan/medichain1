@@ -16,9 +16,9 @@ service cloud.firestore {
 
     // 🏥 Clinics Collection
     match /clinics/{clinicId} {
-      // Members can read settings, but only the owner (creator) can write them.
+      // Members can read settings. Temporarily, any authenticated user can write.
       allow read: if isClinicMember(clinicId);
-      allow write: if request.auth.uid == clinicId;
+      allow write: if request.auth != null;
 
       // 👨‍⚕️ Doctors sub-collection
       match /doctors/{docId} {
