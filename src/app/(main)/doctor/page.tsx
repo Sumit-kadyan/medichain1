@@ -2,6 +2,7 @@
 
 'use client';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Card,
   CardContent,
@@ -20,7 +21,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Play, Clock, FileText, Send, ArrowLeft, Loader2, BookMarked, XCircle, CheckCircle, MessageSquareQuote } from 'lucide-react';
+import { Play, Clock, FileText, Send, ArrowLeft, Loader2, BookMarked, XCircle, CheckCircle, MessageSquareQuote, Printer } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useClinicContext, Doctor, PatientStatus, WaitingPatient, PatientHistory, Patient } from '@/context/clinic-context';
 import { useToast } from '@/hooks/use-toast';
@@ -72,12 +73,15 @@ function DoctorSelection({ doctors, onSelectDoctor }: { doctors: Doctor[], onSel
 }
 
 function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => void }) {
+  const router = useRouter();
   const { toast } = useToast();
-  const { waitingList, getPatientById, updatePatientStatus } = useClinicContext();
+  const { waitingList, getPatientById, updatePatientStatus, settings } = useClinicContext();
   const [prescription, setPrescription] = useState('');
   const [advice, setAdvice] = useState('');
   const [activePatient, setActivePatient] = useState<WaitingPatient | null>(null);
   const [patientDetails, setPatientDetails] = useState<Patient | null>(null);
+  
+  const isNoPharmacyMode = settings?.clinicStructure === 'no_pharmacy';
 
   const doctorWaitingList = waitingList.filter(p => p.doctorId === doctor.id && p.status !== 'sent_to_pharmacy' && p.status !== 'dispensed' && p.status !== 'prescribed');
   const patientInConsultation = waitingList.find(p => p.doctorId === doctor.id && p.status === 'in_consult');
@@ -103,6 +107,36 @@ function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => voi
     setPrescription(''); // Clear previous prescription
     setAdvice(''); // Clear previous advice
   };
+  
+  const handleEndConsultation = (patientId: string) => {
+      updatePatientStatus(patientId, 'waiting'); // Revert to waiting
+      setActivePatient(null);
+      setPrescription('');
+      setAdvice('');
+  };
+
+  const handleFinishAndPrescribe = async () => {
+     if (!activePatient) return;
+    if (!prescription.trim()) {
+        toast({
+            title: 'Empty Prescription',
+            description: 'Please write a prescription before finishing the consultation.',
+            variant: 'destructive',
+        });
+        return;
+    }
+    const prescribedItems = prescription.split('\n').filter(line => line.trim() !== '');
+    const prescriptionId = await updatePatientStatus(activePatient.id, 'prescribed', prescribedItems, advice);
+
+    if (isNoPharmacyMode && typeof prescriptionId === 'string') {
+        const { clinicId } = useClinicContext.getState();
+        window.open(`/prescription/${clinicId}_${prescriptionId}`, '_blank');
+    }
+
+    setActivePatient(null);
+    setPrescription('');
+    setAdvice('');
+  }
 
   const handleSendToPharmacy = () => {
     if (!activePatient) return;
@@ -120,14 +154,7 @@ function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => voi
     setPrescription('');
     setAdvice('');
   };
-  
-  const handleEndConsultation = (patientId: string) => {
-      updatePatientStatus(patientId, 'prescribed');
-      setActivePatient(null);
-      setPrescription('');
-      setAdvice('');
-  };
-  
+
   const currentActivePatientInList = waitingList.find(p => p.id === activePatient?.id);
 
   return (
@@ -177,7 +204,7 @@ function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => voi
                                   </Button>
                                    <Button size="sm" variant="outline" onClick={() => handleEndConsultation(patient.id)}>
                                      <XCircle className="mr-2 h-4 w-4" />
-                                     End
+                                     Cancel
                                    </Button>
                                 </>
                              ) : (
@@ -204,7 +231,7 @@ function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => voi
                         Prescription Pad
                     </CardTitle>
                     <CardDescription>
-                        Write the prescription below. Each item should be on a new line. Then send to pharmacy.
+                        Write the prescription below. Each item should be on a new line.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -218,10 +245,17 @@ Ibuprofen 200mg - as needed for pain"
                     />
                 </CardContent>
                 <CardFooter className="flex justify-end gap-2">
-                    <Button onClick={handleSendToPharmacy}>
-                        <Send className="mr-2 h-4 w-4" />
-                        Send to Pharmacy
-                    </Button>
+                   {isNoPharmacyMode ? (
+                        <Button onClick={handleFinishAndPrescribe}>
+                            <Printer className="mr-2 h-4 w-4" />
+                            End & Generate Prescription
+                        </Button>
+                   ) : (
+                        <Button onClick={handleSendToPharmacy}>
+                            <Send className="mr-2 h-4 w-4" />
+                            Send to Pharmacy
+                        </Button>
+                   )}
                 </CardFooter>
             </Card>
 
@@ -232,7 +266,7 @@ Ibuprofen 200mg - as needed for pain"
                         Patient Advice (Optional)
                     </CardTitle>
                     <CardDescription>
-                       Provide any additional advice or notes for the patient. This will appear on their bill.
+                       Provide any additional advice or notes for the patient. This will appear on their bill or prescription.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -290,7 +324,7 @@ Ibuprofen 200mg - as needed for pain"
 
 
 export default function DoctorPage() {
-    const { doctors, loading, verifyDoctorPincode } = useClinicContext();
+    const { doctors, loading, verifyDoctorPincode, settings } = useClinicContext();
     const { toast } = useToast();
     const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
     const [authenticatedDoctor, setAuthenticatedDoctor] = useState<Doctor | null>(null);
@@ -327,7 +361,7 @@ export default function DoctorPage() {
         setSelectedDoctor(null);
     }
 
-    if (loading) {
+    if (loading || !settings) {
         return (
             <div className="flex h-full items-center justify-center">
                 <Loader2 className="h-8 w-8 animate-spin" />
@@ -351,3 +385,5 @@ export default function DoctorPage() {
 
     return <DoctorDashboard doctor={authenticatedDoctor} onBack={handleBackToSelection} />;
 }
+
+    

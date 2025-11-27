@@ -13,9 +13,9 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Save, User } from 'lucide-react';
+import { Loader2, Save, User, Building2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useClinicContext, ClinicSettings, Doctor } from '@/context/clinic-context';
+import { useClinicContext, ClinicSettings, Doctor, ClinicStructure } from '@/context/clinic-context';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Textarea } from '../ui/textarea';
 import { ChangePinCard } from '../doctor/change-pin-card';
@@ -34,6 +34,12 @@ const currencies = [
 
 const taxTypes = ['VAT', 'GST', 'Sales Tax', 'No Tax'];
 
+const clinicStructures: { value: ClinicStructure, label: string, description: string }[] = [
+    { value: 'full_workflow', label: 'Full Workflow', description: 'Separate Reception, Doctor, and Pharmacy roles.' },
+    { value: 'pharmacy_at_doctor', label: 'Pharmacy at Doctor', description: 'Doctor handles prescriptions and billing directly.' },
+    { value: 'no_pharmacy', label: 'No In-house Pharmacy', description: 'Clinic provides consultation and printed prescriptions only.' },
+];
+
 export function SettingsTab() {
   const { toast } = useToast();
   const { settings, updateSettings, loading: contextLoading, doctors } = useClinicContext();
@@ -47,6 +53,7 @@ export function SettingsTab() {
       taxType: 'No Tax',
       taxPercentage: 0,
       appointmentFee: 0,
+      clinicStructure: 'full_workflow',
   });
   const [isSaving, setIsSaving] = useState(false);
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
@@ -64,7 +71,7 @@ export function SettingsTab() {
       setLocalSettings(prev => ({...prev, [id]: numValue }))
   }
 
-  const handleSelectChange = (id: 'currency' | 'taxType', value: string) => {
+  const handleSelectChange = (id: 'currency' | 'taxType' | 'clinicStructure', value: string) => {
       setLocalSettings(prev => ({...prev, [id]: value}));
   }
 
@@ -117,6 +124,32 @@ export function SettingsTab() {
                 Paste the raw SVG code for your clinic's logo.
             </p>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+            <CardTitle className="font-headline flex items-center gap-2">
+                <Building2 className="h-6 w-6 text-primary" />
+                Clinic Structure
+            </CardTitle>
+            <CardDescription>Configure the application workflow to match your clinic's operations.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2">
+            <Label htmlFor="clinicStructure">Workflow Mode</Label>
+            <Select value={localSettings.clinicStructure} onValueChange={(v) => handleSelectChange('clinicStructure', v)} disabled={isSaving || contextLoading}>
+                <SelectTrigger id="clinicStructure">
+                    <SelectValue placeholder="Select a workflow" />
+                </SelectTrigger>
+                <SelectContent>
+                    {clinicStructures.map(c => (
+                        <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+            <p className="text-sm text-muted-foreground">
+                {clinicStructures.find(c => c.value === localSettings.clinicStructure)?.description}
+            </p>
         </CardContent>
       </Card>
       
@@ -239,3 +272,5 @@ export function SettingsTab() {
     </div>
   );
 }
+
+    

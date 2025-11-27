@@ -15,6 +15,7 @@ import { resolveClinicId } from '@/lib/clinicIdentity';
 export type PatientStatus = 'waiting' | 'called' | 'in_consult' | 'prescribed' | 'sent_to_pharmacy' | 'dispensed';
 export type PrescriptionStatus = 'pending' | 'dispensed';
 export type OnlineStatus = 'online' | 'offline' | 'reconnected';
+export type ClinicStructure = 'full_workflow' | 'pharmacy_at_doctor' | 'no_pharmacy';
 
 export interface FirestoreDocument {
     id: string;
@@ -97,6 +98,7 @@ export interface ClinicSettings {
     taxType: string;
     taxPercentage: number;
     appointmentFee: number;
+    clinicStructure: ClinicStructure;
 }
 
 type Notification = {
@@ -122,7 +124,7 @@ interface ClinicContextType {
     addPatient: (patient: NewPatientData) => Promise<void>;
     getPatientById: (patientId: string) => Promise<Patient | null>;
     addPatientToWaitingList: (patient: Patient, doctorId: string) => void;
-    updatePatientStatus: (waitingPatientId: string, status: PatientStatus, items?: string[], advice?: string) => void;
+    updatePatientStatus: (waitingPatientId: string, status: PatientStatus, items?: string[], advice?: string) => Promise<string | void>;
     updatePrescriptionStatus: (prescriptionId: string, status: PrescriptionStatus, billDetails?: BillDetails, dueDate?: Date) => void;
     addDoctor: (doctor: Omit<Doctor, 'id' | 'initials' | 'avatarUrl' | 'pincode'>) => Promise<void>;
     updateDoctor: (doctorId: string, doctorData: Partial<Omit<Doctor, 'id' | 'initials' | 'avatarUrl'>>) => void;
@@ -286,11 +288,12 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
             taxType: 'GST',
             taxPercentage: 5,
             appointmentFee: 100,
-            logoSvg: `<svg width="150" height="50" viewBox="0 0 150 50" fill="none" xmlns="http://www.w3.org/2000/svg">
-<rect width="150" height="50" rx="8" fill="hsl(210 40% 60%)"/>
-<text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="PT Sans, sans-serif" font-size="20" fill="white" font-weight="bold">
-MediChain
-</text>
+            clinicStructure: 'full_workflow',
+            logoSvg: `<svg xmlns="http://www.w3.org/2000/svg" width="150" height="50" viewBox="0 0 160 50" fill="none">
+<rect width="160" height="50" rx="8" fill="hsl(210 40% 60%)"/>
+<path d="M22.6154 28.16L18.7538 15.32H15.0769V34H18.2538V21.4L21.5154 31.6H23.6154L26.8769 21.4V34H30.0538V15.32H26.3769L22.6154 28.16Z" fill="white"/>
+<path d="M43.0783 22.84C43.0783 20 41.0783 18.2 38.3783 18.2C35.6783 18.2 33.6783 20 33.6783 22.84C33.6783 25.68 35.6783 27.48 38.3783 27.48C41.0783 27.48 43.0783 25.68 43.0783 22.84ZM36.1783 22.84C36.1783 21.4 37.0783 20.6 38.3783 20.6C39.6783 20.6 40.5783 21.4 40.5783 22.84C40.5783 24.28 39.6783 25.08 38.3783 25.08C37.0783 25.08 36.1783 24.28 36.1783 22.84Z" fill="white"/>
+<text x="70" y="30" font-family="PT Sans, sans-serif" font-size="20" fill="white" font-weight="bold">MediChain</text>
 </svg>
 `
         };
@@ -428,25 +431,58 @@ MediChain
         toast({ title: 'Added to Waitlist', description: `${patient.name} is now waiting for Dr. ${doctor.name}.` });
     };
 
-    const updatePatientStatus = async (waitingPatientId: string, status: PatientStatus, items: string[] = [], advice?: string) => {
-        if (!clinicId) return;
+    const updatePatientStatus = async (waitingPatientId: string, status: PatientStatus, items: string[] = [], advice?: string): Promise<string | void> => {
+        if (!clinicId || !settings) return;
         const patientToUpdate = waitingList.find(p => p.id === waitingPatientId);
         if (!patientToUpdate) return;
         
-        const updateData: Partial<WaitingPatient> = { status };
-        if (advice) {
-            updateData.advice = advice;
-        }
-
         const waitingListRef = doc(db, 'clinics', clinicId, 'waitingList', waitingPatientId);
-        updateDoc(waitingListRef, updateData);
 
         if (status === 'called') {
+            await updateDoc(waitingListRef, { status });
             addNotification(`Dr. ${patientToUpdate.doctorName} is calling for ${patientToUpdate.patientName}.`);
         }
         
+        if (status === 'in_consult' || status === 'waiting' || status === 'called' || status === 'dispensed') {
+             await updateDoc(waitingListRef, { status });
+        }
+
+        if (status === 'prescribed') { // End Consultation
+             const newPrescriptionData: Omit<Prescription, 'id'> = {
+                waitingPatientId: waitingPatientId,
+                patientName: patientToUpdate.patientName,
+                doctor: patientToUpdate.doctorName,
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                items,
+                advice,
+                status: 'pending',
+                visitDate: new Date().toISOString().split('T')[0],
+            };
+            const prescriptionRef = await addDoc(collection(db, 'clinics', clinicId, 'pharmacyQueue'), newPrescriptionData);
+            await updateDoc(waitingListRef, { status: 'prescribed' });
+
+             // Add consultation details to patient history
+            const batch = writeBatch(db);
+            const patientRef = doc(db, 'clinics', clinicId, 'patients', patientToUpdate.patientId);
+            const patientDoc = await getDoc(patientRef);
+            if (patientDoc.exists()) {
+                const historyNote = `Consultation complete. Prescription: ${items.join(', ')}. ${advice ? `Advice: ${advice}` : ''}`;
+                const newHistoryEntry: PatientHistory = {
+                    date: new Date().toISOString(),
+                    doctorName: patientToUpdate.doctorName,
+                    notes: historyNote
+                };
+                const existingPatientData = patientDoc.data() as Patient;
+                const updatedHistory = [...(existingPatientData.history || []), newHistoryEntry];
+                batch.update(patientRef, { history: updatedHistory });
+                await batch.commit();
+            }
+
+            toast({ title: 'Consultation Ended', description: `Prescription for ${patientToUpdate.patientName} has been recorded.` });
+            return prescriptionRef.id;
+        }
+
         if (status === 'sent_to_pharmacy') {
-            // Create prescription
             const newPrescriptionData: Omit<Prescription, 'id'> = {
                 waitingPatientId: waitingPatientId,
                 patientName: patientToUpdate.patientName,
@@ -457,9 +493,9 @@ MediChain
                 status: 'pending',
                 visitDate: new Date().toISOString().split('T')[0],
             };
-            addDoc(collection(db, 'clinics', clinicId, 'pharmacyQueue'), newPrescriptionData);
+            await addDoc(collection(db, 'clinics', clinicId, 'pharmacyQueue'), newPrescriptionData);
+            await updateDoc(waitingListRef, { status: 'sent_to_pharmacy' });
             
-            // Add consultation details to patient history
             const batch = writeBatch(db);
             const patientRef = doc(db, 'clinics', clinicId, 'patients', patientToUpdate.patientId);
             const patientDoc = await getDoc(patientRef);
@@ -477,8 +513,6 @@ MediChain
             }
             
             toast({ title: 'Sent to Pharmacy', description: `${patientToUpdate.patientName}'s prescription has been sent.` });
-        } else if (status !== 'in_consult') {
-            toast({ title: 'Status Updated', description: `${patientToUpdate.patientName}'s status is now ${status.replace(/_/g, ' ')}.`, });
         }
     };
     
@@ -585,5 +619,7 @@ export const useClinicContext = () => {
     }
     return context;
 };
+
+    
 
     
