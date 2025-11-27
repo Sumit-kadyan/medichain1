@@ -16,9 +16,17 @@ service cloud.firestore {
 
     // 🏥 Clinics Collection
     match /clinics/{clinicId} {
-      // Members can read settings. Writing is disabled from the client.
+      // Allow members to read the clinic document
       allow read: if isClinicMember(clinicId);
-      allow write: if false;
+      
+      // Allow members to update specific profile fields, but not critical settings
+      allow update: if isClinicMember(clinicId) 
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                       .hasOnly(['clinicName', 'clinicAddress', 'logoSvg']);
+
+      // Prevent client-side creation or deletion of clinic docs
+      allow create, delete: if false;
+
 
       // 👨‍⚕️ Doctors sub-collection
       match /doctors/{docId} {

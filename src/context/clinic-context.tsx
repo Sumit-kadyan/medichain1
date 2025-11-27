@@ -134,6 +134,7 @@ interface ClinicContextType {
     deleteDoctor: (doctorId: string) => void;
     dismissNotification: (id: number) => void;
     exportDoctorsToCSV: () => Promise<void>;
+    updateClinicProfile: (profileData: Partial<ClinicSettings>) => Promise<void>;
 }
 
 const ClinicContext = createContext<ClinicContextType | undefined>(undefined);
@@ -292,11 +293,10 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
             taxPercentage: 5,
             appointmentFee: 100,
             clinicStructure: 'full_workflow',
-            logoSvg: `<svg xmlns="http://www.w3.org/2000/svg" width="150" height="50" viewBox="0 0 160 50" fill="none">
-<rect width="160" height="50" rx="8" fill="hsl(210 40% 60%)"/>
-<path d="M22.6154 28.16L18.7538 15.32H15.0769V34H18.2538V21.4L21.5154 31.6H23.6154L26.8769 21.4V34H30.0538V15.32H26.3769L22.6154 28.16Z" fill="white"/>
-<path d="M43.0783 22.84C43.0783 20 41.0783 18.2 38.3783 18.2C35.6783 18.2 33.6783 20 33.6783 22.84C33.6783 25.68 35.6783 27.48 38.3783 27.48C41.0783 27.48 43.0783 25.68 43.0783 22.84ZM36.1783 22.84C36.1783 21.4 37.0783 20.6 38.3783 20.6C39.6783 20.6 40.5783 21.4 40.5783 22.84C40.5783 24.28 39.6783 25.08 38.3783 25.08C37.0783 25.08 36.1783 24.28 36.1783 22.84Z" fill="white"/>
-<text x="70" y="30" font-family="PT Sans, sans-serif" font-size="20" fill="white" font-weight="bold">MediChain</text>
+            logoSvg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <path d="M 23.333,4.167            L 76.667,4.167            A 16.667,16.667 0 0 1 93.333,20.833            L 93.333,83.333            A 16.667,16.667 0 0 1 76.667,100            L 23.333,100            A 16.667,16.667 0 0 1 6.667,83.333            L 6.667,20.833            A 16.667,16.667 0 0 1 23.333,4.167 Z" style="fill: rgb(101, 136, 185);"></path>
+  <path d="M 50,25            L 50,75 M 25,50 L 75,50" style="fill: none; stroke: rgb(255, 255, 255); stroke-width: 10;"></path>
+  <text x="30" y="70" style="fill: rgb(255, 255, 255); font-size: 20px; font-family: sans-serif;">MediChain</text>
 </svg>
 `
         };
@@ -633,6 +633,22 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
       document.body.removeChild(link);
     };
 
+    const updateClinicProfile = async (profileData: Partial<ClinicSettings>) => {
+        if (!clinicId) return;
+
+        const settingsRef = doc(db, 'clinics', clinicId);
+        await updateDoc(settingsRef, profileData).catch(async (serverError) => {
+             const permissionError = new FirestorePermissionError({
+                path: settingsRef.path,
+                operation: 'update',
+                requestResourceData: profileData,
+            });
+            errorEmitter.emit('permission-error', permissionError);
+            // Re-throw the original error to be caught by the calling function
+            throw serverError;
+        });
+    }
+
     const contextValue = { 
         user,
         patients,
@@ -659,6 +675,7 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         deleteDoctor,
         dismissNotification,
         exportDoctorsToCSV,
+        updateClinicProfile,
     };
 
     return (

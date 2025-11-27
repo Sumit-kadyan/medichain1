@@ -7,6 +7,7 @@ import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
@@ -41,26 +42,49 @@ const clinicStructures: { value: ClinicStructure, label: string, description: st
 ];
 
 export function SettingsTab() {
-  const { settings, loading: contextLoading, doctors, clinicId } = useClinicContext();
-  const [localSettings, setLocalSettings] = useState<ClinicSettings>({
+  const { settings, loading: contextLoading, doctors, clinicId, updateClinicProfile } = useClinicContext();
+  const { toast } = useToast();
+  const [profileSettings, setProfileSettings] = useState({
       clinicName: '',
       clinicAddress: '',
-      receiptValidityDays: 0,
-      currency: '$',
-      logoUrl: '',
       logoSvg: '',
-      taxType: 'No Tax',
-      taxPercentage: 0,
-      appointmentFee: 0,
-      clinicStructure: 'full_workflow',
   });
+  const [isSaving, setIsSaving] = useState(false);
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
 
   useEffect(() => {
     if (settings) {
-        setLocalSettings(settings);
+        setProfileSettings({
+            clinicName: settings.clinicName,
+            clinicAddress: settings.clinicAddress,
+            logoSvg: settings.logoSvg || '',
+        });
     }
   }, [settings]);
+
+  const handleProfileChange = (field: keyof typeof profileSettings, value: string) => {
+    setProfileSettings(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSaveChanges = async () => {
+    setIsSaving(true);
+    try {
+        await updateClinicProfile(profileSettings);
+        toast({
+            title: 'Profile Updated',
+            description: 'Your clinic profile has been saved successfully.',
+        });
+    } catch (error) {
+         toast({
+            title: 'Update Failed',
+            description: 'Could not save your profile changes. Please try again.',
+            variant: 'destructive',
+        });
+        console.error(error);
+    } finally {
+        setIsSaving(false);
+    }
+  };
 
   if (contextLoading && !settings) {
       return (
@@ -69,65 +93,75 @@ export function SettingsTab() {
         </div>
       )
   }
+  
+  if (!settings) return null;
+
 
   const firestoreUrl = `https://console.firebase.google.com/project/${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}/firestore/data/clinics/${clinicId}`;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
      <div className="lg:col-span-2 space-y-6">
-       <Card>
-        <CardHeader>
-          <CardTitle className="font-headline">View Clinic Settings</CardTitle>
-          <CardDescription className="!flex !items-center !gap-2">
-            Settings are read-only. To make changes, please edit the document directly in the Firebase Console.
-            <a href={firestoreUrl} target="_blank" rel="noopener noreferrer">
-              <Button variant="outline" size="sm">
-                <ExternalLink className="mr-2 h-4 w-4" />
-                Open Console
-              </Button>
-            </a>
-          </CardDescription>
-        </CardHeader>
-      </Card>
-      
       <Card>
         <CardHeader>
           <CardTitle className="font-headline">Clinic Profile</CardTitle>
-          <CardDescription>Your clinic's public information and receipt settings.</CardDescription>
+          <CardDescription>Update your clinic's public information.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="clinicName">Clinic Name</Label>
-            <Input id="clinicName" value={localSettings.clinicName || ''} disabled />
+            <Input 
+                id="clinicName" 
+                value={profileSettings.clinicName} 
+                onChange={(e) => handleProfileChange('clinicName', e.target.value)}
+             />
           </div>
           <div className="space-y-2">
             <Label htmlFor="clinicAddress">Address</Label>
-            <Input id="clinicAddress" value={localSettings.clinicAddress || ''} disabled />
+            <Input 
+                id="clinicAddress" 
+                value={profileSettings.clinicAddress} 
+                onChange={(e) => handleProfileChange('clinicAddress', e.target.value)}
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="logoSvg">Logo SVG Markup</Label>
             <Textarea 
               id="logoSvg" 
-              value={localSettings.logoSvg || ''} 
-              disabled
+              value={profileSettings.logoSvg} 
+              onChange={(e) => handleProfileChange('logoSvg', e.target.value)}
               placeholder="<svg>...</svg>"
               className="min-h-[120px] font-code"
             />
           </div>
         </CardContent>
+        <CardFooter>
+            <Button onClick={handleSaveChanges} disabled={isSaving}>
+                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Save Changes
+            </Button>
+        </CardFooter>
       </Card>
-
+      
       <Card>
         <CardHeader>
             <CardTitle className="font-headline flex items-center gap-2">
                 <Building2 className="h-6 w-6 text-primary" />
                 Clinic Structure
             </CardTitle>
-            <CardDescription>The application workflow configured for your clinic.</CardDescription>
+            <CardDescription className="!flex !items-center !gap-2">
+                This setting changes the app workflow. To edit, use the Firebase Console.
+                <a href={firestoreUrl} target="_blank" rel="noopener noreferrer">
+                <Button variant="outline" size="sm">
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                    Open Console
+                </Button>
+                </a>
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
             <Label htmlFor="clinicStructure">Workflow Mode</Label>
-            <Select value={localSettings.clinicStructure} disabled>
+            <Select value={settings.clinicStructure} disabled>
                 <SelectTrigger id="clinicStructure">
                     <SelectValue placeholder="Select a workflow" />
                 </SelectTrigger>
@@ -138,7 +172,7 @@ export function SettingsTab() {
                 </SelectContent>
             </Select>
             <p className="text-sm text-muted-foreground">
-                {clinicStructures.find(c => c.value === localSettings.clinicStructure)?.description}
+                {clinicStructures.find(c => c.value === settings.clinicStructure)?.description}
             </p>
         </CardContent>
       </Card>
@@ -146,13 +180,13 @@ export function SettingsTab() {
       <Card>
         <CardHeader>
           <CardTitle className="font-headline">Billing &amp; Tax</CardTitle>
-          <CardDescription>Configured currency, taxes, and standard fees.</CardDescription>
+          <CardDescription>To edit, use the Firebase Console.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                      <Label htmlFor="currency">Currency</Label>
-                     <Select value={localSettings.currency} disabled>
+                     <Select value={settings.currency} disabled>
                          <SelectTrigger>
                              <SelectValue placeholder="Select a currency" />
                          </SelectTrigger>
@@ -168,7 +202,7 @@ export function SettingsTab() {
                     <Input 
                         id="appointmentFee" 
                         type="number"
-                        value={localSettings.appointmentFee || 0} 
+                        value={settings.appointmentFee || 0} 
                         min="0"
                         disabled
                         />
@@ -177,7 +211,7 @@ export function SettingsTab() {
            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                      <Label htmlFor="taxType">Tax Type</Label>
-                     <Select value={localSettings.taxType} disabled>
+                     <Select value={settings.taxType} disabled>
                          <SelectTrigger>
                              <SelectValue placeholder="Select a tax type" />
                          </SelectTrigger>
@@ -193,7 +227,7 @@ export function SettingsTab() {
                     <Input 
                     id="taxPercentage" 
                     type="number"
-                    value={localSettings.taxPercentage || 0} 
+                    value={settings.taxPercentage || 0} 
                     min="0"
                     max="100"
                     disabled
@@ -205,7 +239,7 @@ export function SettingsTab() {
                 <Input 
                 id="receiptValidityDays" 
                 type="number"
-                value={localSettings.receiptValidityDays || 0} 
+                value={settings.receiptValidityDays || 0} 
                 min="0"
                 disabled
                 />
