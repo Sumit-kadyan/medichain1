@@ -4,11 +4,13 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { auth, db } from '@/lib/firebase';
 import { User, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc, collection, addDoc, updateDoc, deleteDoc, query, where, onSnapshot, Unsubscribe, serverTimestamp, Timestamp, writeBatch, getDocs, enableNetwork, disableNetwork } from 'firebase/firestore';
 import Papa from 'papaparse';
 import { resolveClinicId } from '@/lib/clinicIdentity';
+import { useAuth, useFirestore } from '@/firebase';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 
 
 // Types
@@ -139,6 +141,8 @@ const ClinicContext = createContext<ClinicContextType | undefined>(undefined);
 
 export const ClinicProvider = ({ children }: { children: ReactNode }) => {
     const { toast } = useToast();
+    const auth = useAuth();
+    const db = useFirestore();
     const [user, setUser] = useState<User | null>(null);
     const [clinicId, setClinicId] = useState<string | null>(null);
     const [patients, setPatients] = useState<Patient[]>([]);
@@ -175,7 +179,7 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
             window.removeEventListener('online', handleOnline);
             window.removeEventListener('offline', handleOffline);
         };
-    }, []);
+    }, [db]);
 
 
     useEffect(() => {
@@ -197,7 +201,7 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
              setAuthLoading(false);
         });
         return () => unsubscribeAuth();
-    }, []);
+    }, [auth, db]);
     
 
     useEffect(() => {
@@ -270,7 +274,7 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         return () => {
             listeners.forEach(unsub => unsub());
         };
-    }, [clinicId, toast]);
+    }, [clinicId, db, toast]);
     
     // AUTH FUNCTIONS
     const signup = async (username: string, password: string): Promise<User | null> => {
@@ -297,7 +301,17 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
 </svg>
 `
         };
-        await setDoc(clinicRef, defaultSettings);
+        
+        setDoc(clinicRef, defaultSettings)
+         .catch(async (serverError) => {
+            const permissionError = new FirestorePermissionError({
+                path: clinicRef.path,
+                operation: 'create',
+                requestResourceData: defaultSettings,
+            });
+            errorEmitter.emit('permission-error', permissionError);
+         });
+
         return newUser;
     };
 
@@ -327,7 +341,7 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
     };
     
     // DATA FUNCTIONS
-    const addDoctor = async (doctorData: Omit<Doctor, 'id' | 'initials' | 'avatarUrl' | 'pincode'>) => {
+    const addDoctor = (doctorData: Omit<Doctor, 'id' | 'initials' | 'avatarUrl' | 'pincode'>) => {
         if (!clinicId) return;
          const newDoctorData = {
           ...doctorData,
@@ -335,7 +349,17 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
           initials: doctorData.name.split(' ').map(n => n[0]).join('').toUpperCase(),
           avatarUrl: `https://placehold.co/100x100.png?text=${doctorData.name.charAt(0)}`,
         }
-        await addDoc(collection(db, 'clinics', clinicId, 'doctors'), newDoctorData);
+        
+        const collectionRef = collection(db, 'clinics', clinicId, 'doctors');
+        addDoc(collectionRef, newDoctorData)
+         .catch(async (serverError) => {
+            const permissionError = new FirestorePermissionError({
+                path: `${collectionRef.path}/<new_document>`,
+                operation: 'create',
+                requestResourceData: newDoctorData,
+            });
+            errorEmitter.emit('permission-error', permissionError);
+         });
     };
     
     const updateDoctor = (doctorId: string, doctorData: Partial<Omit<Doctor, 'id' | 'avatarUrl' | 'initials'>>) => {
@@ -350,7 +374,16 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
             updatedData.initials = doctorData.name.split(' ').map(n => n[0]).join('').toUpperCase();
             updatedData.avatarUrl = `https://placehold.co/100x100.png?text=${doctorData.name.charAt(0)}`;
         }
-        updateDoc(docRef, updatedData);
+        
+        updateDoc(docRef, updatedData)
+         .catch(async (serverError) => {
+            const permissionError = new FirestorePermissionError({
+                path: docRef.path,
+                operation: 'update',
+                requestResourceData: updatedData,
+            });
+            errorEmitter.emit('permission-error', permissionError);
+         });
     };
     
     const verifyDoctorPincode = async (doctorId: string, pincode: string): Promise<boolean> => {
@@ -364,6 +397,7 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
             }
             return false;
         } catch (error) {
+            // Assume permission errors are handled by onSnapshot listeners or specific error handling
             console.error('Error verifying PIN:', error);
             return false;
         }
@@ -371,7 +405,15 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
 
     const deleteDoctor = (doctorId: string) => {
         if (!clinicId) return;
-        deleteDoc(doc(db, 'clinics', clinicId, 'doctors', doctorId));
+        const docRef = doc(db, 'clinics', clinicId, 'doctors', doctorId);
+        deleteDoc(docRef)
+         .catch(async (serverError) => {
+            const permissionError = new FirestorePermissionError({
+                path: docRef.path,
+                operation: 'delete',
+            });
+            errorEmitter.emit('permission-error', permissionError);
+         });
     };
     
     const addPatient = async (patientData: NewPatientData) => {
@@ -381,8 +423,18 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
             avatarUrl: `https://placehold.co/100x100?text=${patientData.name.charAt(0)}`,
             history: [],
         }
-        const docRef = await addDoc(collection(db, 'clinics', clinicId, 'patients'), newPatientData);
-        toast({ title: 'Patient Added', description: `${newPatientData.name} has been registered.` });
+        
+        const collectionRef = collection(db, 'clinics', clinicId, 'patients');
+        addDoc(collectionRef, newPatientData).then(() => {
+            toast({ title: 'Patient Added', description: `${newPatientData.name} has been registered.` });
+        }).catch(async (serverError) => {
+            const permissionError = new FirestorePermissionError({
+                path: `${collectionRef.path}/<new_document>`,
+                operation: 'create',
+                requestResourceData: newPatientData,
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        });
     };
     
     const addPatientToWaitingList = async (patient: Patient, doctorId: string) => {
@@ -426,9 +478,18 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         const updatedHistory = [...(existingPatientData.history || []), newHistoryEntry];
         batch.update(patientRef, { history: updatedHistory });
 
-        await batch.commit();
-
-        toast({ title: 'Added to Waitlist', description: `${patient.name} is now waiting for Dr. ${doctor.name}.` });
+        batch.commit().then(() => {
+            toast({ title: 'Added to Waitlist', description: `${patient.name} is now waiting for Dr. ${doctor.name}.` });
+        }).catch(async (serverError) => {
+            // This is a complex batch, so we report a general error.
+            // A more granular approach would require separate writes.
+            const permissionError = new FirestorePermissionError({
+                path: `Batch write for clinic ${clinicId}`,
+                operation: 'update',
+                requestResourceData: { waitingList: newWaitingPatientData, patientHistory: updatedHistory },
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        });
     };
 
     const updatePatientStatus = async (waitingPatientId: string, status: PatientStatus, items: string[] = [], advice?: string): Promise<string | void> => {
@@ -439,50 +500,25 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         const waitingListRef = doc(db, 'clinics', clinicId, 'waitingList', waitingPatientId);
 
         if (status === 'called') {
-            await updateDoc(waitingListRef, { status });
+            updateDoc(waitingListRef, { status }).catch(async (serverError) => {
+                const permissionError = new FirestorePermissionError({ path: waitingListRef.path, operation: 'update', requestResourceData: { status } });
+                errorEmitter.emit('permission-error', permissionError);
+            });
             addNotification(`Dr. ${patientToUpdate.doctorName} is calling for ${patientToUpdate.patientName}.`);
+            return;
         }
         
-        if (status === 'in_consult' || status === 'waiting' || status === 'called' || status === 'dispensed') {
-             await updateDoc(waitingListRef, { status });
+        if (status === 'in_consult' || status === 'waiting' || status === 'dispensed') {
+             updateDoc(waitingListRef, { status }).catch(async (serverError) => {
+                const permissionError = new FirestorePermissionError({ path: waitingListRef.path, operation: 'update', requestResourceData: { status } });
+                errorEmitter.emit('permission-error', permissionError);
+            });
+             return;
         }
+        
+        const isPrescriptionBasedStatus = status === 'prescribed' || status === 'sent_to_pharmacy';
 
-        if (status === 'prescribed') { // End Consultation
-             const newPrescriptionData: Omit<Prescription, 'id'> = {
-                waitingPatientId: waitingPatientId,
-                patientName: patientToUpdate.patientName,
-                doctor: patientToUpdate.doctorName,
-                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                items,
-                advice,
-                status: 'pending',
-                visitDate: new Date().toISOString().split('T')[0],
-            };
-            const prescriptionRef = await addDoc(collection(db, 'clinics', clinicId, 'pharmacyQueue'), newPrescriptionData);
-            await updateDoc(waitingListRef, { status: 'prescribed' });
-
-             // Add consultation details to patient history
-            const batch = writeBatch(db);
-            const patientRef = doc(db, 'clinics', clinicId, 'patients', patientToUpdate.patientId);
-            const patientDoc = await getDoc(patientRef);
-            if (patientDoc.exists()) {
-                const historyNote = `Consultation complete. Prescription: ${items.join(', ')}. ${advice ? `Advice: ${advice}` : ''}`;
-                const newHistoryEntry: PatientHistory = {
-                    date: new Date().toISOString(),
-                    doctorName: patientToUpdate.doctorName,
-                    notes: historyNote
-                };
-                const existingPatientData = patientDoc.data() as Patient;
-                const updatedHistory = [...(existingPatientData.history || []), newHistoryEntry];
-                batch.update(patientRef, { history: updatedHistory });
-                await batch.commit();
-            }
-
-            toast({ title: 'Consultation Ended', description: `Prescription for ${patientToUpdate.patientName} has been recorded.` });
-            return prescriptionRef.id;
-        }
-
-        if (status === 'sent_to_pharmacy') {
+        if (isPrescriptionBasedStatus) {
             const newPrescriptionData: Omit<Prescription, 'id'> = {
                 waitingPatientId: waitingPatientId,
                 patientName: patientToUpdate.patientName,
@@ -493,36 +529,49 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
                 status: 'pending',
                 visitDate: new Date().toISOString().split('T')[0],
             };
-            await addDoc(collection(db, 'clinics', clinicId, 'pharmacyQueue'), newPrescriptionData);
-            await updateDoc(waitingListRef, { status: 'sent_to_pharmacy' });
             
-            const batch = writeBatch(db);
+            // This operation involves multiple writes, making it a good candidate for a transaction or batch.
+            const pharmacyQueueCollectionRef = collection(db, 'clinics', clinicId, 'pharmacyQueue');
+            const newPrescriptionRef = doc(pharmacyQueueCollectionRef);
+
             const patientRef = doc(db, 'clinics', clinicId, 'patients', patientToUpdate.patientId);
-            const patientDoc = await getDoc(patientRef);
-            if (patientDoc.exists()) {
-                const historyNote = `Consultation complete. Prescription: ${items.join(', ')}. ${advice ? `Advice: ${advice}` : ''}`;
-                const newHistoryEntry: PatientHistory = {
-                    date: new Date().toISOString(),
-                    doctorName: patientToUpdate.doctorName,
-                    notes: historyNote
-                };
-                const existingPatientData = patientDoc.data() as Patient;
-                const updatedHistory = [...(existingPatientData.history || []), newHistoryEntry];
-                batch.update(patientRef, { history: updatedHistory });
-                await batch.commit();
-            }
+            const historyNote = `Consultation complete. Prescription: ${items.join(', ')}. ${advice ? `Advice: ${advice}` : ''}`;
+            const newHistoryEntry: PatientHistory = {
+                date: new Date().toISOString(),
+                doctorName: patientToUpdate.doctorName,
+                notes: historyNote
+            };
             
-            toast({ title: 'Sent to Pharmacy', description: `${patientToUpdate.patientName}'s prescription has been sent.` });
+            try {
+                const patientDoc = await getDoc(patientRef);
+                if (patientDoc.exists()) {
+                    const batch = writeBatch(db);
+                    const existingPatientData = patientDoc.data() as Patient;
+                    const updatedHistory = [...(existingPatientData.history || []), newHistoryEntry];
+                    
+                    batch.set(newPrescriptionRef, newPrescriptionData);
+                    batch.update(waitingListRef, { status });
+                    batch.update(patientRef, { history: updatedHistory });
+
+                    await batch.commit();
+                    
+                    toast({ title: 'Consultation Ended', description: `Prescription for ${patientToUpdate.patientName} has been recorded.` });
+                    return newPrescriptionRef.id;
+                }
+            } catch (serverError) {
+                 const permissionError = new FirestorePermissionError({
+                    path: `Batch write involving: ${newPrescriptionRef.path}, ${waitingListRef.path}, ${patientRef.path}`,
+                    operation: 'create',
+                    requestResourceData: { prescription: newPrescriptionData, waitingStatus: status },
+                });
+                errorEmitter.emit('permission-error', permissionError);
+            }
         }
     };
     
-    const updatePrescriptionStatus = async (prescriptionId: string, status: PrescriptionStatus, billDetails?: BillDetails, dueDate?: Date) => {
+    const updatePrescriptionStatus = (prescriptionId: string, status: PrescriptionStatus, billDetails?: BillDetails, dueDate?: Date) => {
         if (!clinicId) return;
         const prescriptionRef = doc(db, 'clinics', clinicId, 'pharmacyQueue', prescriptionId);
-        const prescriptionDoc = await getDoc(prescriptionRef);
-
-        if (!prescriptionDoc.exists()) return;
-        const prescription = prescriptionDoc.data() as Prescription;
         
         const updateData: Partial<Prescription> = { status };
         if (billDetails) {
@@ -532,13 +581,28 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
             updateData.dueDate = Timestamp.fromDate(dueDate);
         }
 
-        await updateDoc(prescriptionRef, updateData);
-        
-        if (status === 'dispensed') {
-            const waitingPatientRef = doc(db, 'clinics', clinicId, 'waitingList', prescription.waitingPatientId);
-            await updateDoc(waitingPatientRef, { status: 'dispensed' });
-            toast({ title: 'Patient Processed', description: `${prescription.patientName} has been marked as Done.` });
-        }
+        updateDoc(prescriptionRef, updateData)
+            .then(() => {
+                if (status === 'dispensed') {
+                    const prescription = pharmacyQueue.find(p => p.id === prescriptionId) || waitingList.find(p => p.id === prescriptionId);
+                    if (prescription) {
+                        const waitingPatientRef = doc(db, 'clinics', clinicId, 'waitingList', prescription.waitingPatientId);
+                        updateDoc(waitingPatientRef, { status: 'dispensed' }).catch(async (serverError) => {
+                             const permissionError = new FirestorePermissionError({ path: waitingPatientRef.path, operation: 'update', requestResourceData: { status: 'dispensed' } });
+                             errorEmitter.emit('permission-error', permissionError);
+                        });
+                        toast({ title: 'Patient Processed', description: `${prescription.patientName} has been marked as Done.` });
+                    }
+                }
+            })
+            .catch(async (serverError) => {
+                const permissionError = new FirestorePermissionError({
+                    path: prescriptionRef.path,
+                    operation: 'update',
+                    requestResourceData: updateData,
+                });
+                errorEmitter.emit('permission-error', permissionError);
+            });
     };
 
     const addNotification = (message: string) => {
@@ -553,7 +617,15 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
      const updateSettings = (newSettings: Partial<ClinicSettings>) => {
         if (!clinicId) return;
         const settingsRef = doc(db, 'clinics', clinicId);
-        updateDoc(settingsRef, newSettings);
+        updateDoc(settingsRef, newSettings)
+         .catch(async (serverError) => {
+            const permissionError = new FirestorePermissionError({
+                path: settingsRef.path,
+                operation: 'update',
+                requestResourceData: newSettings,
+            });
+            errorEmitter.emit('permission-error', permissionError);
+         });
     };
 
     const exportDoctorsToCSV = async () => {
@@ -600,7 +672,7 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         updateDoctor,
         verifyDoctorPincode,
         deleteDoctor,
-        dismissNotification,
+dismissNotification,
         updateSettings,
         exportDoctorsToCSV,
     };
@@ -619,7 +691,3 @@ export const useClinicContext = () => {
     }
     return context;
 };
-
-    
-
-    

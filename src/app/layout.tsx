@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { Toaster } from '@/components/ui/toaster';
 import { ClinicProvider } from '@/context/clinic-context';
 import ConnectionStatusBanner from '@/components/layout/connection-status-banner';
+import { FirebaseClientProvider } from '@/firebase/client-provider';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
@@ -17,7 +18,7 @@ export const metadata: Metadata = {
 export default function RootLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode;
+  children: React.Node;
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
@@ -35,10 +36,12 @@ export default function RootLayout({
           inter.variable
         )}
       >
-        <ClinicProvider>
-          {children}
-          <ConnectionStatusBanner />
-        </ClinicProvider>
+        <FirebaseClientProvider>
+          <ClinicProvider>
+            {children}
+            <ConnectionStatusBanner />
+          </ClinicProvider>
+        </FirebaseClientProvider>
         <Toaster />
       </body>
     </html>
