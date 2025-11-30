@@ -2,23 +2,21 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Save, User, Building2, ExternalLink } from 'lucide-react';
+import { Loader2, Save, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useClinicContext, ClinicSettings, Doctor, ClinicStructure } from '@/context/clinic-context';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { Textarea } from '../ui/textarea';
 import { ChangePinCard } from '../doctor/change-pin-card';
 
 const currencies = [
@@ -42,48 +40,33 @@ const clinicStructures: { value: ClinicStructure, label: string, description: st
 ];
 
 export function SettingsTab() {
-  const { settings, loading: contextLoading, doctors, clinicId, updateClinicProfile } = useClinicContext();
+  const { settings, updateSettings, loading: contextLoading, doctors } = useClinicContext();
   const { toast } = useToast();
-  const [profileSettings, setProfileSettings] = useState({
-      clinicName: '',
-      clinicAddress: '',
-      logoSvg: '',
-  });
+  const [localSettings, setLocalSettings] = useState<ClinicSettings | null>(settings);
   const [isSaving, setIsSaving] = useState(false);
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
 
-  useEffect(() => {
-    if (settings) {
-        setProfileSettings({
-            clinicName: settings.clinicName,
-            clinicAddress: settings.clinicAddress,
-            logoSvg: settings.logoSvg || '',
-        });
-    }
-  }, [settings]);
+  useState(() => {
+    setLocalSettings(settings);
+  });
 
-  const handleProfileChange = (field: keyof typeof profileSettings, value: string) => {
-    setProfileSettings(prev => ({ ...prev, [field]: value }));
+  const handleSettingChange = (field: keyof ClinicSettings, value: string | number) => {
+    if (localSettings) {
+      setLocalSettings({ ...localSettings, [field]: value });
+    }
   };
-
-  const handleSaveChanges = async () => {
+  
+  const handleSaveChanges = () => {
+    if (!localSettings) return;
     setIsSaving(true);
-    try {
-        await updateClinicProfile(profileSettings);
-        toast({
-            title: 'Profile Updated',
-            description: 'Your clinic profile has been saved successfully.',
-        });
-    } catch (error) {
-         toast({
-            title: 'Update Failed',
-            description: 'Could not save your profile changes. Please try again.',
-            variant: 'destructive',
-        });
-        console.error(error);
-    } finally {
-        setIsSaving(false);
-    }
+    updateSettings(localSettings);
+    setTimeout(() => {
+      setIsSaving(false);
+      toast({
+        title: 'Settings Updated',
+        description: 'Your clinic settings have been saved successfully.',
+      });
+    }, 1000);
   };
 
   if (contextLoading && !settings) {
@@ -94,75 +77,30 @@ export function SettingsTab() {
       )
   }
   
-  if (!settings) return null;
+  if (!localSettings) return null;
 
-
-  const firestoreUrl = `https://console.firebase.google.com/project/${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}/firestore/data/clinics/${clinicId}`;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
      <div className="lg:col-span-2 space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="font-headline">Clinic Profile</CardTitle>
-          <CardDescription>Update your clinic's public information.</CardDescription>
+          <CardTitle className="font-headline">Clinic Settings</CardTitle>
+          <CardDescription>Manage your clinic's public profile, billing, and workflow.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-6">
           <div className="space-y-2">
             <Label htmlFor="clinicName">Clinic Name</Label>
-            <Input 
-                id="clinicName" 
-                value={profileSettings.clinicName} 
-                onChange={(e) => handleProfileChange('clinicName', e.target.value)}
-             />
+            <Input id="clinicName" value={localSettings.clinicName} onChange={(e) => handleSettingChange('clinicName', e.target.value)} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="clinicAddress">Address</Label>
-            <Input 
-                id="clinicAddress" 
-                value={profileSettings.clinicAddress} 
-                onChange={(e) => handleProfileChange('clinicAddress', e.target.value)}
-            />
+            <Input id="clinicAddress" value={localSettings.clinicAddress} onChange={(e) => handleSettingChange('clinicAddress', e.target.value)} />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="logoSvg">Logo SVG Markup</Label>
-            <Textarea 
-              id="logoSvg" 
-              value={profileSettings.logoSvg} 
-              onChange={(e) => handleProfileChange('logoSvg', e.target.value)}
-              placeholder="<svg>...</svg>"
-              className="min-h-[120px] font-code"
-            />
-          </div>
-        </CardContent>
-        <CardFooter>
-            <Button onClick={handleSaveChanges} disabled={isSaving}>
-                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Save Changes
-            </Button>
-        </CardFooter>
-      </Card>
-      
-      <Card>
-        <CardHeader>
-            <CardTitle className="font-headline flex items-center gap-2">
-                <Building2 className="h-6 w-6 text-primary" />
-                Clinic Structure
-            </CardTitle>
-            <CardDescription className="!flex !items-center !gap-2">
-                This setting changes the app workflow. To edit, use the Firebase Console.
-                <a href={firestoreUrl} target="_blank" rel="noopener noreferrer">
-                <Button variant="outline" size="sm">
-                    <ExternalLink className="mr-2 h-4 w-4" />
-                    Open Console
-                </Button>
-                </a>
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-2">
+           <div className="space-y-2">
             <Label htmlFor="clinicStructure">Workflow Mode</Label>
-            <Select value={settings.clinicStructure} disabled>
-                <SelectTrigger id="clinicStructure">
+            <Select value={localSettings.clinicStructure} onValueChange={(value) => handleSettingChange('clinicStructure', value)}>
+                <SelectTrigger>
                     <SelectValue placeholder="Select a workflow" />
                 </SelectTrigger>
                 <SelectContent>
@@ -172,21 +110,22 @@ export function SettingsTab() {
                 </SelectContent>
             </Select>
             <p className="text-sm text-muted-foreground">
-                {clinicStructures.find(c => c.value === settings.clinicStructure)?.description}
+                {clinicStructures.find(c => c.value === localSettings.clinicStructure)?.description}
             </p>
+           </div>
         </CardContent>
       </Card>
       
       <Card>
         <CardHeader>
           <CardTitle className="font-headline">Billing &amp; Tax</CardTitle>
-          <CardDescription>To edit, use the Firebase Console.</CardDescription>
+          <CardDescription>Set your currency, fees, and tax information.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                      <Label htmlFor="currency">Currency</Label>
-                     <Select value={settings.currency} disabled>
+                     <Select value={localSettings.currency} onValueChange={(value) => handleSettingChange('currency', value)}>
                          <SelectTrigger>
                              <SelectValue placeholder="Select a currency" />
                          </SelectTrigger>
@@ -202,16 +141,16 @@ export function SettingsTab() {
                     <Input 
                         id="appointmentFee" 
                         type="number"
-                        value={settings.appointmentFee || 0} 
+                        value={localSettings.appointmentFee || 0} 
+                        onChange={(e) => handleSettingChange('appointmentFee', Number(e.target.value))}
                         min="0"
-                        disabled
                         />
                 </div>
            </div>
            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                      <Label htmlFor="taxType">Tax Type</Label>
-                     <Select value={settings.taxType} disabled>
+                     <Select value={localSettings.taxType} onValueChange={(value) => handleSettingChange('taxType', value)}>
                          <SelectTrigger>
                              <SelectValue placeholder="Select a tax type" />
                          </SelectTrigger>
@@ -227,10 +166,10 @@ export function SettingsTab() {
                     <Input 
                     id="taxPercentage" 
                     type="number"
-                    value={settings.taxPercentage || 0} 
+                    value={localSettings.taxPercentage || 0} 
+                    onChange={(e) => handleSettingChange('taxPercentage', Number(e.target.value))}
                     min="0"
                     max="100"
-                    disabled
                     />
                 </div>
            </div>
@@ -239,12 +178,19 @@ export function SettingsTab() {
                 <Input 
                 id="receiptValidityDays" 
                 type="number"
-                value={settings.receiptValidityDays || 0} 
+                value={localSettings.receiptValidityDays || 0} 
+                onChange={(e) => handleSettingChange('receiptValidityDays', Number(e.target.value))}
                 min="0"
-                disabled
                 />
             </div>
         </CardContent>
+        <CardFooter>
+            <Button onClick={handleSaveChanges} disabled={isSaving}>
+                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <Save className="mr-2 h-4 w-4" />
+                Save All Settings
+            </Button>
+        </CardFooter>
       </Card>
     </div>
     

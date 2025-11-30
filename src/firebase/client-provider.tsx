@@ -4,7 +4,6 @@
 import { ReactNode } from 'react';
 import { FirebaseProvider } from './provider';
 import { initializeFirebase } from './index';
-import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 
 // Initialize Firebase on the client
 const { app, auth, db } = initializeFirebase();
@@ -18,7 +17,6 @@ export function FirebaseClientProvider({ children }: { children: ReactNode }) {
   return (
     <FirebaseProvider app={app} auth={auth} db={db}>
       {children}
-      {process.env.NODE_ENV === 'development' && <FirebaseErrorListener />}
     </FirebaseProvider>
   );
 }

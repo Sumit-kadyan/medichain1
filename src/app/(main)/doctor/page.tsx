@@ -1,5 +1,4 @@
 
-
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -385,5 +384,3 @@ export default function DoctorPage() {
 
     return <DoctorDashboard doctor={authenticatedDoctor} onBack={handleBackToSelection} />;
 }
-
-    

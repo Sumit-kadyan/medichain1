@@ -163,5 +163,3 @@ export default async function PrescriptionPage({
     </div>
   );
 }
-
-    

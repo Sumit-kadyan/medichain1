@@ -9,8 +9,6 @@ import { doc, getDoc, setDoc, collection, addDoc, updateDoc, deleteDoc, query, w
 import Papa from 'papaparse';
 import { resolveClinicId } from '@/lib/clinicIdentity';
 import { useAuth, useFirestore } from '@/firebase';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 
 
 // Types
@@ -128,13 +126,13 @@ interface ClinicContextType {
     addPatientToWaitingList: (patient: Patient, doctorId: string) => void;
     updatePatientStatus: (waitingPatientId: string, status: PatientStatus, items?: string[], advice?: string) => Promise<string | void>;
     updatePrescriptionStatus: (prescriptionId: string, status: PrescriptionStatus, billDetails?: BillDetails, dueDate?: Date) => void;
-    addDoctor: (doctor: Omit<Doctor, 'id' | 'initials' | 'avatarUrl' | 'pincode'>) => Promise<void>;
+    addDoctor: (doctor: Omit<Doctor, 'id' | 'initials' | 'avatarUrl' | 'pincode'>) => void;
     updateDoctor: (doctorId: string, doctorData: Partial<Omit<Doctor, 'id' | 'initials' | 'avatarUrl'>>) => void;
     verifyDoctorPincode: (doctorId: string, pincode: string) => Promise<boolean>;
     deleteDoctor: (doctorId: string) => void;
     dismissNotification: (id: number) => void;
+    updateSettings: (newSettings: ClinicSettings) => void;
     exportDoctorsToCSV: () => Promise<void>;
-    updateClinicProfile: (profileData: Partial<ClinicSettings>) => Promise<void>;
 }
 
 const ClinicContext = createContext<ClinicContextType | undefined>(undefined);
@@ -293,23 +291,14 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
             taxPercentage: 5,
             appointmentFee: 100,
             clinicStructure: 'full_workflow',
-            logoSvg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
-  <path d="M 23.333,4.167            L 76.667,4.167            A 16.667,16.667 0 0 1 93.333,20.833            L 93.333,83.333            A 16.667,16.667 0 0 1 76.667,100            L 23.333,100            A 16.667,16.667 0 0 1 6.667,83.333            L 6.667,20.833            A 16.667,16.667 0 0 1 23.333,4.167 Z" style="fill: rgb(101, 136, 185);"></path>
-  <path d="M 50,25            L 50,75 M 25,50 L 75,50" style="fill: none; stroke: rgb(255, 255, 255); stroke-width: 10;"></path>
-  <text x="30" y="70" style="fill: rgb(255, 255, 255); font-size: 20px; font-family: sans-serif;">MediChain</text>
-</svg>
-`
+            logoSvg: `<svg xmlns="http://www.w3.org/2000/svg" version="1.0" width="210.000000pt" height="148.000000pt" viewBox="0 0 210.000000 148.000000" preserveAspectRatio="xMidYMid meet">
+<g transform="translate(0.000000,148.000000) scale(0.100000,-0.100000)" fill="#000000" stroke="none">
+<path d="M862 1210 c-155 -56 -258 -162 -312 -320 -19 -56 -22 -81 -18 -175 4 -102 7 -116 40 -185 88 -183 254 -290 447 -290 42 0 96 5 121 11 134 31 260 131 324 256 46 93 46 101 -2 27 -91 -140 -226 -214 -392 -214 -269 0 -479 230 -457 500 14 168 132 332 282 390 65 25 36 25 -33 0z"/>
+<path d="M950 940 l0 -100 -105 0 -105 0 0 -100 0 -100 105 0 105 0 0 -105 0 -105 100 0 100 0 0 105 0 105 91 0 92 0 -6 52 c-4 29 -17 73 -30 98 l-23 45 -62 3 -62 3 0 58 c0 56 -1 59 -37 83 -46 29 -116 58 -143 58 -19 0 -20 -7 -20 -100z"/>
+</g>
+</svg>`
         };
-        
-        setDoc(clinicRef, defaultSettings)
-         .catch(async (serverError) => {
-            const permissionError = new FirestorePermissionError({
-                path: clinicRef.path,
-                operation: 'create',
-                requestResourceData: defaultSettings,
-            });
-            errorEmitter.emit('permission-error', permissionError);
-         });
+        await setDoc(clinicRef, defaultSettings);
 
         return newUser;
     };
@@ -340,28 +329,18 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
     };
     
     // DATA FUNCTIONS
-    const addDoctor = (doctorData: Omit<Doctor, 'id' | 'initials' | 'avatarUrl' | 'pincode'>) => {
+    const addDoctor = async (doctorData: Omit<Doctor, 'id' | 'initials' | 'avatarUrl' | 'pincode'>) => {
         if (!clinicId) return;
-         const newDoctorData = {
+        const newDoctor = {
           ...doctorData,
           pincode: '1111',
           initials: doctorData.name.split(' ').map(n => n[0]).join('').toUpperCase(),
           avatarUrl: `https://placehold.co/100x100.png?text=${doctorData.name.charAt(0)}`,
-        }
-        
-        const collectionRef = collection(db, 'clinics', clinicId, 'doctors');
-        addDoc(collectionRef, newDoctorData)
-         .catch(async (serverError) => {
-            const permissionError = new FirestorePermissionError({
-                path: `${collectionRef.path}/<new_document>`,
-                operation: 'create',
-                requestResourceData: newDoctorData,
-            });
-            errorEmitter.emit('permission-error', permissionError);
-         });
+        };
+        await addDoc(collection(db, 'clinics', clinicId, 'doctors'), newDoctor);
     };
     
-    const updateDoctor = (doctorId: string, doctorData: Partial<Omit<Doctor, 'id' | 'avatarUrl' | 'initials'>>) => {
+    const updateDoctor = async (doctorId: string, doctorData: Partial<Omit<Doctor, 'id' | 'avatarUrl' | 'initials'>>) => {
         if (!clinicId) return;
         const docRef = doc(db, 'clinics', clinicId, 'doctors', doctorId);
      
@@ -374,15 +353,7 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
             updatedData.avatarUrl = `https://placehold.co/100x100.png?text=${doctorData.name.charAt(0)}`;
         }
         
-        updateDoc(docRef, updatedData)
-         .catch(async (serverError) => {
-            const permissionError = new FirestorePermissionError({
-                path: docRef.path,
-                operation: 'update',
-                requestResourceData: updatedData,
-            });
-            errorEmitter.emit('permission-error', permissionError);
-         });
+        await updateDoc(docRef, updatedData);
     };
     
     const verifyDoctorPincode = async (doctorId: string, pincode: string): Promise<boolean> => {
@@ -402,38 +373,20 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         }
     };
 
-    const deleteDoctor = (doctorId: string) => {
+    const deleteDoctor = async (doctorId: string) => {
         if (!clinicId) return;
-        const docRef = doc(db, 'clinics', clinicId, 'doctors', doctorId);
-        deleteDoc(docRef)
-         .catch(async (serverError) => {
-            const permissionError = new FirestorePermissionError({
-                path: docRef.path,
-                operation: 'delete',
-            });
-            errorEmitter.emit('permission-error', permissionError);
-         });
+        await deleteDoc(doc(db, 'clinics', clinicId, 'doctors', doctorId));
     };
     
     const addPatient = async (patientData: NewPatientData) => {
         if (!clinicId) return;
-        const newPatientData = {
+        const newPatient = {
             ...patientData,
             avatarUrl: `https://placehold.co/100x100?text=${patientData.name.charAt(0)}`,
             history: [],
         }
-        
-        const collectionRef = collection(db, 'clinics', clinicId, 'patients');
-        addDoc(collectionRef, newPatientData).then(() => {
-            toast({ title: 'Patient Added', description: `${newPatientData.name} has been registered.` });
-        }).catch(async (serverError) => {
-            const permissionError = new FirestorePermissionError({
-                path: `${collectionRef.path}/<new_document>`,
-                operation: 'create',
-                requestResourceData: newPatientData,
-            });
-            errorEmitter.emit('permission-error', permissionError);
-        });
+        await addDoc(collection(db, 'clinics', clinicId, 'patients'), newPatient);
+        toast({ title: 'Patient Added', description: `${patientData.name} has been registered.` });
     };
     
     const addPatientToWaitingList = async (patient: Patient, doctorId: string) => {
@@ -448,7 +401,7 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
             return;
         }
 
-        const newWaitingPatientData: Omit<WaitingPatient, 'id'> = {
+        const newWaitingPatient: Omit<WaitingPatient, 'id'> = {
             patientId: patient.id,
             patientName: patient.name,
             gender: patient.gender,
@@ -464,7 +417,7 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         const batch = writeBatch(db);
         
         const waitingListRef = doc(collection(db, 'clinics', clinicId, 'waitingList'));
-        batch.set(waitingListRef, newWaitingPatientData);
+        batch.set(waitingListRef, newWaitingPatient);
         
         const newHistoryEntry: PatientHistory = {
             date: new Date().toISOString(),
@@ -477,18 +430,9 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         const updatedHistory = [...(existingPatientData.history || []), newHistoryEntry];
         batch.update(patientRef, { history: updatedHistory });
 
-        batch.commit().then(() => {
-            toast({ title: 'Added to Waitlist', description: `${patient.name} is now waiting for Dr. ${doctor.name}.` });
-        }).catch(async (serverError) => {
-            // This is a complex batch, so we report a general error.
-            // A more granular approach would require separate writes.
-            const permissionError = new FirestorePermissionError({
-                path: `Batch write for clinic ${clinicId}`,
-                operation: 'update',
-                requestResourceData: { waitingList: newWaitingPatientData, patientHistory: updatedHistory },
-            });
-            errorEmitter.emit('permission-error', permissionError);
-        });
+        await batch.commit();
+        
+        toast({ title: 'Added to Waitlist', description: `${patient.name} is now waiting for Dr. ${doctor.name}.` });
     };
 
     const updatePatientStatus = async (waitingPatientId: string, status: PatientStatus, items: string[] = [], advice?: string): Promise<string | void> => {
@@ -499,19 +443,13 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         const waitingListRef = doc(db, 'clinics', clinicId, 'waitingList', waitingPatientId);
 
         if (status === 'called') {
-            updateDoc(waitingListRef, { status }).catch(async (serverError) => {
-                const permissionError = new FirestorePermissionError({ path: waitingListRef.path, operation: 'update', requestResourceData: { status } });
-                errorEmitter.emit('permission-error', permissionError);
-            });
+            await updateDoc(waitingListRef, { status });
             addNotification(`Dr. ${patientToUpdate.doctorName} is calling for ${patientToUpdate.patientName}.`);
             return;
         }
         
         if (status === 'in_consult' || status === 'waiting' || status === 'dispensed') {
-             updateDoc(waitingListRef, { status }).catch(async (serverError) => {
-                const permissionError = new FirestorePermissionError({ path: waitingListRef.path, operation: 'update', requestResourceData: { status } });
-                errorEmitter.emit('permission-error', permissionError);
-            });
+             await updateDoc(waitingListRef, { status });
              return;
         }
         
@@ -530,9 +468,7 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
             };
             
             // This operation involves multiple writes, making it a good candidate for a transaction or batch.
-            const pharmacyQueueCollectionRef = collection(db, 'clinics', clinicId, 'pharmacyQueue');
-            const newPrescriptionRef = doc(pharmacyQueueCollectionRef);
-
+            const newPrescriptionRef = doc(collection(db, 'clinics', clinicId, 'pharmacyQueue'));
             const patientRef = doc(db, 'clinics', clinicId, 'patients', patientToUpdate.patientId);
             const historyNote = `Consultation complete. Prescription: ${items.join(', ')}. ${advice ? `Advice: ${advice}` : ''}`;
             const newHistoryEntry: PatientHistory = {
@@ -541,34 +477,25 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
                 notes: historyNote
             };
             
-            try {
-                const patientDoc = await getDoc(patientRef);
-                if (patientDoc.exists()) {
-                    const batch = writeBatch(db);
-                    const existingPatientData = patientDoc.data() as Patient;
-                    const updatedHistory = [...(existingPatientData.history || []), newHistoryEntry];
-                    
-                    batch.set(newPrescriptionRef, newPrescriptionData);
-                    batch.update(waitingListRef, { status });
-                    batch.update(patientRef, { history: updatedHistory });
+            const patientDoc = await getDoc(patientRef);
+            if (patientDoc.exists()) {
+                const batch = writeBatch(db);
+                const existingPatientData = patientDoc.data() as Patient;
+                const updatedHistory = [...(existingPatientData.history || []), newHistoryEntry];
+                
+                batch.set(newPrescriptionRef, newPrescriptionData);
+                batch.update(waitingListRef, { status });
+                batch.update(patientRef, { history: updatedHistory });
 
-                    await batch.commit();
-                    
-                    toast({ title: 'Consultation Ended', description: `Prescription for ${patientToUpdate.patientName} has been recorded.` });
-                    return newPrescriptionRef.id;
-                }
-            } catch (serverError) {
-                 const permissionError = new FirestorePermissionError({
-                    path: `Batch write involving: ${newPrescriptionRef.path}, ${waitingListRef.path}, ${patientRef.path}`,
-                    operation: 'create',
-                    requestResourceData: { prescription: newPrescriptionData, waitingStatus: status },
-                });
-                errorEmitter.emit('permission-error', permissionError);
+                await batch.commit();
+                
+                toast({ title: 'Consultation Ended', description: `Prescription for ${patientToUpdate.patientName} has been recorded.` });
+                return newPrescriptionRef.id;
             }
         }
     };
     
-    const updatePrescriptionStatus = (prescriptionId: string, status: PrescriptionStatus, billDetails?: BillDetails, dueDate?: Date) => {
+    const updatePrescriptionStatus = async (prescriptionId: string, status: PrescriptionStatus, billDetails?: BillDetails, dueDate?: Date) => {
         if (!clinicId) return;
         const prescriptionRef = doc(db, 'clinics', clinicId, 'pharmacyQueue', prescriptionId);
         
@@ -580,28 +507,16 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
             updateData.dueDate = Timestamp.fromDate(dueDate);
         }
 
-        updateDoc(prescriptionRef, updateData)
-            .then(() => {
-                if (status === 'dispensed') {
-                    const prescription = pharmacyQueue.find(p => p.id === prescriptionId) || waitingList.find(p => p.id === prescriptionId);
-                    if (prescription) {
-                        const waitingPatientRef = doc(db, 'clinics', clinicId, 'waitingList', prescription.waitingPatientId);
-                        updateDoc(waitingPatientRef, { status: 'dispensed' }).catch(async (serverError) => {
-                             const permissionError = new FirestorePermissionError({ path: waitingPatientRef.path, operation: 'update', requestResourceData: { status: 'dispensed' } });
-                             errorEmitter.emit('permission-error', permissionError);
-                        });
-                        toast({ title: 'Patient Processed', description: `${prescription.patientName} has been marked as Done.` });
-                    }
-                }
-            })
-            .catch(async (serverError) => {
-                const permissionError = new FirestorePermissionError({
-                    path: prescriptionRef.path,
-                    operation: 'update',
-                    requestResourceData: updateData,
-                });
-                errorEmitter.emit('permission-error', permissionError);
-            });
+        await updateDoc(prescriptionRef, updateData);
+
+        if (status === 'dispensed') {
+            const prescription = pharmacyQueue.find(p => p.id === prescriptionId) || waitingList.find(p => p.id === prescriptionId);
+            if (prescription) {
+                const waitingPatientRef = doc(db, 'clinics', clinicId, 'waitingList', prescription.waitingPatientId);
+                await updateDoc(waitingPatientRef, { status: 'dispensed' });
+                toast({ title: 'Patient Processed', description: `${prescription.patientName} has been marked as Done.` });
+            }
+        }
     };
 
     const addNotification = (message: string) => {
@@ -633,20 +548,11 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
       document.body.removeChild(link);
     };
 
-    const updateClinicProfile = async (profileData: Partial<ClinicSettings>) => {
+    const updateSettings = async (newSettings: ClinicSettings) => {
         if (!clinicId) return;
-
+        setSettings(newSettings);
         const settingsRef = doc(db, 'clinics', clinicId);
-        await updateDoc(settingsRef, profileData).catch(async (serverError) => {
-             const permissionError = new FirestorePermissionError({
-                path: settingsRef.path,
-                operation: 'update',
-                requestResourceData: profileData,
-            });
-            errorEmitter.emit('permission-error', permissionError);
-            // Re-throw the original error to be caught by the calling function
-            throw serverError;
-        });
+        await updateDoc(settingsRef, newSettings);
     }
 
     const contextValue = { 
@@ -674,8 +580,8 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         verifyDoctorPincode,
         deleteDoctor,
         dismissNotification,
+        updateSettings,
         exportDoctorsToCSV,
-        updateClinicProfile,
     };
 
     return (
