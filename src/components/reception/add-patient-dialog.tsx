@@ -43,7 +43,7 @@ interface AddPatientDialogProps {
 }
 
 export function AddPatientDialog({ open, onOpenChange }: AddPatientDialogProps) {
-  const { doctors, addPatient, addPatientToWaitingList, patients } = useClinicContext();
+  const { doctors, addPatient, addPatientToWaitingList } = useClinicContext();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
 
@@ -65,18 +65,14 @@ export function AddPatientDialog({ open, onOpenChange }: AddPatientDialogProps) 
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setLoading(true);
-    await addPatient(values);
-    
-    // This is a bit of a hack to get the newly added patient
-    // A better solution would be for addPatient to return the new patient object
-    const newPatient = patients.find(p => p.name === values.name && p.phone === values.phone);
+    const newPatient = await addPatient(values);
 
     if (newPatient) {
        addPatientToWaitingList(newPatient, values.doctorId);
     } else {
         toast({
             title: 'Error',
-            description: 'Could not find newly added patient to add to waiting list.',
+            description: 'Could not add patient to waiting list after creation.',
             variant: 'destructive'
         })
     }

@@ -10,7 +10,6 @@ import Papa from 'papaparse';
 import { resolveClinicId } from '@/lib/clinicIdentity';
 import { useAuth, useFirestore } from '@/firebase';
 
-
 // Types
 export type PatientStatus = 'waiting' | 'called' | 'in_consult' | 'prescribed' | 'sent_to_pharmacy' | 'dispensed';
 export type PrescriptionStatus = 'pending' | 'dispensed';
@@ -121,7 +120,7 @@ interface ClinicContextType {
     login: (email: string, password: string) => Promise<User | null>;
     signup: (username: string, password: string) => Promise<User | null>;
     logout: () => Promise<void>;
-    addPatient: (patient: NewPatientData) => Promise<void>;
+    addPatient: (patient: NewPatientData) => Promise<Patient | null>;
     getPatientById: (patientId: string) => Promise<Patient | null>;
     addPatientToWaitingList: (patient: Patient, doctorId: string) => void;
     updatePatientStatus: (waitingPatientId: string, status: PatientStatus, items?: string[], advice?: string) => Promise<string | void>;
@@ -131,8 +130,9 @@ interface ClinicContextType {
     verifyDoctorPincode: (doctorId: string, pincode: string) => Promise<boolean>;
     deleteDoctor: (doctorId: string) => void;
     dismissNotification: (id: number) => void;
-    updateSettings: (newSettings: ClinicSettings) => void;
+    updateClinicProfile: (profileData: Pick<ClinicSettings, 'clinicName' | 'clinicAddress' | 'logoSvg'>) => void;
     exportDoctorsToCSV: () => Promise<void>;
+    updateSettings: (newSettings: ClinicSettings) => void;
 }
 
 const ClinicContext = createContext<ClinicContextType | undefined>(undefined);
@@ -156,13 +156,17 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
     // Listen to browser online/offline events
     useEffect(() => {
         const handleOnline = () => {
-            enableNetwork(db);
-            setOnlineStatus('reconnected');
-            setTimeout(() => setOnlineStatus('online'), 3000);
+            if(db) {
+                enableNetwork(db);
+                setOnlineStatus('reconnected');
+                setTimeout(() => setOnlineStatus('online'), 3000);
+            }
         };
         const handleOffline = () => {
-            disableNetwork(db);
-            setOnlineStatus('offline');
+            if(db) {
+                disableNetwork(db);
+                setOnlineStatus('offline');
+            }
         };
 
         window.addEventListener('online', handleOnline);
@@ -181,6 +185,7 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
 
 
     useEffect(() => {
+        if (!auth || !db) return;
         const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
             setAuthLoading(true);
             if (currentUser) {
@@ -203,7 +208,7 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
     
 
     useEffect(() => {
-        if (!clinicId) {
+        if (!clinicId || !db) {
             setLoading(false);
             return;
         }
@@ -276,6 +281,7 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
     
     // AUTH FUNCTIONS
     const signup = async (username: string, password: string): Promise<User | null> => {
+        if (!auth || !db) return null;
         const email = `${username.trim()}@medichain.app`;
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const newUser = userCredential.user;
@@ -304,16 +310,18 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
     };
 
     const login = async (email: string, password: string): Promise<User | null> => {
+        if (!auth) return null;
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
         return userCredential.user;
     };
 
     const logout = async () => {
+        if (!auth) return;
         await signOut(auth);
     };
     
     const getPatientById = async (patientId: string): Promise<Patient | null> => {
-        if (!clinicId) return null;
+        if (!clinicId || !db) return null;
         try {
             const patientRef = doc(db, 'clinics', clinicId, 'patients', patientId);
             const patientSnap = await getDoc(patientRef);
@@ -329,19 +337,22 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
     };
     
     // DATA FUNCTIONS
-    const addDoctor = async (doctorData: Omit<Doctor, 'id' | 'initials' | 'avatarUrl' | 'pincode'>) => {
-        if (!clinicId) return;
+    const addDoctor = (doctorData: Omit<Doctor, 'id' | 'initials' | 'avatarUrl' | 'pincode'>) => {
+        if (!clinicId || !db) return;
         const newDoctor = {
           ...doctorData,
           pincode: '1111',
           initials: doctorData.name.split(' ').map(n => n[0]).join('').toUpperCase(),
           avatarUrl: `https://placehold.co/100x100.png?text=${doctorData.name.charAt(0)}`,
         };
-        await addDoc(collection(db, 'clinics', clinicId, 'doctors'), newDoctor);
+        addDoc(collection(db, 'clinics', clinicId, 'doctors'), newDoctor).catch(error => {
+            console.error("Error adding doctor:", error);
+            toast({ title: 'Firebase Error', description: error.message, variant: 'destructive'});
+        });
     };
     
-    const updateDoctor = async (doctorId: string, doctorData: Partial<Omit<Doctor, 'id' | 'avatarUrl' | 'initials'>>) => {
-        if (!clinicId) return;
+    const updateDoctor = (doctorId: string, doctorData: Partial<Omit<Doctor, 'id' | 'avatarUrl' | 'initials'>>) => {
+        if (!clinicId || !db) return;
         const docRef = doc(db, 'clinics', clinicId, 'doctors', doctorId);
      
         const currentDoctor = doctors.find(d => d.id === doctorId);
@@ -353,11 +364,14 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
             updatedData.avatarUrl = `https://placehold.co/100x100.png?text=${doctorData.name.charAt(0)}`;
         }
         
-        await updateDoc(docRef, updatedData);
+        updateDoc(docRef, updatedData).catch(error => {
+            console.error("Error updating doctor:", error);
+            toast({ title: 'Firebase Error', description: error.message, variant: 'destructive'});
+        });
     };
     
     const verifyDoctorPincode = async (doctorId: string, pincode: string): Promise<boolean> => {
-        if (!clinicId) return false;
+        if (!clinicId || !db) return false;
         try {
             const docRef = doc(db, 'clinics', clinicId, 'doctors', doctorId);
             const docSnap = await getDoc(docRef);
@@ -373,24 +387,41 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         }
     };
 
-    const deleteDoctor = async (doctorId: string) => {
-        if (!clinicId) return;
-        await deleteDoc(doc(db, 'clinics', clinicId, 'doctors', doctorId));
+    const deleteDoctor = (doctorId: string) => {
+        if (!clinicId || !db) return;
+        const docRef = doc(db, 'clinics', clinicId, 'doctors', doctorId);
+        deleteDoc(docRef).catch(error => {
+            console.error("Error deleting doctor:", error);
+            toast({ title: 'Firebase Error', description: error.message, variant: 'destructive'});
+        });
     };
     
-    const addPatient = async (patientData: NewPatientData) => {
-        if (!clinicId) return;
-        const newPatient = {
-            ...patientData,
-            avatarUrl: `https://placehold.co/100x100?text=${patientData.name.charAt(0)}`,
-            history: [],
+    const addPatient = async (patientData: NewPatientData): Promise<Patient | null> => {
+        if (!clinicId || !db) return null;
+        try {
+            const newPatientData = {
+                ...patientData,
+                avatarUrl: `https://placehold.co/100x100?text=${patientData.name.charAt(0)}`,
+                history: [],
+            };
+            const patientCollectionRef = collection(db, 'clinics', clinicId, 'patients');
+            const docRef = await addDoc(patientCollectionRef, newPatientData);
+            toast({ title: 'Patient Added', description: `${patientData.name} has been registered.` });
+
+            const newPatient: Patient = {
+                id: docRef.id,
+                ...newPatientData,
+            }
+            return newPatient;
+        } catch(error: any) {
+            console.error("Error adding patient:", error);
+            toast({ title: 'Firebase Error', description: error.message, variant: 'destructive'});
+            return null;
         }
-        await addDoc(collection(db, 'clinics', clinicId, 'patients'), newPatient);
-        toast({ title: 'Patient Added', description: `${patientData.name} has been registered.` });
     };
     
-    const addPatientToWaitingList = async (patient: Patient, doctorId: string) => {
-        if (!clinicId || !patient || !patient.id) return;
+    const addPatientToWaitingList = (patient: Patient, doctorId: string) => {
+        if (!clinicId || !patient || !patient.id || !db) return;
 
         const doctor = doctors.find(d => d.id === doctorId);
         if (!doctor) return;
@@ -425,31 +456,41 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
             notes: 'Added to waiting list for consultation.'
         };
         const patientRef = doc(db, 'clinics', clinicId, 'patients', patient.id);
-        const patientDoc = await getDoc(patientRef);
-        const existingPatientData = patientDoc.data() as Patient;
-        const updatedHistory = [...(existingPatientData.history || []), newHistoryEntry];
+        
+        const updatedHistory = [...(patient.history || []), newHistoryEntry];
         batch.update(patientRef, { history: updatedHistory });
 
-        await batch.commit();
-        
-        toast({ title: 'Added to Waitlist', description: `${patient.name} is now waiting for Dr. ${doctor.name}.` });
+        batch.commit()
+            .then(() => {
+                toast({ title: 'Added to Waitlist', description: `${patient.name} is now waiting for Dr. ${doctor.name}.` });
+            })
+            .catch(error => {
+                console.error("Error adding to waitlist:", error);
+                toast({ title: 'Firebase Error', description: error.message, variant: 'destructive'});
+            });
     };
 
     const updatePatientStatus = async (waitingPatientId: string, status: PatientStatus, items: string[] = [], advice?: string): Promise<string | void> => {
-        if (!clinicId || !settings) return;
+        if (!clinicId || !settings || !db) return;
         const patientToUpdate = waitingList.find(p => p.id === waitingPatientId);
         if (!patientToUpdate) return;
         
         const waitingListRef = doc(db, 'clinics', clinicId, 'waitingList', waitingPatientId);
 
         if (status === 'called') {
-            await updateDoc(waitingListRef, { status });
+            updateDoc(waitingListRef, { status }).catch(error => {
+                console.error("Error updating patient status:", error);
+                toast({ title: 'Firebase Error', description: error.message, variant: 'destructive'});
+            });
             addNotification(`Dr. ${patientToUpdate.doctorName} is calling for ${patientToUpdate.patientName}.`);
             return;
         }
         
         if (status === 'in_consult' || status === 'waiting' || status === 'dispensed') {
-             await updateDoc(waitingListRef, { status });
+             updateDoc(waitingListRef, { status }).catch(error => {
+                console.error("Error updating patient status:", error);
+                toast({ title: 'Firebase Error', description: error.message, variant: 'destructive'});
+            });
              return;
         }
         
@@ -467,7 +508,6 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
                 visitDate: new Date().toISOString().split('T')[0],
             };
             
-            // This operation involves multiple writes, making it a good candidate for a transaction or batch.
             const newPrescriptionRef = doc(collection(db, 'clinics', clinicId, 'pharmacyQueue'));
             const patientRef = doc(db, 'clinics', clinicId, 'patients', patientToUpdate.patientId);
             const historyNote = `Consultation complete. Prescription: ${items.join(', ')}. ${advice ? `Advice: ${advice}` : ''}`;
@@ -477,26 +517,31 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
                 notes: historyNote
             };
             
-            const patientDoc = await getDoc(patientRef);
-            if (patientDoc.exists()) {
-                const batch = writeBatch(db);
-                const existingPatientData = patientDoc.data() as Patient;
-                const updatedHistory = [...(existingPatientData.history || []), newHistoryEntry];
-                
-                batch.set(newPrescriptionRef, newPrescriptionData);
-                batch.update(waitingListRef, { status });
-                batch.update(patientRef, { history: updatedHistory });
+            try {
+                const patientDoc = await getDoc(patientRef);
+                if (patientDoc.exists()) {
+                    const batch = writeBatch(db);
+                    const existingPatientData = patientDoc.data() as Patient;
+                    const updatedHistory = [...(existingPatientData.history || []), newHistoryEntry];
+                    
+                    batch.set(newPrescriptionRef, newPrescriptionData);
+                    batch.update(waitingListRef, { status });
+                    batch.update(patientRef, { history: updatedHistory });
 
-                await batch.commit();
-                
-                toast({ title: 'Consultation Ended', description: `Prescription for ${patientToUpdate.patientName} has been recorded.` });
-                return newPrescriptionRef.id;
+                    await batch.commit();
+                    
+                    toast({ title: 'Consultation Ended', description: `Prescription for ${patientToUpdate.patientName} has been recorded.` });
+                    return newPrescriptionRef.id;
+                }
+            } catch(error: any) {
+                console.error("Error ending consultation:", error);
+                toast({ title: 'Firebase Error', description: error.message, variant: 'destructive'});
             }
         }
     };
     
-    const updatePrescriptionStatus = async (prescriptionId: string, status: PrescriptionStatus, billDetails?: BillDetails, dueDate?: Date) => {
-        if (!clinicId) return;
+    const updatePrescriptionStatus = (prescriptionId: string, status: PrescriptionStatus, billDetails?: BillDetails, dueDate?: Date) => {
+        if (!clinicId || !db) return;
         const prescriptionRef = doc(db, 'clinics', clinicId, 'pharmacyQueue', prescriptionId);
         
         const updateData: Partial<Prescription> = { status };
@@ -507,13 +552,20 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
             updateData.dueDate = Timestamp.fromDate(dueDate);
         }
 
-        await updateDoc(prescriptionRef, updateData);
+        updateDoc(prescriptionRef, updateData)
+            .catch(error => {
+                console.error("Error updating prescription status:", error);
+                toast({ title: 'Firebase Error', description: error.message, variant: 'destructive'});
+            });
 
         if (status === 'dispensed') {
             const prescription = pharmacyQueue.find(p => p.id === prescriptionId) || waitingList.find(p => p.id === prescriptionId);
             if (prescription) {
                 const waitingPatientRef = doc(db, 'clinics', clinicId, 'waitingList', prescription.waitingPatientId);
-                await updateDoc(waitingPatientRef, { status: 'dispensed' });
+                updateDoc(waitingPatientRef, { status: 'dispensed' }).catch(error => {
+                    console.error("Error updating waiting list:", error);
+                    toast({ title: 'Firebase Error', description: error.message, variant: 'destructive'});
+                });
                 toast({ title: 'Patient Processed', description: `${prescription.patientName} has been marked as Done.` });
             }
         }
@@ -548,12 +600,25 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
       document.body.removeChild(link);
     };
 
-    const updateSettings = async (newSettings: ClinicSettings) => {
-        if (!clinicId) return;
-        setSettings(newSettings);
+    const updateClinicProfile = (profileData: Pick<ClinicSettings, 'clinicName' | 'clinicAddress' | 'logoSvg'>) => {
+        if (!clinicId || !db) return;
         const settingsRef = doc(db, 'clinics', clinicId);
-        await updateDoc(settingsRef, newSettings);
+        updateDoc(settingsRef, profileData)
+          .catch(error => {
+            console.error("Error updating clinic profile:", error);
+            toast({ title: 'Firebase Error', description: error.message, variant: 'destructive'});
+        });
     }
+
+    const updateSettings = (newSettings: ClinicSettings) => {
+        if (!clinicId || !db) return;
+        const settingsRef = doc(db, 'clinics', clinicId);
+        updateDoc(settingsRef, newSettings)
+         .catch(error => {
+            console.error("Error updating settings:", error);
+            toast({ title: 'Firebase Error', description: error.message, variant: 'destructive'});
+        });
+    };
 
     const contextValue = { 
         user,
@@ -580,6 +645,7 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         verifyDoctorPincode,
         deleteDoctor,
         dismissNotification,
+        updateClinicProfile,
         updateSettings,
         exportDoctorsToCSV,
     };
