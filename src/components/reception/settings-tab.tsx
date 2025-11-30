@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Card,
   CardContent,
@@ -47,9 +47,9 @@ export function SettingsTab() {
   const [isSaving, setIsSaving] = useState(false);
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
 
-  useState(() => {
+  useEffect(() => {
     setLocalSettings(settings);
-  });
+  }, [settings]);
 
   const handleSettingChange = (field: keyof ClinicSettings, value: string | number) => {
     if (localSettings) {

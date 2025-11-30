@@ -40,7 +40,6 @@ const menuItems = [
     href: '/pharmacy',
     label: 'Pharmacy',
     icon: Pill,
-    structure: ['full_workflow'],
   },
 ];
 
@@ -59,25 +58,20 @@ export default function MainSidebar() {
       </SidebarHeader>
       <SidebarContent className="p-4">
         <SidebarMenu>
-          {menuItems.map((item) => {
-            const showItem = !item.structure || (settings && item.structure.includes(settings.clinicStructure));
-            if (!showItem) return null;
-
-            return (
-                <SidebarMenuItem key={item.href}>
-                <SidebarMenuButton
-                    asChild
-                    isActive={pathname.startsWith(item.href) && !pathname.includes('?tab=settings')}
-                    className="w-full"
-                >
-                    <Link href={item.href}>
-                    <item.icon className="mr-3 h-5 w-5" />
-                    <span>{item.label}</span>
-                    </Link>
-                </SidebarMenuButton>
-                </SidebarMenuItem>
-            );
-          })}
+          {menuItems.map((item) => (
+            <SidebarMenuItem key={item.href}>
+            <SidebarMenuButton
+                asChild
+                isActive={pathname.startsWith(item.href) && !pathname.includes('?tab=settings')}
+                className="w-full"
+            >
+                <Link href={item.href}>
+                <item.icon className="mr-3 h-5 w-5" />
+                <span>{item.label}</span>
+                </Link>
+            </SidebarMenuButton>
+            </SidebarMenuItem>
+          ))}
         </SidebarMenu>
       </SidebarContent>
       <SidebarFooter className="p-4 space-y-2">

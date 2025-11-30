@@ -1,3 +1,4 @@
+
 rules_version = '2';
 
 service cloud.firestore {
@@ -19,13 +20,8 @@ service cloud.firestore {
       // Allow members to read the clinic document
       allow read: if isClinicMember(clinicId);
       
-      // Allow members to update specific profile fields, but not critical settings
-      allow update: if isClinicMember(clinicId) 
-                    && request.resource.data.diff(resource.data).affectedKeys()
-                       .hasOnly(['clinicName', 'clinicAddress', 'logoSvg']);
-
-      // Prevent client-side creation or deletion of clinic docs
-      allow create, delete: if false;
+      // Allow members to update the document
+      allow write: if isClinicMember(clinicId);
 
 
       // 👨‍⚕️ Doctors sub-collection

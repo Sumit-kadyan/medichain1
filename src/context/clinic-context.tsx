@@ -381,7 +381,6 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
             }
             return false;
         } catch (error) {
-            // Assume permission errors are handled by onSnapshot listeners or specific error handling
             console.error('Error verifying PIN:', error);
             return false;
         }
