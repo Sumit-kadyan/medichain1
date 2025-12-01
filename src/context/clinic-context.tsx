@@ -124,7 +124,7 @@ interface ClinicContextType {
     addPatient: (patient: NewPatientData) => Promise<Patient | null>;
     getPatientById: (patientId: string) => Promise<Patient | null>;
     addPatientToWaitingList: (patient: Patient, doctorId: string) => void;
-    updatePatientStatus: (waitingPatientId: string, status: PatientStatus, items?: string[], advice?: string) => Promise<string | void>;
+    updatePatientStatus: (waitingPatientId: string, status: PatientStatus, items?: string[], advice?: string, billDetails?: BillDetails, dueDate?: Date) => Promise<string | void>;
     updatePrescriptionStatus: (prescriptionId: string, status: PrescriptionStatus, billDetails?: BillDetails, dueDate?: Date) => void;
     addDoctor: (doctor: Omit<Doctor, 'id' | 'initials' | 'avatarUrl' | 'pincode'>) => void;
     updateDoctor: (doctorId: string, doctorData: Partial<Omit<Doctor, 'id' | 'initials' | 'avatarUrl'>>) => void;
@@ -470,7 +470,7 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
             });
     };
 
-    const updatePatientStatus = async (waitingPatientId: string, status: PatientStatus, items: string[] = [], advice?: string): Promise<string | void> => {
+    const updatePatientStatus = async (waitingPatientId: string, status: PatientStatus, items: string[] = [], advice?: string, billDetails?: BillDetails, dueDate?: Date): Promise<string | void> => {
         if (!clinicId || !settings || !db) return;
         const patientToUpdate = waitingList.find(p => p.id === waitingPatientId);
         if (!patientToUpdate) return;
@@ -497,7 +497,7 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
         const isPrescriptionBasedStatus = status === 'prescribed' || status === 'sent_to_pharmacy';
 
         if (isPrescriptionBasedStatus) {
-            const newPrescriptionData: Omit<Prescription, 'id'> = {
+            const newPrescriptionData: Partial<Prescription> = {
                 waitingPatientId: waitingPatientId,
                 patientName: patientToUpdate.patientName,
                 doctor: patientToUpdate.doctorName,
@@ -507,6 +507,10 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
                 status: 'pending',
                 visitDate: new Date().toISOString().split('T')[0],
             };
+            
+            if (billDetails) newPrescriptionData.billDetails = billDetails;
+            if (dueDate) newPrescriptionData.dueDate = Timestamp.fromDate(dueDate);
+
             
             const newPrescriptionRef = doc(collection(db, 'clinics', clinicId, 'pharmacyQueue'));
             const patientRef = doc(db, 'clinics', clinicId, 'patients', patientToUpdate.patientId);

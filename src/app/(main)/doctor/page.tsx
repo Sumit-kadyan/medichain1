@@ -20,13 +20,16 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Play, Clock, FileText, Send, ArrowLeft, Loader2, BookMarked, XCircle, CheckCircle, MessageSquareQuote, Printer } from 'lucide-react';
+import { Play, Clock, FileText, Send, ArrowLeft, Loader2, BookMarked, XCircle, CheckCircle, MessageSquareQuote, Printer, Pill } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useClinicContext, Doctor, PatientStatus, WaitingPatient, PatientHistory, Patient } from '@/context/clinic-context';
+import { useClinicContext, Doctor, PatientStatus, WaitingPatient, PatientHistory, Patient, BillDetails } from '@/context/clinic-context';
 import { useToast } from '@/hooks/use-toast';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { DrugSuggestionForm } from '@/components/ai/drug-suggestion-form';
 import { PinEntryDialog } from '@/components/doctor/pin-entry-dialog';
+import { GenerateBillDialog } from '@/components/pharmacy/generate-bill-dialog';
+import { BillPreviewDialog } from '@/components/pharmacy/bill-preview-dialog';
 
 const statusConfig: Record<PatientStatus, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' | null }> = {
     waiting: { label: 'Waiting', variant: 'outline' },
@@ -74,11 +77,20 @@ function DoctorSelection({ doctors, onSelectDoctor }: { doctors: Doctor[], onSel
 function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => void }) {
   const router = useRouter();
   const { toast } = useToast();
-  const { waitingList, getPatientById, updatePatientStatus, settings, clinicId } = useClinicContext();
+  const { waitingList, getPatientById, updatePatientStatus, settings } = useClinicContext();
+  
+  // State for consultation
   const [prescription, setPrescription] = useState('');
   const [advice, setAdvice] = useState('');
+  const [prescriptionItems, setPrescriptionItems] = useState<{ item: string, price: number }[]>([]);
+
+  // State for patient management
   const [activePatient, setActivePatient] = useState<WaitingPatient | null>(null);
   const [patientDetails, setPatientDetails] = useState<Patient | null>(null);
+
+  // State for billing
+  const [isBillGenerateOpen, setBillGenerateOpen] = useState(false);
+  const [billPreviewData, setBillPreviewData] = useState<{ prescription: any, billDetails: BillDetails, dueDate: Date } | null>(null);
   
   const isNoPharmacyMode = settings?.clinicStructure === 'no_pharmacy';
 
@@ -103,8 +115,10 @@ function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => voi
   const handleStartConsultation = (patient: WaitingPatient) => {
     updatePatientStatus(patient.id, 'in_consult');
     setActivePatient(patient);
-    setPrescription(''); // Clear previous prescription
-    setAdvice(''); // Clear previous advice
+    // Clear previous consultation data
+    setPrescription('');
+    setAdvice('');
+    setPrescriptionItems([]);
   };
   
   const handleEndConsultation = (patientId: string) => {
@@ -112,10 +126,27 @@ function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => voi
       setActivePatient(null);
       setPrescription('');
       setAdvice('');
+      setPrescriptionItems([]);
   };
 
   const handleFinishAndPrescribe = async () => {
      if (!activePatient) return;
+    
+    // This logic is for the "No Pharmacy" mode which now uses the billing pad.
+    if (isNoPharmacyMode) {
+        if (prescriptionItems.length === 0) {
+            toast({
+                title: 'Cannot Proceed',
+                description: 'You must add at least one item before generating a bill.',
+                variant: 'destructive'
+            });
+            return;
+        }
+        setBillGenerateOpen(true);
+        return;
+    }
+    
+    // This is for the standard workflow
     if (!prescription.trim()) {
         toast({
             title: 'Empty Prescription',
@@ -125,16 +156,43 @@ function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => voi
         return;
     }
     const prescribedItems = prescription.split('\n').filter(line => line.trim() !== '');
-    const prescriptionId = await updatePatientStatus(activePatient.id, 'prescribed', prescribedItems, advice);
-
-    if (isNoPharmacyMode && typeof prescriptionId === 'string') {
-        window.open(`/prescription/${clinicId}_${prescriptionId}`, '_blank');
-    }
+    await updatePatientStatus(activePatient.id, 'prescribed', prescribedItems, advice);
 
     setActivePatient(null);
     setPrescription('');
     setAdvice('');
+    setPrescriptionItems([]);
   }
+
+  const handleBillGenerated = async (billDetails: BillDetails, dueDate: Date) => {
+    if (!activePatient || !doctor) return;
+
+    const items = billDetails.items.map(i => i.item);
+    const prescriptionId = await updatePatientStatus(activePatient.id, 'prescribed', items, advice, billDetails, dueDate);
+    
+    const tempPrescription = {
+        id: prescriptionId,
+        patientName: activePatient.name,
+        doctor: doctor.name,
+        items: items,
+        advice,
+        visitDate: new Date().toISOString().split('T')[0],
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    }
+
+    setBillPreviewData({ prescription: tempPrescription, billDetails, dueDate });
+    setBillGenerateOpen(false); // Close generation dialog
+    
+    // Reset state after finishing
+    setActivePatient(null);
+    setPrescriptionItems([]);
+    setAdvice('');
+    
+    toast({
+        title: 'Bill Generated',
+        description: 'The bill is ready for preview and download.'
+    })
+  };
 
   const handleSendToPharmacy = () => {
     if (!activePatient) return;
@@ -152,6 +210,26 @@ function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => voi
     setPrescription('');
     setAdvice('');
   };
+  
+  // Billing pad item management
+  const handleItemChange = (index: number, field: 'item' | 'price', value: string) => {
+    const newItems = [...prescriptionItems];
+    if (field === 'price') {
+      newItems[index][field] = parseFloat(value) || 0;
+    } else {
+      newItems[index][field] = value;
+    }
+    setPrescriptionItems(newItems);
+  };
+
+  const addNewItem = () => {
+    setPrescriptionItems([...prescriptionItems, { item: '', price: 0 }]);
+  };
+
+  const removeItem = (index: number) => {
+    setPrescriptionItems(prescriptionItems.filter((_, i) => i !== index));
+  };
+
 
   const currentActivePatientInList = waitingList.find(p => p.id === activePatient?.id);
 
@@ -222,40 +300,70 @@ function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => voi
 
           {currentActivePatientInList && currentActivePatientInList.status === 'in_consult' && (
             <>
-            <Card>
-                <CardHeader>
-                    <CardTitle className="font-headline flex items-center gap-2">
-                        <BookMarked className="h-6 w-6 text-primary" />
-                        Prescription Pad
-                    </CardTitle>
-                    <CardDescription>
-                        Write the prescription below. Each item should be on a new line.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <Textarea
-                        placeholder="e.g.,
+            {isNoPharmacyMode ? (
+                 <Card>
+                    <CardHeader>
+                        <CardTitle className="font-headline flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                            <BookMarked className="h-6 w-6 text-primary" />
+                            Billing Pad
+                            </div>
+                        </CardTitle>
+                        <CardDescription>
+                            Add prescribed items and their prices.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="space-y-2">
+                            {prescriptionItems.map((item, index) => (
+                                <div key={index} className="flex items-center gap-2">
+                                    <Input 
+                                        placeholder="Item name (e.g., Paracetamol 500mg)"
+                                        value={item.item}
+                                        onChange={(e) => handleItemChange(index, 'item', e.target.value)}
+                                        className="flex-1"
+                                    />
+                                    <Input 
+                                        type="number"
+                                        placeholder="Price"
+                                        value={item.price || ''}
+                                        onChange={(e) => handleItemChange(index, 'price', e.target.value)}
+                                        className="w-28"
+                                    />
+                                    <Button variant="ghost" size="icon" onClick={() => removeItem(index)}>
+                                        <XCircle className="h-4 w-4 text-destructive" />
+                                    </Button>
+                                </div>
+                            ))}
+                        </div>
+                        <Button variant="outline" size="sm" onClick={addNewItem} className="mt-4">
+                            Add Item
+                        </Button>
+                    </CardContent>
+                 </Card>
+            ) : (
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="font-headline flex items-center gap-2">
+                            <BookMarked className="h-6 w-6 text-primary" />
+                            Prescription Pad
+                        </CardTitle>
+                        <CardDescription>
+                            Write the prescription below. Each item should be on a new line.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Textarea
+                            placeholder="e.g.,
 Amoxicillin 500mg - 1 tab 3 times a day for 7 days
 Ibuprofen 200mg - as needed for pain"
-                        className="min-h-[150px] font-mono text-sm"
-                        value={prescription}
-                        onChange={(e) => setPrescription(e.target.value)}
-                    />
-                </CardContent>
-                <CardFooter className="flex justify-end gap-2">
-                   {isNoPharmacyMode ? (
-                        <Button onClick={handleFinishAndPrescribe}>
-                            <Printer className="mr-2 h-4 w-4" />
-                            End & Generate Prescription
-                        </Button>
-                   ) : (
-                        <Button onClick={handleSendToPharmacy}>
-                            <Send className="mr-2 h-4 w-4" />
-                            Send to Pharmacy
-                        </Button>
-                   )}
-                </CardFooter>
-            </Card>
+                            className="min-h-[150px] font-mono text-sm"
+                            value={prescription}
+                            onChange={(e) => setPrescription(e.target.value)}
+                        />
+                    </CardContent>
+                </Card>
+            )}
 
             <Card>
                 <CardHeader>
@@ -276,6 +384,23 @@ Ibuprofen 200mg - as needed for pain"
                     />
                 </CardContent>
             </Card>
+
+            <Card>
+                <CardFooter className="flex justify-end gap-2">
+                   {isNoPharmacyMode ? (
+                        <Button onClick={handleFinishAndPrescribe}>
+                            <Printer className="mr-2 h-4 w-4" />
+                            Finalize & Generate Bill
+                        </Button>
+                   ) : (
+                        <Button onClick={handleSendToPharmacy}>
+                            <Send className="mr-2 h-4 w-4" />
+                            Send to Pharmacy
+                        </Button>
+                   )}
+                </CardFooter>
+            </Card>
+
             </>
            )}
 
@@ -316,6 +441,28 @@ Ibuprofen 200mg - as needed for pain"
           </Card>
         </div>
       </div>
+      
+      <GenerateBillDialog
+        prescription={{
+            id: 'doctor-billing',
+            items: prescriptionItems.map(i => i.item),
+            patientName: activePatient?.patientName || ''
+        } as any}
+        open={isBillGenerateOpen}
+        onOpenChange={setBillGenerateOpen}
+        onBillGenerated={handleBillGenerated}
+        forcePrices={prescriptionItems}
+      />
+      
+      <BillPreviewDialog
+        billData={billPreviewData}
+        open={!!billPreviewData}
+        onOpenChange={(open) => {
+            if(!open) {
+                setBillPreviewData(null)
+            }
+        }}
+      />
     </>
   );
 }
@@ -383,5 +530,3 @@ export default function DoctorPage() {
 
     return <DoctorDashboard doctor={authenticatedDoctor} onBack={handleBackToSelection} />;
 }
-
-    
