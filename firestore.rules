@@ -20,8 +20,8 @@ service cloud.firestore {
       // Allow members to read the clinic document
       allow read: if isClinicMember(clinicId);
       
-      // Allow members to update the document
-      allow write: if isClinicMember(clinicId);
+      // Allow only the clinic owner to update the document
+      allow write: if request.auth.uid == clinicId;
 
 
       // 👨‍⚕️ Doctors sub-collection
