@@ -25,40 +25,41 @@ import { Button } from '../ui/button';
 import { HelpSupportDialog } from './help-support-dialog';
 import { useClinicContext } from '@/context/clinic-context';
 
-
-const menuItems = [
-  {
-    href: '/reception',
-    label: 'Reception',
-    icon: LayoutDashboard,
-  },
-  {
-    href: '/doctor',
-    label: 'Doctor',
-    icon: Stethoscope,
-  },
-  {
-    href: '/pharmacy',
-    label: 'Pharmacy',
-    icon: Pill,
-  },
-  {
-      href: '/oneman',
-      label: 'One Man',
-      icon: UserCog,
-  }
-];
-
 export default function MainSidebar() {
   const pathname = usePathname();
   const { settings } = useClinicContext();
   const [isHelpOpen, setHelpOpen] = useState(false);
-  
+
+  const menuItems = [
+    {
+      href: '/reception',
+      label: 'Reception',
+      icon: LayoutDashboard,
+      modes: ['full_workflow', 'no_pharmacy', 'one_man'],
+    },
+    {
+      href: '/doctor',
+      label: 'Doctor',
+      icon: Stethoscope,
+      modes: ['full_workflow', 'no_pharmacy'],
+    },
+    {
+      href: '/pharmacy',
+      label: 'Pharmacy',
+      icon: Pill,
+      modes: ['full_workflow'],
+    },
+    {
+      href: '/oneman',
+      label: 'One Man',
+      icon: UserCog,
+      modes: ['one_man'],
+    },
+  ];
+
   const visibleMenuItems = menuItems.filter(item => {
-    if (settings?.clinicStructure === 'no_pharmacy' && item.href === '/pharmacy') {
-        return false;
-    }
-    return true;
+    const currentMode = settings?.clinicStructure || 'full_workflow';
+    return item.modes.includes(currentMode);
   });
 
   return (
@@ -73,38 +74,38 @@ export default function MainSidebar() {
         <SidebarMenu>
           {visibleMenuItems.map((item) => (
             <SidebarMenuItem key={item.href}>
-            <SidebarMenuButton
+              <SidebarMenuButton
                 asChild
                 isActive={pathname.startsWith(item.href) && !pathname.includes('?tab=settings')}
                 className="w-full"
-            >
+              >
                 <Link href={item.href}>
-                <item.icon className="mr-3 h-5 w-5" />
-                <span>{item.label}</span>
+                  <item.icon className="mr-3 h-5 w-5" />
+                  <span>{item.label}</span>
                 </Link>
-            </SidebarMenuButton>
+              </SidebarMenuButton>
             </SidebarMenuItem>
           ))}
         </SidebarMenu>
       </SidebarContent>
       <SidebarFooter className="p-4 space-y-2">
-         <SidebarMenu>
-             <SidebarMenuItem>
-              <SidebarMenuButton
-                asChild
-                isActive={pathname.includes('?tab=settings')}
-                className="w-full"
-              >
-                <Link href="/reception?tab=settings">
-                  <Settings className="mr-3 h-5 w-5" />
-                  <span>Settings</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-         </SidebarMenu>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              asChild
+              isActive={pathname.includes('?tab=settings')}
+              className="w-full"
+            >
+              <Link href="/reception?tab=settings">
+                <Settings className="mr-3 h-5 w-5" />
+                <span>Settings</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
         <Button variant="outline" className="w-full" onClick={() => setHelpOpen(true)}>
-            <CircleHelp className="mr-2 h-4 w-4" />
-            Help & Support
+          <CircleHelp className="mr-2 h-4 w-4" />
+          Help & Support
         </Button>
       </SidebarFooter>
       <HelpSupportDialog open={isHelpOpen} onOpenChange={setHelpOpen} />

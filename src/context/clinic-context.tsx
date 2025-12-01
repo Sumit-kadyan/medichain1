@@ -14,7 +14,7 @@ import { useAuth, useFirestore } from '@/firebase';
 export type PatientStatus = 'waiting' | 'called' | 'in_consult' | 'prescribed' | 'sent_to_pharmacy' | 'dispensed';
 export type PrescriptionStatus = 'pending' | 'dispensed';
 export type OnlineStatus = 'online' | 'offline' | 'reconnected';
-export type ClinicStructure = 'full_workflow' | 'no_pharmacy';
+export type ClinicStructure = 'full_workflow' | 'no_pharmacy' | 'one_man';
 
 export interface FirestoreDocument {
     id: string;

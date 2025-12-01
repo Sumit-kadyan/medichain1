@@ -14,7 +14,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Save, User, UserCog } from 'lucide-react';
+import { Loader2, Save, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useClinicContext, ClinicSettings, Doctor, ClinicStructure } from '@/context/clinic-context';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
@@ -36,7 +36,8 @@ const taxTypes = ['VAT', 'GST', 'Sales Tax', 'No Tax'];
 
 const clinicStructures: { value: ClinicStructure, label: string, description: string }[] = [
     { value: 'full_workflow', label: 'Full Workflow', description: 'Separate Reception, Doctor, and Pharmacy roles.' },
-    { value: 'no_pharmacy', label: 'No In-house Pharmacy', description: 'Clinic provides consultation and printed prescriptions only.' },
+    { value: 'no_pharmacy', label: 'No In-house Pharmacy', description: 'Clinic provides consultation and printed bills. Hides Pharmacy page.' },
+    { value: 'one_man', label: 'One Man Clinic', description: 'A single dashboard for patient management, consultation, and billing. Hides Doctor and Pharmacy pages.' },
 ];
 
 export function SettingsTab() {

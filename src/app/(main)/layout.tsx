@@ -6,8 +6,22 @@ import { useRouter, usePathname } from 'next/navigation';
 import Header from '@/components/layout/header';
 import MainSidebar from '@/components/layout/main-sidebar';
 import { Sidebar, SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
-import { useClinicContext } from '@/context/clinic-context';
+import { useClinicContext, ClinicStructure } from '@/context/clinic-context';
 import { Loader2 } from 'lucide-react';
+
+const isPageVisible = (pathname: string, structure: ClinicStructure | undefined) => {
+  const currentStructure = structure || 'full_workflow';
+
+  if (pathname.startsWith('/reception')) return true;
+
+  const pageVisibility: Record<ClinicStructure, string[]> = {
+    full_workflow: ['/doctor', '/pharmacy'],
+    no_pharmacy: ['/doctor'],
+    one_man: ['/oneman'],
+  };
+
+  return pageVisibility[currentStructure].some(p => pathname.startsWith(p));
+}
 
 function ProtectedLayout({ children }: { children: React.ReactNode }) {
   const { user, authLoading, settings } = useClinicContext();
@@ -19,18 +33,17 @@ function ProtectedLayout({ children }: { children: React.ReactNode }) {
       router.replace('/login');
     }
   }, [user, authLoading, router]);
-
-  const isOneManDashboard = pathname.startsWith('/oneman');
-  const isOneManModeConfigured = settings?.mainDoctorId;
-
+  
   useEffect(() => {
-      // If user tries to access /oneman without it being configured, redirect them.
-      if (!authLoading && isOneManDashboard && !isOneManModeConfigured) {
-          router.replace('/reception');
+    if (!authLoading && settings) {
+      if (!isPageVisible(pathname, settings.clinicStructure)) {
+        router.replace('/reception');
       }
-  }, [isOneManDashboard, isOneManModeConfigured, router, authLoading]);
+    }
+  }, [pathname, settings, authLoading, router])
 
-  if (authLoading || (isOneManDashboard && !isOneManModeConfigured)) {
+
+  if (authLoading || !settings) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
