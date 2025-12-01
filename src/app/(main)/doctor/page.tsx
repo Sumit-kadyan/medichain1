@@ -172,7 +172,7 @@ function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => voi
     
     const tempPrescription = {
         id: prescriptionId,
-        patientName: activePatient.name,
+        patientName: activePatient.patientName,
         doctor: doctor.name,
         items: items,
         advice,
