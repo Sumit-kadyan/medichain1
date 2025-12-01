@@ -19,6 +19,7 @@ import {
   Settings,
   CircleHelp,
   BriefcaseMedical,
+  UserCog,
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { HelpSupportDialog } from './help-support-dialog';
@@ -41,12 +42,24 @@ const menuItems = [
     label: 'Pharmacy',
     icon: Pill,
   },
+  {
+      href: '/oneman',
+      label: 'One Man',
+      icon: UserCog,
+  }
 ];
 
 export default function MainSidebar() {
   const pathname = usePathname();
   const { settings } = useClinicContext();
   const [isHelpOpen, setHelpOpen] = useState(false);
+  
+  const visibleMenuItems = menuItems.filter(item => {
+    if (settings?.clinicStructure === 'no_pharmacy' && item.href === '/pharmacy') {
+        return false;
+    }
+    return true;
+  });
 
   return (
     <>
@@ -58,7 +71,7 @@ export default function MainSidebar() {
       </SidebarHeader>
       <SidebarContent className="p-4">
         <SidebarMenu>
-          {menuItems.map((item) => (
+          {visibleMenuItems.map((item) => (
             <SidebarMenuItem key={item.href}>
             <SidebarMenuButton
                 asChild

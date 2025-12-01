@@ -2,7 +2,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import Header from '@/components/layout/header';
 import MainSidebar from '@/components/layout/main-sidebar';
 import { Sidebar, SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
@@ -10,8 +10,9 @@ import { useClinicContext } from '@/context/clinic-context';
 import { Loader2 } from 'lucide-react';
 
 function ProtectedLayout({ children }: { children: React.ReactNode }) {
-  const { user, authLoading } = useClinicContext();
+  const { user, authLoading, settings } = useClinicContext();
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -19,7 +20,17 @@ function ProtectedLayout({ children }: { children: React.ReactNode }) {
     }
   }, [user, authLoading, router]);
 
-  if (authLoading) {
+  const isOneManDashboard = pathname.startsWith('/oneman');
+  const isOneManModeConfigured = settings?.mainDoctorId;
+
+  useEffect(() => {
+      // If user tries to access /oneman without it being configured, redirect them.
+      if (!authLoading && isOneManDashboard && !isOneManModeConfigured) {
+          router.replace('/reception');
+      }
+  }, [isOneManDashboard, isOneManModeConfigured, router, authLoading]);
+
+  if (authLoading || (isOneManDashboard && !isOneManModeConfigured)) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />

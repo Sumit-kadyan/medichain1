@@ -14,7 +14,7 @@ import { useAuth, useFirestore } from '@/firebase';
 export type PatientStatus = 'waiting' | 'called' | 'in_consult' | 'prescribed' | 'sent_to_pharmacy' | 'dispensed';
 export type PrescriptionStatus = 'pending' | 'dispensed';
 export type OnlineStatus = 'online' | 'offline' | 'reconnected';
-export type ClinicStructure = 'full_workflow' | 'pharmacy_at_doctor' | 'no_pharmacy';
+export type ClinicStructure = 'full_workflow' | 'no_pharmacy';
 
 export interface FirestoreDocument {
     id: string;
@@ -98,6 +98,7 @@ export interface ClinicSettings {
     taxPercentage: number;
     appointmentFee: number;
     clinicStructure: ClinicStructure;
+    mainDoctorId?: string;
 }
 
 type Notification = {

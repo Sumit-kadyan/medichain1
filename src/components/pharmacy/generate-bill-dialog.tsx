@@ -27,6 +27,7 @@ interface GenerateBillDialogProps {
   onOpenChange: (open: boolean) => void;
   prescription: Prescription | null;
   onBillGenerated: (billDetails: BillDetails, dueDate: Date) => void;
+  forcePrices?: { item: string, price: number }[];
 }
 
 export function GenerateBillDialog({
@@ -34,6 +35,7 @@ export function GenerateBillDialog({
   onOpenChange,
   prescription,
   onBillGenerated,
+  forcePrices,
 }: GenerateBillDialogProps) {
   const { settings } = useClinicContext();
   const [prices, setPrices] = useState<Record<string, number>>({});
@@ -42,27 +44,32 @@ export function GenerateBillDialog({
   const [applyRoundOff, setApplyRoundOff] = useState(true);
 
   useEffect(() => {
-    if (prescription && settings) {
-        const today = new Date();
-        const newDueDate = new Date(today);
-        newDueDate.setDate(today.getDate() + settings.receiptValidityDays);
-        setDueDate(newDueDate);
-        
-        const initialPrices = prescription.items.reduce((acc, item) => {
+    if (open && prescription) {
+      // Set due date
+      const today = new Date();
+      const newDueDate = new Date(today);
+      newDueDate.setDate(today.getDate() + (settings?.receiptValidityDays || 7));
+      setDueDate(newDueDate);
+
+      // Set prices
+      let initialPrices: Record<string, number> = {};
+      if (forcePrices) {
+        initialPrices = forcePrices.reduce((acc, item) => {
+            acc[item.item] = item.price;
+            return acc;
+        }, {} as Record<string, number>);
+      } else {
+        initialPrices = prescription.items.reduce((acc, item) => {
             acc[item] = 0;
             return acc;
         }, {} as Record<string, number>);
-        setPrices(initialPrices);
-        setIncludeAppointmentFee(true);
-        setApplyRoundOff(true);
-
-    } else if (prescription) {
-        const today = new Date();
-        const newDueDate = new Date(today);
-        newDueDate.setDate(today.getDate() + 7); // Default 7 days
-        setDueDate(newDueDate);
+      }
+      setPrices(initialPrices);
+      
+      setIncludeAppointmentFee(true);
+      setApplyRoundOff(true);
     }
-  }, [prescription, settings]);
+  }, [open, prescription, settings, forcePrices]);
 
   if (!prescription || !settings) return null;
 
@@ -119,6 +126,7 @@ export function GenerateBillDialog({
                     onChange={(e) => handlePriceChange(item, e.target.value)}
                     className="text-right pr-3 pl-6"
                     placeholder="0.00"
+                    disabled={!!forcePrices}
                 />
               </div>
             </div>

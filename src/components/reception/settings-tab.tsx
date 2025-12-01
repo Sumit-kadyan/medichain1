@@ -14,7 +14,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Save, User } from 'lucide-react';
+import { Loader2, Save, User, UserCog } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useClinicContext, ClinicSettings, Doctor, ClinicStructure } from '@/context/clinic-context';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
@@ -36,7 +36,6 @@ const taxTypes = ['VAT', 'GST', 'Sales Tax', 'No Tax'];
 
 const clinicStructures: { value: ClinicStructure, label: string, description: string }[] = [
     { value: 'full_workflow', label: 'Full Workflow', description: 'Separate Reception, Doctor, and Pharmacy roles.' },
-    { value: 'pharmacy_at_doctor', label: 'Pharmacy at Doctor', description: 'Doctor handles prescriptions and billing directly.' },
     { value: 'no_pharmacy', label: 'No In-house Pharmacy', description: 'Clinic provides consultation and printed prescriptions only.' },
 ];
 
@@ -45,7 +44,7 @@ export function SettingsTab() {
   const { toast } = useToast();
   const [localSettings, setLocalSettings] = useState<ClinicSettings | null>(settings);
   const [isSaving, setIsSaving] = useState(false);
-  const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
+  const [selectedPinDoctor, setSelectedPinDoctor] = useState<Doctor | null>(null);
 
   useEffect(() => {
     setLocalSettings(settings);
@@ -87,7 +86,7 @@ export function SettingsTab() {
       <Card>
         <CardHeader>
           <CardTitle className="font-headline">Clinic Settings</CardTitle>
-          <CardDescription>Manage your clinic's public profile, billing, and workflow.</CardDescription>
+          <CardDescription>Manage your clinic's public profile, workflow, and main doctor.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-2">
@@ -114,6 +113,22 @@ export function SettingsTab() {
                 {clinicStructures.find(c => c.value === localSettings.clinicStructure)?.description}
             </p>
            </div>
+            <div className="space-y-2">
+                <Label htmlFor="mainDoctor">Main Doctor (for 'One Man' Dashboard)</Label>
+                <Select value={localSettings.mainDoctorId} onValueChange={(value) => handleSettingChange('mainDoctorId', value)}>
+                    <SelectTrigger id="mainDoctor">
+                        <SelectValue placeholder="Select a main doctor..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {doctors.map(d => (
+                            <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+                <p className="text-sm text-muted-foreground">
+                    This doctor will be the default for the 'One Man' dashboard.
+                </p>
+            </div>
         </CardContent>
       </Card>
       
@@ -204,7 +219,7 @@ export function SettingsTab() {
             <CardContent className="space-y-4">
                  <div className="space-y-2">
                     <Label htmlFor="doctor-select">Select Doctor</Label>
-                    <Select onValueChange={(id) => setSelectedDoctor(doctors.find(d => d.id === id) || null)}>
+                    <Select onValueChange={(id) => setSelectedPinDoctor(doctors.find(d => d.id === id) || null)}>
                         <SelectTrigger id="doctor-select">
                             <SelectValue placeholder="Select a doctor..." />
                         </SelectTrigger>
@@ -221,8 +236,8 @@ export function SettingsTab() {
                     </Select>
                  </div>
 
-                 {selectedDoctor && (
-                    <ChangePinCard doctor={selectedDoctor} />
+                 {selectedPinDoctor && (
+                    <ChangePinCard doctor={selectedPinDoctor} />
                  )}
             </CardContent>
         </Card>
