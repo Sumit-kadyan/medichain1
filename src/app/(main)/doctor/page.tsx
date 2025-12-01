@@ -74,7 +74,7 @@ function DoctorSelection({ doctors, onSelectDoctor }: { doctors: Doctor[], onSel
 function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => void }) {
   const router = useRouter();
   const { toast } = useToast();
-  const { waitingList, getPatientById, updatePatientStatus, settings } = useClinicContext();
+  const { waitingList, getPatientById, updatePatientStatus, settings, clinicId } = useClinicContext();
   const [prescription, setPrescription] = useState('');
   const [advice, setAdvice] = useState('');
   const [activePatient, setActivePatient] = useState<WaitingPatient | null>(null);
@@ -128,7 +128,6 @@ function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => voi
     const prescriptionId = await updatePatientStatus(activePatient.id, 'prescribed', prescribedItems, advice);
 
     if (isNoPharmacyMode && typeof prescriptionId === 'string') {
-        const { clinicId } = useClinicContext.getState();
         window.open(`/prescription/${clinicId}_${prescriptionId}`, '_blank');
     }
 
@@ -384,3 +383,5 @@ export default function DoctorPage() {
 
     return <DoctorDashboard doctor={authenticatedDoctor} onBack={handleBackToSelection} />;
 }
+
+    
