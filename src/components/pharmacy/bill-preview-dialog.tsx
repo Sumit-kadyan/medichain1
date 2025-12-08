@@ -25,7 +25,6 @@ export interface BillPreviewData {
   prescription: Prescription;
   billDetails: BillDetails | null;
   dueDate: Date;
-  generatePrescriptionOnly?: boolean;
 }
 
 interface BillPreviewDialogProps {
@@ -93,15 +92,12 @@ export function BillPreviewDialog({ open, onOpenChange, billData }: BillPreviewD
   const { toast } = useToast();
 
   if (!billData || !settings) return null;
-  const { prescription, billDetails, dueDate, generatePrescriptionOnly } = billData;
+  const { prescription, billDetails, dueDate } = billData;
 
-  const publicBillUrl = clinicId && !generatePrescriptionOnly
+  const publicBillUrl = clinicId
     ? `${window.location.origin}/bill/${clinicId}_${prescription.id}`
     : "";
     
-  const publicPrescriptionUrl = clinicId
-    ? `${window.location.origin}/prescription/${clinicId}_${prescription.id}`
-    : "";
 
   const visitDate = new Date(`${prescription.visitDate}T00:00:00`);
   const visitDateStr = formatDate(visitDate);
@@ -144,7 +140,7 @@ export function BillPreviewDialog({ open, onOpenChange, billData }: BillPreviewD
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0">
         <DialogHeader className="p-6 pb-2">
-          <DialogTitle>{generatePrescriptionOnly ? 'Prescription' : 'Bill'} Preview & Share</DialogTitle>
+          <DialogTitle>Bill Preview & Share</DialogTitle>
           <DialogDescription>The layout you see is what will be downloaded.</DialogDescription>
         </DialogHeader>
 
@@ -162,7 +158,7 @@ export function BillPreviewDialog({ open, onOpenChange, billData }: BillPreviewD
                     <p className="text-md text-gray-500">{settings.clinicAddress}</p>
                   </div>
                 </div>
-                <h2 className="text-3xl font-semibold text-gray-500 uppercase">{generatePrescriptionOnly ? 'Prescription' : 'Invoice'}</h2>
+                <h2 className="text-3xl font-semibold text-gray-500 uppercase">Invoice</h2>
               </header>
 
               <section className="grid grid-cols-2 gap-4 my-8">
@@ -258,25 +254,6 @@ export function BillPreviewDialog({ open, onOpenChange, billData }: BillPreviewD
                 </div>
             )}
             
-            <Separator />
-            
-             {publicPrescriptionUrl && (
-                <div className="space-y-4 rounded-lg border bg-background p-4">
-                    <h3 className="text-lg font-bold">Shareable Prescription Link</h3>
-                    <div className="flex items-center space-x-2">
-                        <Input id="link-prescription" value={publicPrescriptionUrl} readOnly />
-                        <Button type="button" size="sm" onClick={() => navigator.clipboard.writeText(publicPrescriptionUrl)}>
-                            <Copy className="h-4 w-4" />
-                        </Button>
-                        <a href={publicPrescriptionUrl} target="_blank" rel="noopener noreferrer">
-                            <Button type="button" size="sm" variant="outline"><ExternalLink className="h-4 w-4" /></Button>
-                        </a>
-                    </div>
-                    <div className="p-4 bg-white rounded-md flex items-center justify-center">
-                        <QRCode value={publicPrescriptionUrl} size={128} />
-                    </div>
-                </div>
-            )}
           </div>
         </div>
       </DialogContent>

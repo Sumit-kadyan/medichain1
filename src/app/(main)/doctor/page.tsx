@@ -22,7 +22,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Play, Clock, FileText, Send, ArrowLeft, Loader2, BookMarked, XCircle, CheckCircle, MessageSquareQuote, Printer, Pill } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useClinicContext, Doctor, PatientStatus, WaitingPatient, PatientHistory, Patient, BillDetails } from '@/context/clinic-context';
+import { useClinicContext, Doctor, PatientStatus, WaitingPatient, PatientHistory, Patient, BillDetails, Prescription } from '@/context/clinic-context';
 import { useToast } from '@/hooks/use-toast';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -30,6 +30,7 @@ import { DrugSuggestionForm } from '@/components/ai/drug-suggestion-form';
 import { PinEntryDialog } from '@/components/doctor/pin-entry-dialog';
 import { GenerateBillDialog } from '@/components/pharmacy/generate-bill-dialog';
 import { BillPreviewDialog, BillPreviewData } from '@/components/pharmacy/bill-preview-dialog';
+import { PrescriptionPreviewDialog } from '@/components/pharmacy/prescription-preview-dialog';
 
 const statusConfig: Record<PatientStatus, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' | null }> = {
     waiting: { label: 'Waiting', variant: 'outline' },
@@ -91,6 +92,7 @@ function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => voi
   // State for billing
   const [isBillGenerateOpen, setBillGenerateOpen] = useState(false);
   const [billPreviewData, setBillPreviewData] = useState<BillPreviewData | null>(null);
+  const [prescriptionPreviewData, setPrescriptionPreviewData] = useState<Prescription | null>(null);
   
   const isNoPharmacyMode = settings?.clinicStructure === 'no_pharmacy';
 
@@ -170,33 +172,42 @@ function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => voi
     const items = prescriptionItems.map(i => i.item);
     const prescriptionId = await updatePatientStatus(activePatient.id, 'prescribed', items, advice, billDetails, dueDate);
     
-    const tempPrescription = {
-        id: prescriptionId,
+    const tempPrescription: Prescription = {
+        id: prescriptionId as string,
+        waitingPatientId: activePatient.id,
         patientName: activePatient.patientName,
         doctor: doctor.name,
         items: items,
         advice,
         visitDate: new Date().toISOString().split('T')[0],
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        status: 'pending',
     }
 
-    setBillPreviewData({ 
-        prescription: tempPrescription, 
-        billDetails, 
-        dueDate, 
-        generatePrescriptionOnly 
-    });
+    if(generatePrescriptionOnly) {
+        setPrescriptionPreviewData(tempPrescription);
+        toast({
+            title: 'Prescription Generated',
+            description: `The document is ready for preview and download.`
+        })
+    } else {
+        setBillPreviewData({ 
+            prescription: tempPrescription, 
+            billDetails, 
+            dueDate, 
+        });
+        toast({
+            title: 'Bill Generated',
+            description: `The document is ready for preview and download.`
+        })
+    }
+
     setBillGenerateOpen(false); // Close generation dialog
     
     // Reset state after finishing
     setActivePatient(null);
     setPrescriptionItems([]);
     setAdvice('');
-    
-    toast({
-        title: generatePrescriptionOnly ? 'Prescription Generated' : 'Bill Generated',
-        description: `The document is ready for preview and download.`
-    })
   };
 
   const handleSendToPharmacy = () => {
@@ -465,6 +476,15 @@ Ibuprofen 200mg - as needed for pain"
         onOpenChange={(open) => {
             if(!open) {
                 setBillPreviewData(null)
+            }
+        }}
+      />
+      <PrescriptionPreviewDialog
+        prescriptionData={prescriptionPreviewData}
+        open={!!prescriptionPreviewData}
+        onOpenChange={(open) => {
+            if(!open) {
+                setPrescriptionPreviewData(null)
             }
         }}
       />

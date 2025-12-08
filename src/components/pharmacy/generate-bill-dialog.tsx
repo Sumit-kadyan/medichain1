@@ -92,7 +92,7 @@ export function GenerateBillDialog({
     
     if (generatePrescriptionOnly) {
         const billDetails: BillDetails = {
-            items: [], // No items with prices for prescription only
+            items: prescription.items.map(item => ({ item, price: 0 })), // Items without price
             taxInfo: { type: 'No Tax', percentage: 0, amount: 0 },
             appointmentFee: fee, // Still might want to show this
             roundOff: 0,

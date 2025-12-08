@@ -1,7 +1,7 @@
 
 'use client';
 import { useState, useEffect } from 'react';
-import { useClinicContext, Patient, Doctor, BillDetails } from '@/context/clinic-context';
+import { useClinicContext, Patient, Doctor, BillDetails, Prescription } from '@/context/clinic-context';
 import { useToast } from '@/hooks/use-toast';
 import {
   Card,
@@ -28,6 +28,7 @@ import { DrugSuggestionForm } from '@/components/ai/drug-suggestion-form';
 import { GenerateBillDialog } from '@/components/pharmacy/generate-bill-dialog';
 import { BillPreviewDialog, BillPreviewData } from '@/components/pharmacy/bill-preview-dialog';
 import { AddPatientDialog } from '@/components/reception/add-patient-dialog';
+import { PrescriptionPreviewDialog } from '@/components/pharmacy/prescription-preview-dialog';
 
 const PATIENTS_PER_PAGE = 5;
 
@@ -46,6 +47,7 @@ export default function OneManPage() {
   // State for billing
   const [isBillGenerateOpen, setBillGenerateOpen] = useState(false);
   const [billPreviewData, setBillPreviewData] = useState<BillPreviewData | null>(null);
+  const [prescriptionPreviewData, setPrescriptionPreviewData] = useState<Prescription | null>(null);
   const [isAddPatientOpen, setAddPatientOpen] = useState(false);
 
 
@@ -107,9 +109,9 @@ export default function OneManPage() {
   
   const handleBillGenerated = async (billDetails: BillDetails | null, dueDate: Date, generatePrescriptionOnly: boolean) => {
     if (!activePatient || !mainDoctor) return;
-
+  
     // Create a temporary "prescription" object for the billing components
-    const tempPrescription = {
+    const tempPrescription: Prescription = {
         id: `oneman_${Date.now()}`,
         patientName: activePatient.name,
         doctor: mainDoctor.name,
@@ -117,21 +119,31 @@ export default function OneManPage() {
         advice,
         visitDate: new Date().toISOString().split('T')[0],
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        // Dummy data for type compatibility
+        waitingPatientId: `oneman_${activePatient.id}`,
+        status: 'pending', 
+    };
+
+    if(generatePrescriptionOnly) {
+        setPrescriptionPreviewData(tempPrescription);
+        toast({
+            title: 'Prescription Generated',
+            description: 'The document is ready for preview and download.'
+        })
+    } else {
+        setBillPreviewData({ prescription: tempPrescription, billDetails, dueDate });
+        toast({
+            title: 'Bill Generated',
+            description: 'The document is ready for preview and download.'
+        })
     }
 
-    setBillPreviewData({ prescription: tempPrescription, billDetails, dueDate, generatePrescriptionOnly });
     setBillGenerateOpen(false); // Close generation dialog
     
     // Reset state after finishing
     setActivePatient(null);
     setPrescriptionItems([]);
     setAdvice('');
-    
-    // Here you might want to save the bill details to the patient's history in a real scenario
-    toast({
-        title: generatePrescriptionOnly ? 'Prescription Generated' : 'Bill Generated',
-        description: 'The document is ready for preview and download.'
-    })
   };
 
   const handleItemChange = (index: number, field: 'item' | 'price', value: string) => {
@@ -372,6 +384,16 @@ export default function OneManPage() {
         onOpenChange={(open) => {
             if(!open) {
                 setBillPreviewData(null)
+            }
+        }}
+    />
+
+    <PrescriptionPreviewDialog
+        prescriptionData={prescriptionPreviewData}
+        open={!!prescriptionPreviewData}
+        onOpenChange={(open) => {
+            if(!open) {
+                setPrescriptionPreviewData(null)
             }
         }}
     />
