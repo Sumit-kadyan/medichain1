@@ -26,7 +26,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Search, Play, Stethoscope, FileText, Clock, MessageSquareQuote, Pill, Loader2, XCircle, BookMarked, Printer, UserPlus } from 'lucide-react';
 import { DrugSuggestionForm } from '@/components/ai/drug-suggestion-form';
 import { GenerateBillDialog } from '@/components/pharmacy/generate-bill-dialog';
-import { BillPreviewDialog } from '@/components/pharmacy/bill-preview-dialog';
+import { BillPreviewDialog, BillPreviewData } from '@/components/pharmacy/bill-preview-dialog';
 import { AddPatientDialog } from '@/components/reception/add-patient-dialog';
 
 const PATIENTS_PER_PAGE = 5;
@@ -45,7 +45,7 @@ export default function OneManPage() {
   
   // State for billing
   const [isBillGenerateOpen, setBillGenerateOpen] = useState(false);
-  const [billPreviewData, setBillPreviewData] = useState<{ prescription: any, billDetails: BillDetails, dueDate: Date } | null>(null);
+  const [billPreviewData, setBillPreviewData] = useState<BillPreviewData | null>(null);
   const [isAddPatientOpen, setAddPatientOpen] = useState(false);
 
 
@@ -105,7 +105,7 @@ export default function OneManPage() {
     setBillGenerateOpen(true);
   };
   
-  const handleBillGenerated = async (billDetails: BillDetails, dueDate: Date) => {
+  const handleBillGenerated = async (billDetails: BillDetails | null, dueDate: Date, generatePrescriptionOnly: boolean) => {
     if (!activePatient || !mainDoctor) return;
 
     // Create a temporary "prescription" object for the billing components
@@ -113,13 +113,13 @@ export default function OneManPage() {
         id: `oneman_${Date.now()}`,
         patientName: activePatient.name,
         doctor: mainDoctor.name,
-        items: billDetails.items.map(i => i.item),
+        items: billDetails ? billDetails.items.map(i => i.item) : prescriptionItems.map(i => i.item),
         advice,
         visitDate: new Date().toISOString().split('T')[0],
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     }
 
-    setBillPreviewData({ prescription: tempPrescription, billDetails, dueDate });
+    setBillPreviewData({ prescription: tempPrescription, billDetails, dueDate, generatePrescriptionOnly });
     setBillGenerateOpen(false); // Close generation dialog
     
     // Reset state after finishing
@@ -129,8 +129,8 @@ export default function OneManPage() {
     
     // Here you might want to save the bill details to the patient's history in a real scenario
     toast({
-        title: 'Bill Generated',
-        description: 'The bill is ready for preview and download.'
+        title: generatePrescriptionOnly ? 'Prescription Generated' : 'Bill Generated',
+        description: 'The document is ready for preview and download.'
     })
   };
 

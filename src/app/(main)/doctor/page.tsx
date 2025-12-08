@@ -29,7 +29,7 @@ import { Input } from '@/components/ui/input';
 import { DrugSuggestionForm } from '@/components/ai/drug-suggestion-form';
 import { PinEntryDialog } from '@/components/doctor/pin-entry-dialog';
 import { GenerateBillDialog } from '@/components/pharmacy/generate-bill-dialog';
-import { BillPreviewDialog } from '@/components/pharmacy/bill-preview-dialog';
+import { BillPreviewDialog, BillPreviewData } from '@/components/pharmacy/bill-preview-dialog';
 
 const statusConfig: Record<PatientStatus, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' | null }> = {
     waiting: { label: 'Waiting', variant: 'outline' },
@@ -90,7 +90,7 @@ function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => voi
 
   // State for billing
   const [isBillGenerateOpen, setBillGenerateOpen] = useState(false);
-  const [billPreviewData, setBillPreviewData] = useState<{ prescription: any, billDetails: BillDetails, dueDate: Date } | null>(null);
+  const [billPreviewData, setBillPreviewData] = useState<BillPreviewData | null>(null);
   
   const isNoPharmacyMode = settings?.clinicStructure === 'no_pharmacy';
 
@@ -164,10 +164,10 @@ function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => voi
     setPrescriptionItems([]);
   }
 
-  const handleBillGenerated = async (billDetails: BillDetails, dueDate: Date) => {
+  const handleBillGenerated = async (billDetails: BillDetails | null, dueDate: Date, generatePrescriptionOnly: boolean) => {
     if (!activePatient || !doctor) return;
-
-    const items = billDetails.items.map(i => i.item);
+  
+    const items = prescriptionItems.map(i => i.item);
     const prescriptionId = await updatePatientStatus(activePatient.id, 'prescribed', items, advice, billDetails, dueDate);
     
     const tempPrescription = {
@@ -180,7 +180,12 @@ function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => voi
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     }
 
-    setBillPreviewData({ prescription: tempPrescription, billDetails, dueDate });
+    setBillPreviewData({ 
+        prescription: tempPrescription, 
+        billDetails, 
+        dueDate, 
+        generatePrescriptionOnly 
+    });
     setBillGenerateOpen(false); // Close generation dialog
     
     // Reset state after finishing
@@ -189,8 +194,8 @@ function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => voi
     setAdvice('');
     
     toast({
-        title: 'Bill Generated',
-        description: 'The bill is ready for preview and download.'
+        title: generatePrescriptionOnly ? 'Prescription Generated' : 'Bill Generated',
+        description: `The document is ready for preview and download.`
     })
   };
 

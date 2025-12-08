@@ -83,7 +83,7 @@ export interface Prescription extends FirestoreDocument {
   status: PrescriptionStatus;
   advice?: string;
   visitDate: string; // YYYY-MM-DD
-  billDetails?: BillDetails;
+  billDetails?: BillDetails | null;
   dueDate?: Timestamp;
 }
 
@@ -124,7 +124,7 @@ interface ClinicContextType {
     addPatient: (patient: NewPatientData) => Promise<Patient | null>;
     getPatientById: (patientId: string) => Promise<Patient | null>;
     addPatientToWaitingList: (patient: Patient, doctorId: string) => void;
-    updatePatientStatus: (waitingPatientId: string, status: PatientStatus, items?: string[], advice?: string, billDetails?: BillDetails, dueDate?: Date) => Promise<string | void>;
+    updatePatientStatus: (waitingPatientId: string, status: PatientStatus, items?: string[], advice?: string, billDetails?: BillDetails | null, dueDate?: Date) => Promise<string | void>;
     updatePrescriptionStatus: (prescriptionId: string, status: PrescriptionStatus, billDetails?: BillDetails, dueDate?: Date) => void;
     addDoctor: (doctor: Omit<Doctor, 'id' | 'initials' | 'avatarUrl' | 'pincode'>) => void;
     updateDoctor: (doctorId: string, doctorData: Partial<Omit<Doctor, 'id' | 'initials' | 'avatarUrl'>>) => void;
@@ -470,7 +470,7 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
             });
     };
 
-    const updatePatientStatus = async (waitingPatientId: string, status: PatientStatus, items: string[] = [], advice?: string, billDetails?: BillDetails, dueDate?: Date): Promise<string | void> => {
+    const updatePatientStatus = async (waitingPatientId: string, status: PatientStatus, items: string[] = [], advice?: string, billDetails?: BillDetails | null, dueDate?: Date): Promise<string | void> => {
         if (!clinicId || !settings || !db) return;
         const patientToUpdate = waitingList.find(p => p.id === waitingPatientId);
         if (!patientToUpdate) return;

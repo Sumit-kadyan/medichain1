@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useRef, useState } from "react";
@@ -18,15 +19,19 @@ import jsPDF from "jspdf";
 import { useToast } from "@/hooks/use-toast";
 import ClinicLogo from "../ClinicLogo";
 import QRCode from "react-qr-code";
+import { Separator } from "../ui/separator";
+
+export interface BillPreviewData {
+  prescription: Prescription;
+  billDetails: BillDetails | null;
+  dueDate: Date;
+  generatePrescriptionOnly?: boolean;
+}
 
 interface BillPreviewDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  billData: {
-    prescription: Prescription;
-    billDetails: BillDetails;
-    dueDate: Date;
-  } | null;
+  billData: BillPreviewData | null;
 }
 
 function formatDate(date: Date | undefined): string | null {
@@ -88,10 +93,14 @@ export function BillPreviewDialog({ open, onOpenChange, billData }: BillPreviewD
   const { toast } = useToast();
 
   if (!billData || !settings) return null;
-  const { prescription, billDetails, dueDate } = billData;
+  const { prescription, billDetails, dueDate, generatePrescriptionOnly } = billData;
 
-  const publicBillUrl = clinicId
+  const publicBillUrl = clinicId && !generatePrescriptionOnly
     ? `${window.location.origin}/bill/${clinicId}_${prescription.id}`
+    : "";
+    
+  const publicPrescriptionUrl = clinicId
+    ? `${window.location.origin}/prescription/${clinicId}_${prescription.id}`
     : "";
 
   const visitDate = new Date(`${prescription.visitDate}T00:00:00`);
@@ -135,12 +144,12 @@ export function BillPreviewDialog({ open, onOpenChange, billData }: BillPreviewD
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0">
         <DialogHeader className="p-6 pb-2">
-          <DialogTitle>Bill Preview & Share</DialogTitle>
+          <DialogTitle>{generatePrescriptionOnly ? 'Prescription' : 'Bill'} Preview & Share</DialogTitle>
           <DialogDescription>The layout you see is what will be downloaded.</DialogDescription>
         </DialogHeader>
 
         <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-6 overflow-hidden px-6 pb-6">
-          {/* Left side: Two-page Preview */}
+          {/* Left side: Preview */}
           <div className="md:col-span-2 overflow-y-auto bg-muted/40 p-4 rounded-lg border flex flex-col gap-6">
             
             {/* Page 1 */}
@@ -153,7 +162,7 @@ export function BillPreviewDialog({ open, onOpenChange, billData }: BillPreviewD
                     <p className="text-md text-gray-500">{settings.clinicAddress}</p>
                   </div>
                 </div>
-                <h2 className="text-3xl font-semibold text-gray-500 uppercase">Invoice</h2>
+                <h2 className="text-3xl font-semibold text-gray-500 uppercase">{generatePrescriptionOnly ? 'Prescription' : 'Invoice'}</h2>
               </header>
 
               <section className="grid grid-cols-2 gap-4 my-8">
@@ -163,33 +172,48 @@ export function BillPreviewDialog({ open, onOpenChange, billData }: BillPreviewD
                   <p className="text-md text-gray-600">Prescribed by: {prescription.doctor}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm">Invoice #: INV-{prescription.id}</p>
+                  <p className="text-sm">Ref #: {prescription.id}</p>
                   <p className="text-sm">Date: {visitDateStr}</p>
                   {dueDateStr && <p className="text-sm">Due Date: {dueDateStr}</p>}
                 </div>
               </section>
-
-              <table className="w-full text-md">
-                <thead className="bg-gray-100">
-                  <tr>
-                    <th className="p-3 text-left font-semibold">Item</th>
-                    <th className="p-3 text-right font-semibold">Price</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {billDetails.items.map((it, i) => (
-                    <tr key={i} className="border-b border-gray-100">
-                      <td className="p-3">{it.item}</td>
-                      <td className="p-3 text-right">{settings.currency}{it.price.toFixed(2)}</td>
+              
+              {billDetails ? (
+                <table className="w-full text-md">
+                    <thead className="bg-gray-100">
+                    <tr>
+                        <th className="p-3 text-left font-semibold">Item</th>
+                        <th className="p-3 text-right font-semibold">Price</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                    </thead>
+                    <tbody>
+                    {billDetails.items.map((it, i) => (
+                        <tr key={i} className="border-b border-gray-100">
+                        <td className="p-3">{it.item}</td>
+                        <td className="p-3 text-right">{settings.currency}{it.price.toFixed(2)}</td>
+                        </tr>
+                    ))}
+                    </tbody>
+                </table>
+              ) : (
+                <section className="flex-1">
+                    <h3 className="text-lg font-bold mb-4 flex items-center">
+                        <span className="text-2xl mr-2">℞</span> Prescribed Medication
+                    </h3>
+                    <div className="space-y-3 pl-4">
+                        {prescription.items.map((item, index) => (
+                            <div key={index} className="text-md">
+                                <p>{item}</p>
+                            </div>
+                        ))}
+                    </div>
+                </section>
+              )}
             </div>
 
             {/* Page 2 */}
             <div ref={page2Ref} className="page bg-white p-8 w-[210mm] h-[297mm] mx-auto shadow-md relative flex flex-col">
-              <BillSummary billDetails={billDetails} settings={settings} />
+              {billDetails && <BillSummary billDetails={billDetails} settings={settings} />}
 
               {prescription.advice && (
                 <section className="mt-8">
@@ -216,23 +240,43 @@ export function BillPreviewDialog({ open, onOpenChange, billData }: BillPreviewD
               {isDownloading ? "Generating PDF..." : "Download as PDF"}
             </Button>
 
-            <div className="space-y-4 rounded-lg border bg-background p-4">
-              <h3 className="text-lg font-bold">Shareable Link</h3>
-              <div className="flex items-center space-x-2">
-                <Input id="link" value={publicBillUrl} readOnly />
-                <Button type="button" size="sm" onClick={() => navigator.clipboard.writeText(publicBillUrl)}>
-                  <Copy className="h-4 w-4" />
-                </Button>
-                <a href={publicBillUrl} target="_blank" rel="noopener noreferrer">
-                  <Button type="button" size="sm" variant="outline">
-                    <ExternalLink className="h-4 w-4" />
-                  </Button>
-                </a>
-              </div>
-              <div className="p-4 bg-white rounded-md flex items-center justify-center">
-                <QRCode value={publicBillUrl} size={128} />
-              </div>
-            </div>
+            {publicBillUrl && (
+                <div className="space-y-4 rounded-lg border bg-background p-4">
+                    <h3 className="text-lg font-bold">Shareable Invoice Link</h3>
+                    <div className="flex items-center space-x-2">
+                        <Input id="link-invoice" value={publicBillUrl} readOnly />
+                        <Button type="button" size="sm" onClick={() => navigator.clipboard.writeText(publicBillUrl)}>
+                            <Copy className="h-4 w-4" />
+                        </Button>
+                        <a href={publicBillUrl} target="_blank" rel="noopener noreferrer">
+                            <Button type="button" size="sm" variant="outline"><ExternalLink className="h-4 w-4" /></Button>
+                        </a>
+                    </div>
+                    <div className="p-4 bg-white rounded-md flex items-center justify-center">
+                        <QRCode value={publicBillUrl} size={128} />
+                    </div>
+                </div>
+            )}
+            
+            <Separator />
+            
+             {publicPrescriptionUrl && (
+                <div className="space-y-4 rounded-lg border bg-background p-4">
+                    <h3 className="text-lg font-bold">Shareable Prescription Link</h3>
+                    <div className="flex items-center space-x-2">
+                        <Input id="link-prescription" value={publicPrescriptionUrl} readOnly />
+                        <Button type="button" size="sm" onClick={() => navigator.clipboard.writeText(publicPrescriptionUrl)}>
+                            <Copy className="h-4 w-4" />
+                        </Button>
+                        <a href={publicPrescriptionUrl} target="_blank" rel="noopener noreferrer">
+                            <Button type="button" size="sm" variant="outline"><ExternalLink className="h-4 w-4" /></Button>
+                        </a>
+                    </div>
+                    <div className="p-4 bg-white rounded-md flex items-center justify-center">
+                        <QRCode value={publicPrescriptionUrl} size={128} />
+                    </div>
+                </div>
+            )}
           </div>
         </div>
       </DialogContent>

@@ -146,13 +146,15 @@ export default async function PrescriptionPage({
           </section>
         )}
         
-        <div className="mt-8 pt-4">
-            <h3 className="font-semibold text-gray-800">Fees</h3>
-            <div className="flex justify-between items-center mt-2 border-t border-b py-2">
-                <p>Consultation / Appointment Fee</p>
-                <p className="font-bold">{settings.currency}{settings.appointmentFee.toFixed(2)}</p>
-            </div>
-        </div>
+        {prescription.billDetails?.appointmentFee && prescription.billDetails.appointmentFee > 0 && (
+          <div className="mt-8 pt-4">
+              <h3 className="font-semibold text-gray-800">Fees</h3>
+              <div className="flex justify-between items-center mt-2 border-t border-b py-2">
+                  <p>Consultation / Appointment Fee</p>
+                  <p className="font-bold">{settings.currency}{prescription.billDetails.appointmentFee.toFixed(2)}</p>
+              </div>
+          </div>
+        )}
 
 
         <footer className="mt-auto pt-8 border-t border-dashed border-gray-400 text-center text-xs text-gray-500">

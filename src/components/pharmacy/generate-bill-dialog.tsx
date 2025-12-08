@@ -17,7 +17,7 @@ import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Prescription, useClinicContext, BillDetails } from '@/context/clinic-context';
-import { CalendarIcon } from 'lucide-react';
+import { CalendarIcon, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import { Checkbox } from '../ui/checkbox';
 import { Separator } from '../ui/separator';
@@ -26,7 +26,7 @@ interface GenerateBillDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   prescription: Prescription | null;
-  onBillGenerated: (billDetails: BillDetails, dueDate: Date) => void;
+  onBillGenerated: (billDetails: BillDetails | null, dueDate: Date, generatePrescriptionOnly: boolean) => void;
   forcePrices?: { item: string, price: number }[];
 }
 
@@ -87,21 +87,32 @@ export function GenerateBillDialog({
   const finalTotal = totalBeforeRoundOff + roundOffAmount;
 
   
-  const handleGenerateClick = () => {
+  const handleGenerateClick = (generatePrescriptionOnly: boolean) => {
     if (!dueDate) return;
     
-    const billDetails: BillDetails = {
-        items: prescription.items.map(item => ({ item, price: prices[item] || 0 })),
-        taxInfo: {
-            type: settings.taxType,
-            percentage: settings.taxPercentage,
-            amount: taxAmount,
-        },
-        appointmentFee: fee,
-        roundOff: roundOffAmount,
-        total: finalTotal,
-    };
-    onBillGenerated(billDetails, dueDate);
+    if (generatePrescriptionOnly) {
+        const billDetails: BillDetails = {
+            items: [], // No items with prices for prescription only
+            taxInfo: { type: 'No Tax', percentage: 0, amount: 0 },
+            appointmentFee: fee, // Still might want to show this
+            roundOff: 0,
+            total: fee,
+        };
+        onBillGenerated(billDetails, dueDate, true);
+    } else {
+        const billDetails: BillDetails = {
+            items: prescription.items.map(item => ({ item, price: prices[item] || 0 })),
+            taxInfo: {
+                type: settings.taxType,
+                percentage: settings.taxPercentage,
+                amount: taxAmount,
+            },
+            appointmentFee: fee,
+            roundOff: roundOffAmount,
+            total: finalTotal,
+        };
+        onBillGenerated(billDetails, dueDate, false);
+    }
   };
 
   return (
@@ -189,7 +200,11 @@ export function GenerateBillDialog({
         </div>
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button type="button" onClick={handleGenerateClick} disabled={!dueDate}>Preview Bill</Button>
+          <Button type="button" variant="secondary" onClick={() => handleGenerateClick(true)} disabled={!dueDate}>
+            <FileText className="mr-2 h-4 w-4" />
+            Generate Prescription
+          </Button>
+          <Button type="button" onClick={() => handleGenerateClick(false)} disabled={!dueDate}>Preview Bill</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
