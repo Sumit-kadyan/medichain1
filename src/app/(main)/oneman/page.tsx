@@ -23,10 +23,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Search, Play, Stethoscope, FileText, Clock, MessageSquareQuote, Pill, Loader2, XCircle, BookMarked, Printer } from 'lucide-react';
+import { Search, Play, Stethoscope, FileText, Clock, MessageSquareQuote, Pill, Loader2, XCircle, BookMarked, Printer, UserPlus } from 'lucide-react';
 import { DrugSuggestionForm } from '@/components/ai/drug-suggestion-form';
 import { GenerateBillDialog } from '@/components/pharmacy/generate-bill-dialog';
 import { BillPreviewDialog } from '@/components/pharmacy/bill-preview-dialog';
+import { AddPatientDialog } from '@/components/reception/add-patient-dialog';
+
 
 export default function OneManPage() {
   const { settings, doctors, patients, loading, updatePatientStatus } = useClinicContext();
@@ -42,6 +44,7 @@ export default function OneManPage() {
   // State for billing
   const [isBillGenerateOpen, setBillGenerateOpen] = useState(false);
   const [billPreviewData, setBillPreviewData] = useState<{ prescription: any, billDetails: BillDetails, dueDate: Date } | null>(null);
+  const [isAddPatientOpen, setAddPatientOpen] = useState(false);
 
 
   useEffect(() => {
@@ -50,8 +53,17 @@ export default function OneManPage() {
       setMainDoctor(foundDoctor || null);
     }
   }, [settings, doctors]);
+  
+  const todaysPatients = patients.filter(patient => {
+      if (!patient.history || patient.history.length === 0) return false;
+      const registrationDate = new Date(patient.history[0].date);
+      const today = new Date();
+      return registrationDate.getFullYear() === today.getFullYear() &&
+             registrationDate.getMonth() === today.getMonth() &&
+             registrationDate.getDate() === today.getDate();
+  });
 
-  const filteredPatients = patients.filter(patient =>
+  const filteredPatients = todaysPatients.filter(patient =>
     patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     patient.phone.includes(searchTerm)
   );
@@ -159,13 +171,21 @@ export default function OneManPage() {
       <div className="lg:col-span-2 space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle className="font-headline">Patient List</CardTitle>
-            <CardDescription>Select a patient to start consultation.</CardDescription>
-            <div className="relative flex-1">
+            <div className="flex flex-row items-center justify-between">
+                <div>
+                    <CardTitle className="font-headline">Today's Patients</CardTitle>
+                    <CardDescription>Select a patient registered today to start consultation.</CardDescription>
+                </div>
+                 <Button variant="outline" onClick={() => setAddPatientOpen(true)}>
+                    <UserPlus className="mr-2 h-4 w-4" />
+                    New Patient
+                </Button>
+            </div>
+            <div className="relative flex-1 pt-2">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input 
                   type="search" 
-                  placeholder="Search by name or phone..." 
+                  placeholder="Search today's patients..." 
                   className="pl-8 sm:w-full"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -194,6 +214,13 @@ export default function OneManPage() {
                     </TableCell>
                   </TableRow>
                 ))}
+                 {filteredPatients.length === 0 && (
+                    <TableRow>
+                        <TableCell colSpan={3} className="text-center text-muted-foreground">
+                            No patients registered today.
+                        </TableCell>
+                    </TableRow>
+                )}
               </TableBody>
             </Table>
           </CardContent>
@@ -310,6 +337,8 @@ export default function OneManPage() {
           </Card>
       </div>
     </div>
+    
+    <AddPatientDialog open={isAddPatientOpen} onOpenChange={setAddPatientOpen} />
     
     <GenerateBillDialog
         prescription={{

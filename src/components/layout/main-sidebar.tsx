@@ -24,6 +24,7 @@ import {
 import { Button } from '../ui/button';
 import { HelpSupportDialog } from './help-support-dialog';
 import { useClinicContext } from '@/context/clinic-context';
+import { cn } from '@/lib/utils';
 
 export default function MainSidebar() {
   const pathname = usePathname();
@@ -77,7 +78,10 @@ export default function MainSidebar() {
               <SidebarMenuButton
                 asChild
                 isActive={pathname.startsWith(item.href) && !pathname.includes('?tab=settings')}
-                className="w-full"
+                className={cn(
+                    "w-full",
+                    "[&[data-mobile=true]]:text-white [&[data-mobile=true]]:hover:text-foreground [&[data-mobile=true][data-active=true]]:text-foreground"
+                )}
               >
                 <Link href={item.href}>
                   <item.icon className="mr-3 h-5 w-5" />
@@ -94,7 +98,10 @@ export default function MainSidebar() {
             <SidebarMenuButton
               asChild
               isActive={pathname.includes('?tab=settings')}
-              className="w-full"
+              className={cn(
+                    "w-full",
+                    "[&[data-mobile=true]]:text-white [&[data-mobile=true]]:hover:text-foreground [&[data-mobile=true][data-active=true]]:text-foreground"
+                )}
             >
               <Link href="/reception?tab=settings">
                 <Settings className="mr-3 h-5 w-5" />
