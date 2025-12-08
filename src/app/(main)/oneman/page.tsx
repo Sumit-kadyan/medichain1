@@ -29,6 +29,7 @@ import { GenerateBillDialog } from '@/components/pharmacy/generate-bill-dialog';
 import { BillPreviewDialog } from '@/components/pharmacy/bill-preview-dialog';
 import { AddPatientDialog } from '@/components/reception/add-patient-dialog';
 
+const PATIENTS_PER_PAGE = 5;
 
 export default function OneManPage() {
   const { settings, doctors, patients, loading, updatePatientStatus } = useClinicContext();
@@ -36,6 +37,7 @@ export default function OneManPage() {
   const [mainDoctor, setMainDoctor] = useState<Doctor | null>(null);
   const [activePatient, setActivePatient] = useState<Patient | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [visibleTodaysPatients, setVisibleTodaysPatients] = useState(PATIENTS_PER_PAGE);
   
   // State for consultation
   const [prescriptionItems, setPrescriptionItems] = useState<{ item: string, price: number }[]>([]);
@@ -55,6 +57,7 @@ export default function OneManPage() {
   }, [settings, doctors]);
   
   const todaysPatients = patients.filter(patient => {
+      // Assuming the first history entry is the registration date
       if (!patient.history || patient.history.length === 0) return false;
       const registrationDate = new Date(patient.history[0].date);
       const today = new Date();
@@ -63,10 +66,12 @@ export default function OneManPage() {
              registrationDate.getDate() === today.getDate();
   });
 
-  const filteredPatients = todaysPatients.filter(patient =>
+  const searchedPatients = patients.filter(patient =>
     patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    patient.phone.includes(searchTerm)
+    (patient.phone && patient.phone.includes(searchTerm))
   );
+
+  const displayedPatients = searchTerm ? searchedPatients : todaysPatients.slice(0, visibleTodaysPatients);
 
   const handleStartConsultation = (patient: Patient) => {
     if (activePatient) {
@@ -146,6 +151,10 @@ export default function OneManPage() {
   const removeItem = (index: number) => {
     setPrescriptionItems(prescriptionItems.filter((_, i) => i !== index));
   };
+  
+  const showMorePatients = () => {
+      setVisibleTodaysPatients(prev => prev + PATIENTS_PER_PAGE);
+  }
 
   if (loading) {
     return <div className="flex h-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
@@ -173,8 +182,8 @@ export default function OneManPage() {
           <CardHeader>
             <div className="flex flex-row items-center justify-between">
                 <div>
-                    <CardTitle className="font-headline">Today's Patients</CardTitle>
-                    <CardDescription>Select a patient registered today to start consultation.</CardDescription>
+                    <CardTitle className="font-headline">Patient Management</CardTitle>
+                    <CardDescription>{searchTerm ? `Searching all ${patients.length} patients...` : `Showing patients registered today.`}</CardDescription>
                 </div>
                  <Button variant="outline" onClick={() => setAddPatientOpen(true)}>
                     <UserPlus className="mr-2 h-4 w-4" />
@@ -185,7 +194,7 @@ export default function OneManPage() {
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input 
                   type="search" 
-                  placeholder="Search today's patients..." 
+                  placeholder="Search all patients by name or phone..." 
                   className="pl-8 sm:w-full"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -202,7 +211,7 @@ export default function OneManPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredPatients.map(patient => (
+                {displayedPatients.map(patient => (
                   <TableRow key={patient.id} className={activePatient?.id === patient.id ? 'bg-secondary' : ''}>
                     <TableCell className="font-medium">{patient.name} ({patient.age}, {patient.gender.charAt(0)})</TableCell>
                     <TableCell>{patient.phone}</TableCell>
@@ -214,15 +223,20 @@ export default function OneManPage() {
                     </TableCell>
                   </TableRow>
                 ))}
-                 {filteredPatients.length === 0 && (
+                 {displayedPatients.length === 0 && (
                     <TableRow>
                         <TableCell colSpan={3} className="text-center text-muted-foreground">
-                            No patients registered today.
+                            {searchTerm ? 'No patients found matching your search.' : 'No patients registered today.'}
                         </TableCell>
                     </TableRow>
                 )}
               </TableBody>
             </Table>
+            {!searchTerm && todaysPatients.length > visibleTodaysPatients && (
+                <div className="pt-4 flex justify-center">
+                    <Button variant="outline" onClick={showMorePatients}>Show More</Button>
+                </div>
+            )}
           </CardContent>
         </Card>
 
@@ -365,3 +379,5 @@ export default function OneManPage() {
     </>
   );
 }
+
+    
