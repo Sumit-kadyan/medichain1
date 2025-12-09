@@ -55,7 +55,7 @@ export function GenerateBillDialog({
       let initialPrices: Record<string, number> = {};
       if (forcePrices) {
         initialPrices = forcePrices.reduce((acc, item) => {
-            acc[item.item] = item.price;
+            acc[item.item] = item.price || 0; // Default to 0 if price is falsy
             return acc;
         }, {} as Record<string, number>);
       } else {
@@ -100,8 +100,13 @@ export function GenerateBillDialog({
         };
         onBillGenerated(billDetails, dueDate, true);
     } else {
+        const itemsWithPrices = prescription.items.map(item => ({
+            item,
+            price: prices[item] || 0
+        }));
+
         const billDetails: BillDetails = {
-            items: prescription.items.map(item => ({ item, price: prices[item] || 0 })),
+            items: itemsWithPrices,
             taxInfo: {
                 type: settings.taxType,
                 percentage: settings.taxPercentage,
@@ -121,7 +126,7 @@ export function GenerateBillDialog({
         <DialogHeader>
           <DialogTitle className="font-headline">Generate Bill for {prescription.patientName}</DialogTitle>
           <DialogDescription>
-            Enter prices, select options, and set the due date.
+            Enter prices, select options, and set the due date. Prices left blank will default to zero.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto pr-2">

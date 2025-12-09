@@ -1,6 +1,6 @@
 
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Card,
@@ -93,6 +93,10 @@ function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => voi
   const [isBillGenerateOpen, setBillGenerateOpen] = useState(false);
   const [billPreviewData, setBillPreviewData] = useState<BillPreviewData | null>(null);
   const [prescriptionPreviewData, setPrescriptionPreviewData] = useState<Prescription | null>(null);
+
+  // Ref for auto-focus
+  const itemInputsContainerRef = useRef<HTMLDivElement>(null);
+  const lastItemCount = useRef(0);
   
   const isNoPharmacyMode = settings?.clinicStructure === 'no_pharmacy';
 
@@ -112,6 +116,14 @@ function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => voi
     }
     fetchDetails();
   }, [activePatient, getPatientById]);
+  
+  useEffect(() => {
+    if (prescriptionItems.length > lastItemCount.current) {
+        const lastInput = itemInputsContainerRef.current?.querySelector('input[placeholder="Item name (e.g., Paracetamol 500mg)"]:last-of-type') as HTMLInputElement | null;
+        lastInput?.focus();
+    }
+    lastItemCount.current = prescriptionItems.length;
+  }, [prescriptionItems.length]);
 
 
   const handleStartConsultation = (patient: WaitingPatient) => {
@@ -136,7 +148,7 @@ function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => voi
     
     // This logic is for the "No Pharmacy" mode which now uses the billing pad.
     if (isNoPharmacyMode) {
-        if (prescriptionItems.length === 0) {
+        if (prescriptionItems.length === 0 || prescriptionItems.every(i => !i.item.trim())) {
             toast({
                 title: 'Cannot Proceed',
                 description: 'You must add at least one item before generating a bill.',
@@ -169,7 +181,7 @@ function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => voi
   const handleBillGenerated = async (billDetails: BillDetails | null, dueDate: Date, generatePrescriptionOnly: boolean) => {
     if (!activePatient || !doctor) return;
   
-    const items = prescriptionItems.map(i => i.item);
+    const items = prescriptionItems.map(i => i.item).filter(i => i.trim());
     const prescriptionId = await updatePatientStatus(activePatient.id, 'prescribed', items, advice, billDetails, dueDate);
     
     const tempPrescription: Prescription = {
@@ -330,7 +342,7 @@ function DoctorDashboard({ doctor, onBack }: { doctor: Doctor, onBack: () => voi
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <div className="space-y-2">
+                        <div className="space-y-2" ref={itemInputsContainerRef}>
                             {prescriptionItems.map((item, index) => (
                                 <div key={index} className="flex items-center gap-2">
                                     <Input 
@@ -461,7 +473,7 @@ Ibuprofen 200mg - as needed for pain"
       <GenerateBillDialog
         prescription={{
             id: 'doctor-billing',
-            items: prescriptionItems.map(i => i.item),
+            items: prescriptionItems.map(i => i.item).filter(i => i.trim()),
             patientName: activePatient?.patientName || ''
         } as any}
         open={isBillGenerateOpen}

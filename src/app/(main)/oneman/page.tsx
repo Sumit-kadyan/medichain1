@@ -1,6 +1,6 @@
 
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useClinicContext, Patient, Doctor, BillDetails, Prescription } from '@/context/clinic-context';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -50,6 +50,10 @@ export default function OneManPage() {
   const [prescriptionPreviewData, setPrescriptionPreviewData] = useState<Prescription | null>(null);
   const [isAddPatientOpen, setAddPatientOpen] = useState(false);
 
+  // Ref for auto-focus
+  const itemInputsContainerRef = useRef<HTMLDivElement>(null);
+  const lastItemCount = useRef(0);
+
 
   useEffect(() => {
     if (settings?.mainDoctorId && doctors.length > 0) {
@@ -74,6 +78,14 @@ export default function OneManPage() {
   );
 
   const displayedPatients = searchTerm ? searchedPatients : todaysPatients.slice(0, visibleTodaysPatients);
+  
+  useEffect(() => {
+    if (prescriptionItems.length > lastItemCount.current) {
+        const lastInput = itemInputsContainerRef.current?.querySelector('input[placeholder="Item name (e.g., Paracetamol 500mg)"]:last-of-type') as HTMLInputElement | null;
+        lastInput?.focus();
+    }
+    lastItemCount.current = prescriptionItems.length;
+  }, [prescriptionItems.length]);
 
   const handleStartConsultation = (patient: Patient) => {
     if (activePatient) {
@@ -96,7 +108,7 @@ export default function OneManPage() {
   }
 
   const handleFinishAndBill = () => {
-    if (!activePatient || prescriptionItems.length === 0) {
+    if (!activePatient || prescriptionItems.length === 0 || prescriptionItems.every(i => !i.item.trim())) {
       toast({
         title: 'Cannot Proceed',
         description: 'You must add at least one item to the prescription before generating a bill.',
@@ -115,7 +127,7 @@ export default function OneManPage() {
         id: `oneman_${Date.now()}`,
         patientName: activePatient.name,
         doctor: mainDoctor.name,
-        items: billDetails ? billDetails.items.map(i => i.item) : prescriptionItems.map(i => i.item),
+        items: billDetails ? billDetails.items.map(i => i.item) : prescriptionItems.map(i => i.item).filter(i => i.trim()),
         advice,
         visitDate: new Date().toISOString().split('T')[0],
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -271,7 +283,7 @@ export default function OneManPage() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <div className="space-y-2">
+                    <div className="space-y-2" ref={itemInputsContainerRef}>
                         {prescriptionItems.map((item, index) => (
                             <div key={index} className="flex items-center gap-2">
                                 <Input 
@@ -369,7 +381,7 @@ export default function OneManPage() {
     <GenerateBillDialog
         prescription={{
             id: 'oneman-billing',
-            items: prescriptionItems.map(i => i.item),
+            items: prescriptionItems.map(i => i.item).filter(i => i.trim()),
             patientName: activePatient?.name || ''
         } as any}
         open={isBillGenerateOpen}
