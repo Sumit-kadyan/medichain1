@@ -1,4 +1,5 @@
 
+
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { useClinicContext, Patient, Doctor, BillDetails, Prescription } from '@/context/clinic-context';
