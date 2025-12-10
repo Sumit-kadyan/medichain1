@@ -27,7 +27,6 @@ import { useClinicContext, Doctor, PatientStatus, WaitingPatient, PatientHistory
 import { useToast } from '@/hooks/use-toast';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { DrugSuggestionForm } from '@/components/ai/drug-suggestion-form';
 import { PinEntryDialog } from '@/components/doctor/pin-entry-dialog';
 import { GenerateBillDialog } from '@/components/pharmacy/generate-bill-dialog';
 import { BillPreviewDialog, BillPreviewData } from '@/components/pharmacy/bill-preview-dialog';
@@ -433,7 +432,6 @@ Ibuprofen 200mg - as needed for pain"
             </>
            )}
 
-          <DrugSuggestionForm />
         </div>
         <div className="lg:col-span-1 space-y-6">
           <Card>

@@ -25,7 +25,6 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Search, Play, Stethoscope, FileText, Clock, MessageSquareQuote, Pill, Loader2, XCircle, BookMarked, Printer, UserPlus } from 'lucide-react';
-import { DrugSuggestionForm } from '@/components/ai/drug-suggestion-form';
 import { GenerateBillDialog } from '@/components/pharmacy/generate-bill-dialog';
 import { BillPreviewDialog, BillPreviewData } from '@/components/pharmacy/bill-preview-dialog';
 import { AddPatientDialog } from '@/components/reception/add-patient-dialog';
@@ -336,8 +335,6 @@ export default function OneManPage() {
             </Card>
             </>
         )}
-
-        <DrugSuggestionForm />
       </div>
 
       {/* Right side: Active Patient Details */}
