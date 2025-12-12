@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 9002 --port 9002 --hostname 0.0.0.0",
-    "build": "node -r dotenv/config ./node_modules/.bin/next build",
+    "build": "next build",
     "start": "next start",
     "lint": "next lint"
   },
