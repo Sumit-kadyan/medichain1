@@ -1,8 +1,13 @@
-
 // src/app/prescription/[id]/page.tsx
-import { adminDb } from "@/lib/firebaseAdmin";
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useFirestore } from '@/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 import type { ClinicSettings, Prescription } from "@/context/clinic-context";
 import ClinicLogo from "@/components/ClinicLogo";
+import { Loader2 } from 'lucide-react';
+
 
 async function getPrescriptionData(
   id: string
@@ -14,32 +19,7 @@ async function getPrescriptionData(
     return null;
   }
 
-  try {
-    const clinicRef = adminDb.collection("clinics").doc(clinicId);
-    const prescriptionRef = clinicRef
-      .collection("pharmacyQueue")
-      .doc(prescriptionId);
-
-    const [clinicSnap, prescriptionSnap] = await Promise.all([
-      clinicRef.get(),
-      prescriptionRef.get(),
-    ]);
-
-    if (!clinicSnap.exists || !prescriptionSnap.exists) {
-      return null;
-    }
-
-    const prescription = {
-      id: prescriptionSnap.id,
-      ...prescriptionSnap.data(),
-    } as Prescription;
-    const settings = clinicSnap.data() as ClinicSettings;
-
-    return { prescription, settings };
-  } catch (error) {
-    console.error("Error fetching prescription data from Firestore:", error);
-    return null;
-  }
+  return null;
 }
 
 function formatDate(date: Date | undefined): string | null {
@@ -56,19 +36,76 @@ function formatDate(date: Date | undefined): string | null {
   return `${day}${suffix} ${month}, ${year}`;
 }
 
-export default async function PrescriptionPage({
+export default function PrescriptionPage({
   params,
 }: {
   params: { id: string };
 }) {
-  const data = await getPrescriptionData(params.id);
+  const db = useFirestore();
+  const [data, setData] = useState<{ prescription: Prescription; settings: ClinicSettings } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  if (!data) {
+  useEffect(() => {
+    async function getPrescriptionData() {
+        if (!db || !params.id) {
+            setError("Invalid request.");
+            setLoading(false);
+            return;
+        }
+
+        const [clinicId, prescriptionId] = params.id.split("_");
+
+        if (!clinicId || !prescriptionId) {
+            setError("Invalid prescription identifier.");
+            setLoading(false);
+            return;
+        }
+
+        try {
+            const clinicRef = doc(db, "clinics", clinicId);
+            const prescriptionRef = doc(clinicRef, "pharmacyQueue", prescriptionId);
+
+            const [clinicSnap, prescriptionSnap] = await Promise.all([
+                getDoc(clinicRef),
+                getDoc(prescriptionRef),
+            ]);
+
+            if (!clinicSnap.exists() || !prescriptionSnap.exists()) {
+                setError("Prescription not found.");
+                setLoading(false);
+                return;
+            }
+
+            const prescription = { id: prescriptionSnap.id, ...prescriptionSnap.data() } as Prescription;
+            const settings = clinicSnap.data() as ClinicSettings;
+
+            setData({ prescription, settings });
+        } catch (err) {
+            console.error("Error fetching prescription data from Firestore:", err);
+            setError("An error occurred while fetching the prescription.");
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    getPrescriptionData();
+  }, [db, params.id]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-100">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (error || !data) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-100">
         <div className="p-10 text-center bg-white rounded-lg shadow-md">
           <h1 className="text-2xl font-bold text-red-600 mb-4">
-            Prescription Not Found
+            {error || "Prescription Not Found"}
           </h1>
           <p>The link may be invalid or this prescription does not exist.</p>
         </div>

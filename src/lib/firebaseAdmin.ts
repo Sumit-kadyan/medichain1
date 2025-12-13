@@ -1,13 +1,4 @@
-import * as admin from "firebase-admin";
-
-let app: admin.app.App;
-
-if (!admin.apps.length) {
-  app = admin.initializeApp({
-    credential: admin.credential.applicationDefault(),
-  });
-} else {
-  app = admin.app();
-}
-
-export const adminDb = app.firestore();
+// This file is deprecated and no longer in use.
+// The Firebase Admin SDK has been removed from client-facing components
+// to enhance security. Data fetching now uses the client-side Firebase SDK,
+// which respects Firestore Security Rules.
