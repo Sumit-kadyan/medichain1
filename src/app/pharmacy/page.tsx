@@ -23,26 +23,30 @@ import { FileText, Printer, CheckCircle } from 'lucide-react';
 import { useClinicContext, Prescription, BillDetails } from '@/context/clinic-context';
 import { PrescriptionDetailsDialog } from '@/components/pharmacy/prescription-details-dialog';
 import { GenerateBillDialog } from '@/components/pharmacy/generate-bill-dialog';
-import { BillPreviewDialog } from '@/components/pharmacy/bill-preview-dialog';
+import { BillPreviewDialog, BillPreviewData } from '@/components/pharmacy/bill-preview-dialog';
 
 
 export default function PharmacyPage() {
   const { pharmacyQueue, updatePrescriptionStatus } = useClinicContext();
   const [selectedPrescription, setSelectedPrescription] = useState<Prescription | null>(null);
   const [billGenerationPrescription, setBillGenerationPrescription] = useState<Prescription | null>(null);
-  const [billPreviewData, setBillPreviewData] = useState<{ prescription: Prescription, billDetails: BillDetails, dueDate: Date } | null>(null);
+  const [billPreviewData, setBillPreviewData] = useState<BillPreviewData | null>(null);
   
   const handleMarkAsDispensed = (prescriptionId: string) => {
     updatePrescriptionStatus(prescriptionId, 'dispensed');
   };
 
-  const handleBillGenerated = (billDetails: BillDetails, dueDate: Date) => {
+  const handleBillGenerated = (billDetails: BillDetails | null, dueDate: Date) => {
     if (!billGenerationPrescription) return;
+    
+    // The dialog now passes null for a prescription-only generation.
+    // We only proceed to show the bill preview if billDetails is not null.
+    if (billDetails) {
+        updatePrescriptionStatus(billGenerationPrescription.id, 'pending', billDetails, dueDate);
+        setBillPreviewData({ prescription: billGenerationPrescription, billDetails, dueDate });
+    }
 
-    updatePrescriptionStatus(billGenerationPrescription.id, 'pending', billDetails, dueDate);
-
-    setBillPreviewData({ prescription: billGenerationPrescription, billDetails, dueDate });
-    setBillGenerationPrescription(null); // Close the generation dialog
+    setBillGenerationPrescription(null); // Close the generation dialog in any case
   };
 
 
