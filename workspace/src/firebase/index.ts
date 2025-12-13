@@ -14,29 +14,42 @@ let firebaseInstances: FirebaseInstances | null = null;
 
 /**
  * Initializes Firebase and returns the app, auth, and firestore instances
- * using a singleton pattern. This ensures that Firebase is initialized only once.
+ * using a singleton pattern. This ensures that Firebase is initialized only once,
+ * making it safe for both server and client environments in Next.js.
  */
 export function initializeFirebase(): FirebaseInstances {
-  if (firebaseInstances) {
+  if (typeof window !== 'undefined') {
+    // Client-side execution
+    if (firebaseInstances) {
+      return firebaseInstances;
+    }
+
+    const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+    const auth = getAuth(app);
+    
+    // It's recommended to set persistence to avoid re-authentication on page refresh.
+    setPersistence(auth, browserLocalPersistence);
+
+    const db = initializeFirestore(app, {
+      localCache: persistentLocalCache(),
+    });
+
+    firebaseInstances = { app, db, auth };
+    return firebaseInstances;
+  } else {
+    // Server-side execution
+    if (firebaseInstances) {
+      return firebaseInstances;
+    }
+    
+    const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    firebaseInstances = { app, db, auth };
     return firebaseInstances;
   }
-
-  const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-  const auth = getAuth(app);
-
-  // Use memory cache for server-side rendering, persistent for client
-  const localCache = typeof window !== 'undefined'
-    ? persistentLocalCache(/*{ tabManager: 'NONE' }*/) // Consider disabling tabManager if needed
-    : memoryLocalCache();
-
-  const db = initializeFirestore(app, {
-    localCache: localCache,
-  });
-
-  firebaseInstances = { app, db, auth };
-  return firebaseInstances;
 }
-
 
 // Export providers and hooks for easy import
 export { FirebaseProvider, useFirebase, useFirebaseApp, useFirestore, useAuth } from './provider';
