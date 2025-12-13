@@ -563,7 +563,7 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
             });
 
         if (status === 'dispensed') {
-            const prescription = pharmacyQueue.find(p => p.id === prescriptionId) || waitingList.find(p => p.id === prescriptionId);
+            const prescription = pharmacyQueue.find(p => p.id === prescriptionId);
             if (prescription) {
                 const waitingPatientRef = doc(db, 'clinics', clinicId, 'waitingList', prescription.waitingPatientId);
                 updateDoc(waitingPatientRef, { status: 'dispensed' }).catch(error => {
@@ -571,6 +571,17 @@ export const ClinicProvider = ({ children }: { children: ReactNode }) => {
                     toast({ title: 'Firebase Error', description: error.message, variant: 'destructive'});
                 });
                 toast({ title: 'Patient Processed', description: `${prescription.patientName} has been marked as Done.` });
+            } else {
+                 // Fallback for one-man clinic where there is no pharmacy queue
+                const waitingPatient = waitingList.find(p => p.id === prescriptionId);
+                if (waitingPatient) {
+                    const waitingPatientRef = doc(db, 'clinics', clinicId, 'waitingList', waitingPatient.id);
+                     updateDoc(waitingPatientRef, { status: 'dispensed' }).catch(error => {
+                        console.error("Error updating waiting list:", error);
+                        toast({ title: 'Firebase Error', description: error.message, variant: 'destructive'});
+                    });
+                     toast({ title: 'Patient Processed', description: `${waitingPatient.patientName} has been marked as Done.` });
+                }
             }
         }
     };
@@ -668,3 +679,5 @@ export const useClinicContext = () => {
     }
     return context;
 };
+
+    
