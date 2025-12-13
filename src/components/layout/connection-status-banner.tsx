@@ -8,10 +8,6 @@ import { Wifi, WifiOff } from 'lucide-react';
 export default function ConnectionStatusBanner() {
   const { onlineStatus } = useClinicContext();
 
-  if (onlineStatus === 'online') {
-    return null;
-  }
-
   const isOffline = onlineStatus === 'offline';
   const isReconnected = onlineStatus === 'reconnected';
 
