@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 
 'use client';
 
@@ -17,8 +18,6 @@ import { Toaster } from '@/components/ui/toaster';
 import { ClinicProvider } from '@/context/clinic-context';
 import ConnectionStatusBanner from '@/components/layout/connection-status-banner';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
-
-export const dynamic = 'force-dynamic';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
