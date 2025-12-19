@@ -1,8 +1,5 @@
 'use client';
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-
 import { useEffect, type ReactNode } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Header from '@/components/layout/header';
