@@ -15,26 +15,28 @@ interface FirebaseInstances {
  * It ensures that Firebase is initialized only once.
  */
 export function initializeFirebase(): FirebaseInstances {
+  // 🚫 STOP Firebase from running during build / server
+  if (typeof window === "undefined") {
+    throw new Error("Firebase should not be initialized on the server");
+  }
+
   const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
   const auth = getAuth(app);
 
-  // It's recommended to set persistence to avoid re-authentication on page refresh.
-  setPersistence(auth, browserLocalPersistence);
+  setPersistence(auth, browserLocalPersistence).catch(() => {});
 
   try {
-    // initializeFirestore enables advanced features like offline persistence.
     initializeFirestore(app, {
       localCache: persistentLocalCache(),
     });
   } catch (error) {
-    // Firestore might already be initialized if hot-reloading.
     if (
-      typeof error === 'object' &&
+      typeof error === "object" &&
       error !== null &&
-      'code' in error &&
-      (error as { code: string }).code !== 'failed-precondition'
+      "code" in error &&
+      (error as { code: string }).code !== "failed-precondition"
     ) {
-      console.warn('Firebase initialization error:', error);
+      console.warn("Firebase initialization error:", error);
     }
   }
 
