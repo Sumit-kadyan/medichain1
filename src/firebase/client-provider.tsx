@@ -1,19 +1,45 @@
-'use client';
+// src/firebase/client-provider.tsx
+"use client";
 
-import { ReactNode, useMemo } from 'react';
-import { FirebaseProvider } from './provider';
-import { initializeFirebase } from './index';
+import { createContext, useContext, useEffect, useState } from "react";
+import { initializeFirebase } from "./index";
+import type { FirebaseApp } from "firebase/app";
+import type { Firestore } from "firebase/firestore";
+import type { Auth } from "firebase/auth";
 
-export function FirebaseClientProvider({ children }: { children: ReactNode }) {
-  const firebase = useMemo(() => initializeFirebase(), []);
+interface FirebaseContextValue {
+  app: FirebaseApp | null;
+  db: Firestore | null;
+  auth: Auth | null;
+}
+
+const FirebaseContext = createContext<FirebaseContextValue>({
+  app: null,
+  db: null,
+  auth: null,
+});
+
+export function FirebaseClientProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const [value, setValue] = useState<FirebaseContextValue>({
+    app: null,
+    db: null,
+    auth: null,
+  });
+
+  useEffect(() => {
+    const { app, db, auth } = initializeFirebase();
+    setValue({ app, db, auth });
+  }, []);
 
   return (
-    <FirebaseProvider
-      app={firebase.app}
-      auth={firebase.auth}
-      db={firebase.db}
-    >
+    <FirebaseContext.Provider value={value}>
       {children}
-    </FirebaseProvider>
+    </FirebaseContext.Provider>
   );
 }
+
+export const useFirebase = () => useContext(FirebaseContext);
