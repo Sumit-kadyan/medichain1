@@ -15,9 +15,6 @@ interface FirebaseInstances {
  * It ensures that Firebase is initialized only once.
  */
 export function initializeFirebase(): FirebaseInstances {
-  if (typeof window === "undefined") {
-    throw new Error("Firebase client SDK should not run on the server");
-  }
 
   const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
   const auth = getAuth(app);
