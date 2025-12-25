@@ -37,29 +37,30 @@ export function FirebaseProvider({ children, app, auth, db }: FirebaseProviderPr
  */
 export function useFirebase() {
   const context = useContext(FirebaseContext);
+
+  // Safe during Next.js build / prerender
   if (context === undefined) {
+    if (typeof window === 'undefined') {
+      return null as any;
+    }
     throw new Error('useFirebase must be used within a FirebaseProvider');
   }
+
   return context;
 }
 
-/**
- * Hook to access the Firebase App instance.
- */
 export function useFirebaseApp() {
-  return useFirebase().app;
+  const firebase = useFirebase();
+  return firebase ? firebase.app : null;
 }
 
-/**
- * Hook to access the Firebase Auth instance.
- */
 export function useAuth() {
-  return useFirebase().auth;
+  const firebase = useFirebase();
+  return firebase ? firebase.auth : null;
 }
 
-/**
- * Hook to access the Cloud Firestore instance.
- */
 export function useFirestore() {
-  return useFirebase().db;
+  const firebase = useFirebase();
+  return firebase ? firebase.db : null;
 }
+
