@@ -38,3 +38,7 @@ runConfig:
       availability:
         - BUILD
         - RUNTIME
+    - secret: FIREBASE_WEBAPP_CONFIG
+      availability:
+        - BUILD
+        - RUNTIME
